@@ -1080,7 +1080,7 @@ export default function DynamicIsland({
           )}
           {activeState === 'expanded-sysmon' && <SystemMonitorWidget stats={sysStats} />}
           {activeState === 'expanded-launcher' && (
-            <LauncherWidget onLaunchApp={handleLaunchApp} onClose={() => setActiveState('idle')} />
+            <LauncherWidget onLaunchApp={handleLaunchApp} isDndActive={isDndActive} onClose={() => setActiveState('idle')} />
           )}
           {activeState === 'expanded-settings' && (
             <SettingsWidget onClose={() => {
