@@ -47,11 +47,25 @@ class Program {
         EnumDesktopWindows(IntPtr.Zero, (hWnd, lParam) => {
             StringBuilder sb = new StringBuilder(256);
             GetWindowText(hWnd, sb, 256);
-            string title = sb.ToString();
+            string title = sb.ToString().Trim();
 
             StringBuilder classSb = new StringBuilder(256);
             GetClassName(hWnd, classSb, 256);
-            string className = classSb.ToString();
+            string className = classSb.ToString().Trim();
+
+            // Ignore system background windows completely
+            if (string.IsNullOrEmpty(title) ||
+                title.Equals("DDE Server Window", StringComparison.OrdinalIgnoreCase) ||
+                title.StartsWith("GDI+", StringComparison.OrdinalIgnoreCase) ||
+                title.Equals("Default IME", StringComparison.OrdinalIgnoreCase) ||
+                title.Equals("MSCTFIME UI", StringComparison.OrdinalIgnoreCase) ||
+                title.Equals("SystemResourceNotifyWindow", StringComparison.OrdinalIgnoreCase) ||
+                title.Equals("MediaContextNotificationWindow", StringComparison.OrdinalIgnoreCase) ||
+                title.Equals("CallBackWindowThread", StringComparison.OrdinalIgnoreCase) ||
+                title.Equals("CiceroUIWndFrame", StringComparison.OrdinalIgnoreCase) ||
+                title.Equals("DesktopWindowXamlSource", StringComparison.OrdinalIgnoreCase)) {
+                return true;
+            }
 
             uint pid;
             GetWindowThreadProcessId(hWnd, out pid);
@@ -68,47 +82,29 @@ class Program {
                 return false;
             }
 
-            // Phone Link Call check
-            if (pname.Equals("PhoneExperienceHost", StringComparison.OrdinalIgnoreCase) ||
-                pname.Equals("YourPhoneAppProxy", StringComparison.OrdinalIgnoreCase) ||
-                pname.Equals("CrossDeviceExperienceHost", StringComparison.OrdinalIgnoreCase) ||
-                (className.Equals("ApplicationFrameWindow", StringComparison.OrdinalIgnoreCase) && (title.IndexOf("Call", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Phone", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("PC", StringComparison.OrdinalIgnoreCase) >= 0))) {
+            // Phone Link Call check — only for visible application frame / call windows
+            if (IsWindowVisible(hWnd) && (className.Equals("ApplicationFrameWindow", StringComparison.OrdinalIgnoreCase) || className.Contains("Windows.UI") || pname.Equals("PhoneExperienceHost", StringComparison.OrdinalIgnoreCase) || pname.Equals("YourPhoneAppProxy", StringComparison.OrdinalIgnoreCase))) {
+                if (title.IndexOf("Call", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Phone", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Calling", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Incoming", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    foundState = (title.IndexOf("incoming", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("ringing", StringComparison.OrdinalIgnoreCase) >= 0) ? "incoming" : "active";
+                    foundSource = "Phone Link";
 
-                foundState = title.IndexOf("incoming", StringComparison.OrdinalIgnoreCase) >= 0 ? "incoming" : "active";
-                foundSource = "Phone Link";
-
-                // Check title or child text for contact number / name
-                Match m = Regex.Match(title, @"\b\d{3,}\b");
-                if (m.Success) {
-                    foundCaller = m.Value;
-                } else {
-                    string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Trim();
-                    if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Calling", StringComparison.OrdinalIgnoreCase)) {
-                        foundCaller = extracted;
+                    // Extract caller contact name/number if present in title
+                    Match m = Regex.Match(title, @"\b\d{3,}\b");
+                    if (m.Success) {
+                        foundCaller = m.Value;
                     } else {
-                        EnumChildWindows(hWnd, (childHwnd, childParam) => {
-                            StringBuilder csb = new StringBuilder(256);
-                            GetWindowText(childHwnd, csb, 256);
-                            string ctext = csb.ToString().Trim();
-                            Match cm = Regex.Match(ctext, @"\b\d{3,}\b");
-                            if (cm.Success) {
-                                foundCaller = cm.Value;
-                                return false;
-                            }
-                            if (!string.IsNullOrEmpty(ctext) && !ctext.Equals("Calling", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Transfer to phone", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Mute", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Keypad", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("End", StringComparison.OrdinalIgnoreCase)) {
-                                foundCaller = ctext;
-                                return false;
-                            }
-                            return true;
-                        }, IntPtr.Zero);
+                        string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Trim();
+                        if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Calling", StringComparison.OrdinalIgnoreCase)) {
+                            foundCaller = extracted;
+                        }
                     }
-                }
 
-                if (string.IsNullOrEmpty(foundCaller)) {
-                    foundCaller = "555";
-                }
+                    if (string.IsNullOrEmpty(foundCaller)) {
+                        foundCaller = "Phone Call";
+                    }
 
-                return false;
+                    return false;
+                }
             }
 
             return true;

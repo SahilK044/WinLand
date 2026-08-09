@@ -190,7 +190,7 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
   };
 
   const getInitials = (name) => {
-    if (!name || name === 'Phone call' || name === 'PC' || name.length < 2) return '📞';
+    if (!name || name === 'Phone call' || name === 'Phone Link' || name === 'PC' || name.length < 2) return '📞';
     const clean = name.trim();
     const parts = clean.split(/\s+/);
     if (parts.length >= 2) {
