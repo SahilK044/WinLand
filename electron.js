@@ -473,7 +473,7 @@ function pollSpotifyTitle() {
 }
 
 function fallbackSpotifyPoll(onDone) {
-  exec(PS_SPOTIFY_CMD, { timeout: 5000 }, (err, stdout) => {
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', PS1_SPOTIFY], { timeout: 5000 }, (err, stdout) => {
     if (onDone) onDone();
     if (!mainWindow || !mainWindow.webContents) return;
     const title = (stdout || '').trim();
@@ -507,7 +507,7 @@ function pollBattery() {
   if (!mainWindow || !mainWindow.webContents || isPollingBattery) return;
   isPollingBattery = true;
 
-  exec(PS_BATTERY_CMD, { timeout: 8000 }, (err, stdout) => {
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', PS1_BATTERY], { timeout: 8000 }, (err, stdout) => {
     isPollingBattery = false;
     if (!mainWindow || !mainWindow.webContents) return;
     const raw = (stdout || '').trim();
@@ -705,7 +705,7 @@ ipcMain.on('request-bluetooth-status', () => {
 ipcMain.on('trigger-phone-notification', () => {
   if (!mainWindow || !mainWindow.webContents) return;
   mainWindow.webContents.send('bluetooth-update', {
-    deviceName: "Sahil's S24 Ultra",
+    deviceName: "Galaxy S24 Ultra",
     batteryPct: 88,
     isCharging: false,
     leftPct: null,
@@ -722,7 +722,7 @@ function startBluetoothPoller() {
   bluetoothMissingStreaks.clear();
   isPollingBluetooth = false;
   pollBluetooth();
-  bluetoothInterval = setInterval(pollBluetooth, 2000);
+  bluetoothInterval = setInterval(pollBluetooth, 4000);
 }
 
 // ── Windows call detector ───────────────────────────────────────────────────
@@ -793,7 +793,7 @@ ipcMain.on('trigger-demo-call', () => {
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
   lastCallSnapshot = {
     state: 'incoming',
-    callerName: 'Sahil K',
+    callerName: 'Alex Morgan',
     source: 'Phone Link',
   };
   mainWindow.webContents.send('call-update', lastCallSnapshot);
@@ -812,7 +812,7 @@ function pollFullscreen() {
   if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingFullscreen) return;
   isPollingFullscreen = true;
 
-  exec(`"${EXE_FULLSCREEN}"`, { timeout: 2000 }, (err, stdout) => {
+  execFile(EXE_FULLSCREEN, [], { timeout: 2000 }, (err, stdout) => {
     isPollingFullscreen = false;
     if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
 
