@@ -610,18 +610,19 @@ button:active {
 
 /* Apple Dynamic Island Smooth Auto-Marquee Animation */
 .apple-marquee-text {
-  animation: appleMarquee 10s linear infinite 2s;
+  animation: appleMarquee var(--scroll-duration, 8s) ease-in-out infinite 1.8s;
+  will-change: transform;
 }
 
 @keyframes appleMarquee {
-  0%, 15% {
-    transform: translateX(0);
+  0%, 18% {
+    transform: translate3d(0, 0, 0);
   }
-  50%, 65% {
-    transform: translateX(var(--scroll-dist, -40px));
+  50%, 68% {
+    transform: translate3d(var(--scroll-dist, -40px), 0, 0);
   }
   100% {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 

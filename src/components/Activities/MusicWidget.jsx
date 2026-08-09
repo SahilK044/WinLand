@@ -222,12 +222,12 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
         </div>
         {/* Title + artist */}
         <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '-0.1px' }}>
+          <MarqueeText style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '-0.1px' }}>
             {title}
-          </div>
-          <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: 1 }}>
+          </MarqueeText>
+          <MarqueeText style={{ fontSize: 10, fontWeight: 500, color: 'rgba(255,255,255,0.45)', marginTop: 1 }}>
             {artist}
-          </div>
+          </MarqueeText>
         </div>
       </div>
 
@@ -304,18 +304,31 @@ const MarqueeText = ({ children, style = {}, className = '' }) => {
   const textRef = useRef(null);
   const [shouldScroll, setShouldScroll] = useState(false);
   const [scrollDistance, setScrollDistance] = useState(0);
+  const [duration, setDuration] = useState(8);
 
   useEffect(() => {
-    if (containerRef.current && textRef.current) {
-      const cWidth = containerRef.current.offsetWidth;
-      const tWidth = textRef.current.scrollWidth;
-      if (tWidth > cWidth) {
-        setShouldScroll(true);
-        setScrollDistance(tWidth - cWidth + 16);
-      } else {
-        setShouldScroll(false);
+    let animFrame;
+    const checkOverflow = () => {
+      if (containerRef.current && textRef.current) {
+        const cWidth = containerRef.current.offsetWidth;
+        const tWidth = textRef.current.scrollWidth;
+        if (tWidth > cWidth + 2) {
+          const dist = tWidth - cWidth + 18;
+          setShouldScroll(true);
+          setScrollDistance(dist);
+          setDuration(Math.max(6, Math.min(14, dist / 18 + 4)));
+        } else {
+          setShouldScroll(false);
+        }
       }
-    }
+    };
+
+    animFrame = requestAnimationFrame(checkOverflow);
+    window.addEventListener('resize', checkOverflow);
+    return () => {
+      cancelAnimationFrame(animFrame);
+      window.removeEventListener('resize', checkOverflow);
+    };
   }, [children]);
 
   return (
@@ -326,8 +339,8 @@ const MarqueeText = ({ children, style = {}, className = '' }) => {
         whiteSpace: 'nowrap',
         width: '100%',
         position: 'relative',
-        maskImage: shouldScroll ? 'linear-gradient(90deg, #000 85%, transparent 100%)' : 'none',
-        WebkitMaskImage: shouldScroll ? 'linear-gradient(90deg, #000 85%, transparent 100%)' : 'none',
+        maskImage: shouldScroll ? 'linear-gradient(90deg, #000 82%, transparent 98%)' : 'none',
+        WebkitMaskImage: shouldScroll ? 'linear-gradient(90deg, #000 82%, transparent 98%)' : 'none',
         ...style,
       }}
       className={className}
@@ -339,6 +352,7 @@ const MarqueeText = ({ children, style = {}, className = '' }) => {
           display: 'inline-block',
           whiteSpace: 'nowrap',
           '--scroll-dist': `-${scrollDistance}px`,
+          '--scroll-duration': `${duration}s`,
         }}
       >
         {children}
@@ -722,13 +736,13 @@ export default function MusicWidget({
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', boxSizing: 'border-box', fontFamily: MAC_FONT }}>
         <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} />
         <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 8, paddingRight: 8, overflow: 'hidden' }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '14px' }}>
+          <MarqueeText style={{ fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: '14px' }}>
             {title || 'Music Player'}
-          </div>
+          </MarqueeText>
           {artist && (
-            <div style={{ fontSize: 9.5, fontWeight: 500, color: 'rgba(255,255,255,0.5)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '13px' }}>
+            <MarqueeText style={{ fontSize: 9.5, fontWeight: 500, color: 'rgba(255,255,255,0.5)', lineHeight: '13px' }}>
               {artist}
-            </div>
+            </MarqueeText>
           )}
         </div>
         <div style={{ flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}>
@@ -751,13 +765,13 @@ export default function MusicWidget({
       >
         <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} />
         <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 10, paddingRight: 10, overflow: 'hidden' }}>
-          <div style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '15px' }}>
+          <MarqueeText style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', lineHeight: '15px' }}>
             {title || 'Music Player'}
-          </div>
+          </MarqueeText>
           {artist && (
-            <div style={{ fontSize: 10, fontWeight: 500, color: 'rgba(255,255,255,0.55)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: '14px' }}>
+            <MarqueeText style={{ fontSize: 10, fontWeight: 500, color: 'rgba(255,255,255,0.55)', lineHeight: '14px' }}>
               {artist}
-            </div>
+            </MarqueeText>
           )}
         </div>
         <div style={{ flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}>
