@@ -1,0 +1,47 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Node dependencies
+node_modules
+winland-promo/node_modules
+
+# Raw 3D Source Assets (uncompressed >100MB sources)
+3D Assets/
+Phones 3D Models/
+
+# Build & Release outputs
+dist
+dist_app
+dist-ssr
+build_out
+release/
+winland-promo/out
+
+# Temp & Local files
+scratch/
+*.local
+.env
+.env.*
+!.env.example
+*.tmp
+scripts/*.ps1
+test_*.ps1
+crash_log.txt
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+

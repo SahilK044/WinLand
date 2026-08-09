@@ -1,0 +1,958 @@
+:root {
+  --mac-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "SF Compact", "Helvetica Neue", system-ui, sans-serif;
+  --apple-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --apple-spring-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --bg-dark: #000000;
+  --pill-bg: #000000;
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-border-hover: rgba(255, 255, 255, 0.22);
+  --accent-blue: #007aff;
+  --accent-green: #34c759;
+  --accent-orange: #ff9500;
+  --accent-red: #ff3b30;
+  --text-1: #ffffff;
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.65);
+  --surface: rgba(255, 255, 255, 0.08);
+  --surface-hover: rgba(255, 255, 255, 0.16);
+  --stroke: rgba(255, 255, 255, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+body, html, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--mac-font);
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #ffffff;
+  box-shadow: none !important;
+  border: none !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
+}
+
+button {
+  outline: none;
+}
+
+button:active {
+  transform: scale(0.88) !important;
+  transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* Master Overlay Stage - 100% Transparent Background */
+.island-overlay-stage {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: 0;
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  pointer-events: none !important;
+}
+
+.island-anchor {
+  position: fixed;
+  top: 0px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  pointer-events: none !important;
+  z-index: 100;
+}
+
+/* 1:1 Dynamic Island Capsule */
+.island-capsule {
+  position: relative;
+  margin: 0 auto;
+  border-radius: 28px;
+  border: none !important;
+  outline: none !important;
+  pointer-events: auto;
+  cursor: pointer;
+  transform-origin: top center;
+  will-change: width, height, border-radius, transform;
+  overflow: hidden;
+  isolation: isolate;
+
+  /* Apple Dynamic Island Fluid Spring Bezier Curve */
+  transition:
+    width 0.58s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.58s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.58s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.42s var(--apple-spring-bouncy),
+    opacity 0.32s ease;
+
+  /* Split <-> merged is a real remount (different DOM shape between the two
+     branches), so the transition above can't bridge it - the pill used to
+     just cut instantly instead of springing. animation runs on mount only,
+     so ordinary in-place state changes (which reuse the same node) are
+     unaffected - this only fires on an actual mount/remount. */
+  animation: islandMorphPop 0.48s var(--apple-spring-bouncy);
+}
+
+@keyframes floatBlob1 {
+  0% {
+    top: -20%;
+    left: -15%;
+  }
+  33% {
+    top: 35%;
+    left: 55%;
+  }
+  66% {
+    top: -10%;
+    left: 75%;
+  }
+  100% {
+    top: -20%;
+    left: -15%;
+  }
+}
+
+@keyframes floatBlob2 {
+  0% {
+    bottom: -25%;
+    right: -15%;
+  }
+  40% {
+    bottom: 45%;
+    right: 45%;
+  }
+  75% {
+    bottom: 10%;
+    right: 65%;
+  }
+  100% {
+    bottom: -25%;
+    right: -15%;
+  }
+}
+
+@keyframes floatBlob3 {
+  0% {
+    top: 45%;
+    left: 25%;
+  }
+  50% {
+    top: -15%;
+    left: 35%;
+  }
+  100% {
+    top: 45%;
+    left: 25%;
+  }
+}
+
+.liquid-aura-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(26px);
+}
+
+.liquid-blob-1 {
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  border-radius: 50%;
+  animation: floatBlob1 13s ease-in-out infinite;
+  will-change: top, left;
+}
+
+.liquid-blob-2 {
+  position: absolute;
+  width: 210px;
+  height: 210px;
+  border-radius: 50%;
+  animation: floatBlob2 9s ease-in-out infinite;
+  will-change: bottom, right;
+}
+
+.liquid-blob-3 {
+  position: absolute;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  animation: floatBlob3 15s ease-in-out infinite;
+  will-change: top, left;
+}
+
+/* Shared Dynamic Island glass surface. */
+.island-capsule {
+  background: rgba(15, 15, 15, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(16px) saturate(145%);
+  -webkit-backdrop-filter: blur(16px) saturate(145%);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+.island-capsule:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.65) !important;
+  outline-offset: 3px;
+}
+
+@keyframes islandMorphPop {
+  0%   { opacity: 0; transform: scale(0.82); }
+  55%  { opacity: 1; transform: scale(1.035); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* The shell.
+ *
+ * The real Dynamic Island does not look like a floating glass widget â€” it
+ * reads as a hole cut in the display. That means true black rather than a
+ * tinted translucent panel, no bright inner ring drawing its outline, and no
+ * sheen sitting on top of it. What sells it is the shadow underneath and the
+ * shape, not surface decoration.
+ *
+ * Opaque black also lets the backdrop blur go: blurring what sits behind a
+ * fully opaque layer is invisible work, and this overlay renders continuously.
+ * The light theme is still translucent, so it keeps its blur (see below).
+ */
+.island-capsule::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: #000;
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.62),
+    0 3px 10px rgba(0, 0, 0, 0.48);
+  z-index: -1;
+  pointer-events: none;
+  transition: box-shadow 0.42s ease;
+}
+
+/* Hover lifts it very slightly off the desktop rather than lightening it. */
+.island-capsule:hover::before {
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.7),
+    0 4px 14px rgba(0, 0, 0, 0.55);
+}
+
+/* A whisper of specular along the very top edge â€” the only surface treatment. */
+.island-capsule::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: none;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Secondary label color (Apple's dark-mode secondary-label convention).
+   Dark is the default theme, so this is the base rule; the light-theme
+   override below already assumes this class dims text on its own. */
+.widget-subtitle {
+  color: rgba(255, 255, 255, 0.55);
+}
+
+/* Light Theme Mode Reactivity */
+.island-capsule.theme-light::before {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  box-shadow:
+    0 12px 36px rgba(0, 0, 0, 0.14),
+    0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+
+.island-capsule.theme-light::after {
+  background: none !important;
+}
+
+.island-capsule.theme-light {
+  --scrubber-track-bg: rgba(0, 0, 0, 0.12);
+  --launcher-text-color: #000000;
+  --terminal-icon-color: #000000;
+  color: #000000 !important;
+}
+
+.island-capsule.theme-light span,
+.island-capsule.theme-light p,
+.island-capsule.theme-light div,
+.island-capsule.theme-light button {
+  color: #000000 !important;
+}
+
+.island-capsule.theme-light .widget-subtitle,
+.island-capsule.theme-light span.widget-subtitle {
+  color: rgba(60, 60, 67, 0.78) !important;
+}
+
+.island-capsule.theme-light button.icon-only {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #000000 !important;
+}
+
+.island-capsule.theme-light button:not(.icon-only) {
+  background: rgba(0, 0, 0, 0.06) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #000000 !important;
+}
+
+/* The Timer's orange accent must survive the forced-black text override
+   above, or the split capsule loses its own color identity in light mode. */
+.island-capsule.theme-light .timer-accent-text {
+  color: #ff9f0a !important;
+}
+
+/* Synced Lyrics Light Theme Overrides */
+.island-capsule.theme-light .lyric-row {
+  color: rgba(60, 60, 67, 0.75) !important;
+}
+
+.island-capsule.theme-light .lyric-text {
+  color: rgba(60, 60, 67, 0.75) !important;
+}
+
+.island-capsule.theme-light .lyric-row.is-active .lyric-text {
+  background-image: none !important;
+  -webkit-text-fill-color: #1d1d1f !important;
+  color: #1d1d1f !important;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.15) !important;
+  animation: none !important;
+}
+
+.island-capsule.theme-light .lyric-row.is-past .lyric-text {
+  color: rgba(60, 60, 67, 0.6) !important;
+}
+
+.island-capsule.theme-light .lyric-row.is-future .lyric-text {
+  color: rgba(60, 60, 67, 0.4) !important;
+}
+
+/* Dark Theme Mode Reactivity */
+.island-capsule.theme-dark::before {
+  background: #000 !important;
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.62),
+    0 3px 10px rgba(0, 0, 0, 0.48) !important;
+}
+
+.island-capsule.theme-dark {
+  --scrubber-track-bg: rgba(255, 255, 255, 0.14);
+  color: #ffffff !important;
+}
+
+.island-capsule:hover {
+  transform: none;
+}
+
+/* macOS Tahoe Auto-Hide Spring Animation (Fullscreen Apps) */
+.island-capsule.auto-hidden {
+  opacity: 0 !important;
+  transform: translateY(-80px) scale(0.85) !important;
+  pointer-events: none !important;
+  transition:
+    transform 0.55s var(--apple-spring),
+    opacity 0.45s ease,
+    width 0.45s var(--apple-spring),
+    height 0.45s var(--apple-spring) !important;
+}
+
+/* macOS Spring Track Change Transition */
+.track-change-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  animation: trackSpringIn 0.45s var(--apple-spring) forwards;
+}
+
+@keyframes trackSpringIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.album-art-spring {
+  animation: artSpringIn 0.45s var(--apple-spring) forwards;
+}
+
+@keyframes artSpringIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.88);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Active Mic/Camera Hardware Indicator Dot */
+.mic-hardware-dot {
+  position: absolute;
+  top: 13px;
+  left: 38px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ff9500;
+  z-index: 50;
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(255, 149, 0, 0.8);
+  transition: opacity 0.3s ease;
+}
+
+/* Active State Dimensions */
+.state-idle {
+  width: 250px;
+  height: 42px;
+  border-radius: 21px;
+}
+
+.state-compact-music {
+  width: 310px;
+  height: 44px;
+  border-radius: 22px;
+}
+
+.state-compact-timer {
+  width: 250px;
+  height: 42px;
+  border-radius: 21px;
+}
+
+.state-split {
+  width: 240px;
+  height: 54px;
+  border-radius: 27px;
+}
+
+/* Split Dual Capsule Layout */
+.island-split-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+  pointer-events: auto;
+}
+
+.island-capsule.primary-split {
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* This also carries the base .island-capsule class (shell ::before/::after,
+   theme-dark/theme-light background+shadow+forced text color, Liquid Glass
+   ThemeCanvas target) so the secondary pill matches the primary pill's shell
+   1:1 instead of drifting into its own flat, un-themed box. Only the sizing/
+   layout that's genuinely specific to the secondary pill lives here. */
+.island-capsule-secondary {
+  margin: 0;
+  flex-shrink: 0;
+  height: 54px;
+  padding: 0 16px;
+  min-width: 76px;
+  border-radius: 27px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* .island-capsule's base transform-origin (top center) suits the tall
+     morphing pill; this is a small floating chip, so it should scale from
+     its own center on hover/press instead. */
+  transform-origin: center center;
+}
+
+.island-capsule-secondary:hover {
+  transform: scale(1.06);
+}
+
+.island-capsule-secondary:active {
+  transform: scale(0.92);
+}
+
+.state-expanded-music {
+  width: 390px;
+  height: 172px;
+  border-radius: 36px;
+}
+
+.state-expanded-lyrics {
+  width: 390px;
+  height: 300px;
+  border-radius: 36px;
+}
+
+.state-expanded-timer {
+  width: 480px;
+  height: auto;
+  min-height: 82px;
+  border-radius: 34px;
+}
+
+.island-capsule.is-docked {
+  transform: translateY(-100%) scale(0.65) !important;
+  opacity: 0 !important;
+  pointer-events: auto !important;
+  transition: transform 0.45s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.35s ease !important;
+}
+
+.island-anchor:hover .island-capsule.is-docked,
+.island-capsule.is-docked:hover {
+  transform: translateY(0) scale(1) !important;
+  opacity: 1 !important;
+}
+
+.state-expanded-shelf {
+  width: 380px;
+  height: 210px;
+  border-radius: 36px;
+}
+
+.state-expanded-sysmon {
+  width: 370px;
+  height: 150px;
+  border-radius: 32px;
+}
+
+.state-expanded-launcher {
+  width: 360px;
+  height: 180px;
+  border-radius: 32px;
+}
+
+.state-expanded-settings {
+  width: 440px;
+  height: 310px;
+  border-radius: 36px;
+}
+
+.state-expanded-screenshot {
+  width: 360px;
+  height: 90px;
+  border-radius: 26px;
+}
+
+.state-expanded-bluetooth {
+  width: 376px;
+  height: 61px;
+  border-radius: 31px;
+}
+
+/* Hide native scrollbar inside lyrics view */
+.lyrics-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.spin-loader {
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Apple Dynamic Island Smooth Auto-Marquee Animation */
+.apple-marquee-text {
+  animation: appleMarquee 10s linear infinite 2s;
+}
+
+@keyframes appleMarquee {
+  0%, 15% {
+    transform: translateX(0);
+  }
+  50%, 65% {
+    transform: translateX(var(--scroll-dist, -40px));
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+
+
+/* â”€â”€ Call Widget: Compact pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.state-compact-call {
+  width: 270px;
+  height: 54px;
+  border-radius: 27px;
+}
+
+/* â”€â”€ Call Widget: Expanded panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+.state-expanded-call {
+  width: 310px;
+  height: 240px;
+  border-radius: 42px;
+}
+
+/* â”€â”€ Call Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+@keyframes callRingPulse1 {
+  0%   { transform: scale(0.95); opacity: 0.8; }
+  70%  { transform: scale(1.45); opacity: 0; }
+  100% { transform: scale(1.45); opacity: 0; }
+}
+
+@keyframes callRingPulse2 {
+  0%   { transform: scale(0.95); opacity: 0.6; }
+  70%  { transform: scale(1.55); opacity: 0; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+@keyframes callPulseRing {
+  0%   { transform: scale(0.95); opacity: 0.85; box-shadow: 0 0 0 0 rgba(48, 209, 88, 0.6); }
+  70%  { transform: scale(1.35); opacity: 0; box-shadow: 0 0 0 14px rgba(48, 209, 88, 0); }
+  100% { transform: scale(1.35); opacity: 0; box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
+}
+
+@keyframes callAvatarEntry {
+  0%   { opacity: 0; transform: scale(0.5) translateY(12px); filter: blur(4px); }
+  60%  { opacity: 1; transform: scale(1.06) translateY(-2px); filter: blur(0); }
+  100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
+
+@keyframes callTextEntry {
+  0%   { opacity: 0; transform: translateY(8px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes callButtonsEntry {
+  0%   { opacity: 0; transform: translateY(10px) scale(0.92); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes callGlowBreath {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50%      { opacity: 0.7; transform: scale(1.05); }
+}
+
+@keyframes callDotPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.5; transform: scale(0.85); }
+}
+
+@keyframes callTextPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+.state-expanded-airdrop {
+  width: 380px;
+  height: 200px;
+  border-radius: 38px;
+}
+
+.state-expanded-recorder {
+  width: 370px;
+  height: 205px;
+  border-radius: 38px;
+}
+
+.state-expanded-screenrec {
+  width: 340px;
+  height: 100px;
+  border-radius: 30px;
+}
+
+.state-expanded-battery {
+  width: 340px;
+  height: 85px;
+  border-radius: 30px;
+}
+
+.state-volume-osd {
+  width: 360px;
+  height: 85px;
+  border-radius: 30px;
+}
+
+.state-notification {
+  width: 400px;
+  height: 110px;
+  border-radius: 32px;
+}
+
+.state-expanded-weather {
+  width: 370px;
+  height: 210px;
+  border-radius: 38px;
+}
+
+/* Activity Fade Content Container */
+.activity-fade-content {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  animation: islandContentFade 0.18s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+}
+
+@keyframes islandContentFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Glassmorphic backdrop cards */
+.glass-card {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+}
+
+.glass-pill {
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+/* Apple Pulse Glow effect */
+@keyframes applePulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+.animate-apple-pulse {
+  animation: applePulse 2s ease-in-out infinite;
+}
+
+/* Equalizer Visualizer Bar Styles */
+.eq-bar-container {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 24px;
+}
+
+.eq-bar {
+  width: 3px;
+  border-radius: 2px;
+  will-change: height;
+  transition: height 0.08s linear, background 0.5s ease;
+}
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   Synced Lyrics â€” karaoke word-wipe + focus/blur line system
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+/* Registers --fill as an animatable percentage so the karaoke wipe can be
+   smoothly transitioned by the browser's compositor instead of snapping
+   between ticks. Falls back gracefully (no smoothing, correct end-state)
+   in engines without @property support. */
+@property --lyric-fill {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 0%;
+}
+
+.lyric-ambient-glow {
+  position: absolute;
+  top: -40px;
+  left: 50%;
+  width: 220px;
+  height: 220px;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, var(--lyric-glow-color, rgba(255,255,255,0.14)) 0%, transparent 68%);
+  filter: blur(6px);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 0;
+  transition: background 0.9s ease;
+}
+
+.lyric-row {
+  position: relative;
+  padding: 8px 6px;
+  cursor: pointer;
+  transform-origin: left center;
+  will-change: transform, filter, opacity;
+  transition:
+    transform 0.75s cubic-bezier(0.25, 1, 0.5, 1),
+    filter 0.75s cubic-bezier(0.25, 1, 0.5, 1),
+    opacity 0.75s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.lyric-row.is-past {
+  opacity: 0.35;
+  filter: blur(1.2px);
+  transform: translateY(-2px) scale(0.95);
+}
+
+.lyric-row.is-future {
+  opacity: 0.25;
+  filter: blur(1.8px);
+  transform: translateY(2px) scale(0.95);
+}
+
+.lyric-row.is-active {
+  opacity: 1;
+  filter: blur(0);
+  transform: translateY(0) scale(1.02);
+}
+
+.lyric-row:hover {
+  opacity: 0.9;
+  filter: blur(0);
+}
+
+.lyric-text {
+  display: inline-block;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.2px;
+  color: rgba(255, 255, 255, 0.45);
+  transform-origin: left center;
+  white-space: normal;
+  word-break: break-word;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    color 0.5s ease,
+    opacity 0.5s ease,
+    text-shadow 0.5s ease;
+}
+
+@keyframes lyricPulseGlow {
+  0%, 100% {
+    text-shadow: 0 0 14px var(--lyric-glow-color, rgba(255, 255, 255, 0.45)), 0 0 3px rgba(255, 255, 255, 0.85);
+    opacity: 1;
+  }
+  50% {
+    text-shadow: 0 0 20px var(--lyric-glow-color, rgba(255, 255, 255, 0.65)), 0 0 5px #ffffff;
+    opacity: 0.92;
+  }
+}
+
+.lyric-row.is-active .lyric-text {
+  font-weight: 700;
+  /* Karaoke word-wipe: sung portion (left of --lyric-fill) is solid white,
+     the rest stays dim, and the browser compositor animates the boundary
+     between ticks since --lyric-fill is a registered animatable <percentage>. */
+  background-image: linear-gradient(
+    90deg,
+    #ffffff var(--lyric-fill, 0%),
+    rgba(255, 255, 255, 0.45) var(--lyric-fill, 0%)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: #ffffff;
+  animation: lyricPulseGlow 3s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lyric-row,
+  .lyric-row.is-past,
+  .lyric-row.is-future,
+  .lyric-row.is-active {
+    transition: opacity 0.2s ease !important;
+    transform: none !important;
+    filter: none !important;
+  }
+  .lyric-row.is-active .lyric-text {
+    transition: none !important;
+  }
+  .island-capsule {
+    animation: none !important;
+  }
+}
+
+@keyframes progressShimmerSweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+.progress-shimmer-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-shimmer-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 45%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.45) 50%,
+    transparent 100%
+  );
+  animation: progressShimmerSweep 2.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+
+
+
+
+
+
+/* Island geometry contract: flush top, fixed bottom radius, opaque cutout. */
+.island-capsule, .island-capsule.primary-split, .island-capsule-secondary {
+  /* Keep the component's state-specific radii. The previous flush-top rule
+     overwrote them with an undefined variable and made the top corners square. */
+  background: #000 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4) !important;
+}
+.island-capsule.theme-light { background: #fff !important; }
+.island-capsule.theme-light::before { background: #fff !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+
+
