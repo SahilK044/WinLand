@@ -215,6 +215,8 @@ export default function DynamicIsland({
     }
   }, [activeState]);
 
+  const isMusicState = activeState === 'compact-music' || activeState === 'expanded-music' || activeState === 'expanded-lyrics';
+
   // Compute real-time beat pulse from equalizer heights when music is playing
   const beatPulse = isMusicState && trackInfo?.isPlaying
     ? (barHeights.reduce((sum, h) => sum + h, 0) / 75)
@@ -857,8 +859,6 @@ export default function DynamicIsland({
       window.electronAPI.sendMediaControl({ action: 'seek', posMs: newProgressMs });
     }
   };
-
-  const isMusicState = activeState === 'compact-music' || activeState === 'expanded-music' || activeState === 'expanded-lyrics';
 
   // ── Eq bar color & glow ───────────────────────────────────────────────────
   const { r, g, b } = displayAccentColor;
