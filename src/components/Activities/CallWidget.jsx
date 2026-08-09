@@ -190,13 +190,14 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
   };
 
   const getInitials = (name) => {
-    if (!name || name === 'Phone call' || name === 'Phone Link' || name === 'PC' || name.length < 2) return '📞';
-    const clean = name.trim();
-    const parts = clean.split(/\s+/);
-    if (parts.length >= 2) {
+    if (!name || name === 'Phone call' || name === 'Phone Link' || name === 'PC') return '📞';
+    const textOnly = name.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F600}-\u{1F64F}\u{1F680}-\u{1F6FF}]/gu, '').trim();
+    if (!textOnly || textOnly.length === 0) return '📞';
+    const parts = textOnly.split(/\s+/);
+    if (parts.length >= 2 && parts[0] && parts[parts.length - 1]) {
       return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
     }
-    return clean.slice(0, 2).toUpperCase();
+    return textOnly.length >= 2 ? textOnly.slice(0, 2).toUpperCase() : textOnly[0].toUpperCase();
   };
 
   const rawCaller = callData?.callerName || 'Phone Call';

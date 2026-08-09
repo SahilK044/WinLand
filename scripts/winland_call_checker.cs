@@ -38,6 +38,10 @@ class Program {
     [STAThread]
     static void Main() {
         try {
+            Console.OutputEncoding = Encoding.UTF8;
+        } catch {}
+
+        try {
             IntPtr hDesk = OpenDesktop("Default", 0, false, GENERIC_ALL);
             if (hDesk != IntPtr.Zero) SetThreadDesktop(hDesk);
         } catch {}

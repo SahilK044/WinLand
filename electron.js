@@ -741,7 +741,7 @@ function pollCallState() {
     isPollingCall = false;
   }, 2500);
 
-  execFile(EXE_CALL, [], { timeout: 1500, maxBuffer: 32 * 1024 }, (err, stdout) => {
+  execFile(EXE_CALL, [], { timeout: 1500, maxBuffer: 32 * 1024, encoding: 'utf8' }, (err, stdout) => {
     isPollingCall = false;
     clearTimeout(callTimeoutTimer);
     if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
