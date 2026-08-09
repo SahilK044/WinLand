@@ -611,9 +611,9 @@ export default function DynamicIsland({
     // missed — the poller only pushes call-update when the state *changes*.
     if (window.electronAPI?.requestCallStatus) {
       window.electronAPI.requestCallStatus();
-      if (window.electronAPI?.requestTimerStatus) {
-        window.electronAPI.requestTimerStatus();
-      }
+    }
+    if (window.electronAPI?.requestTimerStatus) {
+      window.electronAPI.requestTimerStatus();
     }
 
     return () => { cleanSpotify(); cleanTimer(); cleanBattery(); cleanVolume(); cleanBT(); cleanCall(); clearTimeout(bluetoothDismiss.current); };
