@@ -121,6 +121,7 @@ export default function SettingsWindow() {
   const [hoveredCardId, setHoveredCardId]   = useState(null);
   const [activeEarbudId, setActiveEarbudId] = useState(null);
   const [motionCat, setMotionCat]           = useState('phone');
+  const [isDndActive, setIsDndActive]       = useState(false);
 
   useEffect(() => {
     if (window.electronAPI?.getDisplays) {
@@ -128,6 +129,14 @@ export default function SettingsWindow() {
         if (Array.isArray(list)) setDisplays(list);
       }).catch(() => {});
     }
+    if (window.electronAPI?.getDndState) {
+      window.electronAPI.getDndState().then((isDnd) => setIsDndActive(!!isDnd)).catch(() => {});
+    }
+    if (!window.electronAPI?.onDndStateUpdate) return;
+    const unsub = window.electronAPI.onDndStateUpdate(({ isDnd }) => {
+      setIsDndActive(!!isDnd);
+    });
+    return () => unsub();
   }, []);
 
   const [xboxVariant, setXboxVariant] = useState(() => localStorage.getItem('winland_xbox_variant') || 'xbox_white');
@@ -632,12 +641,13 @@ export default function SettingsWindow() {
                   </div>
                   <button
                     type="button"
-                    className="wl-pill"
+                    className={`wl-switch ${isDndActive ? 'is-on' : ''}`}
+                    aria-checked={isDndActive}
                     onClick={() => {
                       if (window.electronAPI?.toggleDnd) window.electronAPI.toggleDnd();
                     }}
                   >
-                    Toggle DND
+                    <span className="wl-switch-knob" />
                   </button>
                 </div>
               </div>

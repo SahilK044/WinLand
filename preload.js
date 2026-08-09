@@ -106,6 +106,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Multi-Monitor Pinning & Focus Mode / DND Sync
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   setTargetDisplay: (displayId) => ipcRenderer.send('set-target-display', displayId),
+  getDndState: () => ipcRenderer.invoke('get-dnd-state'),
   onDndStateUpdate: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('dnd-state-update', handler);

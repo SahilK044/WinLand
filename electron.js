@@ -996,6 +996,64 @@ ipcMain.on('device-prefs-changed', (event, prefs) => {
   }
 });
 
+// ── System-Wide Windows 11 Do Not Disturb (Focus Assist) Manager ─────────────
+let isSystemDnd = false;
+
+function querySystemDndState(callback) {
+  exec(
+    'reg query "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings" /v "NOC_GLOBAL_SETTING_TOASTS_ENABLED"',
+    (err, stdout) => {
+      let isDnd = false;
+      if (!err && stdout) {
+        // 0x0 = Notifications disabled (DND ON), 0x1 = Notifications enabled (DND OFF)
+        if (stdout.includes('0x0')) {
+          isDnd = true;
+        }
+      }
+      if (isSystemDnd !== isDnd) {
+        isSystemDnd = isDnd;
+        broadcastDndState(isDnd);
+      }
+      callback?.(isDnd);
+    }
+  );
+}
+
+function broadcastDndState(isDnd) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('dnd-state-update', { isDnd });
+    }
+  }
+}
+
+function toggleSystemDnd() {
+  const nextVal = isSystemDnd ? 1 : 0;
+  exec(
+    `reg add "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings" /v "NOC_GLOBAL_SETTING_TOASTS_ENABLED" /t REG_DWORD /d ${nextVal} /f`,
+    (err) => {
+      if (!err) {
+        isSystemDnd = !isSystemDnd;
+        broadcastDndState(isSystemDnd);
+      }
+    }
+  );
+}
+
+// Initial DND query on startup & poll every 3s to stay in sync with Windows OS changes
+querySystemDndState();
+setInterval(() => {
+  querySystemDndState();
+}, 3000);
+
+ipcMain.on('toggle-dnd', () => {
+  toggleSystemDnd();
+});
+
+ipcMain.handle('get-dnd-state', () => {
+  return isSystemDnd;
+});
+
 ipcMain.on('appearance-prefs-changed', (event, prefs) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.webContents !== event.sender && !win.isDestroyed()) {
