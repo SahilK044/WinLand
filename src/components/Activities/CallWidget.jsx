@@ -199,7 +199,8 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
     return clean.slice(0, 2).toUpperCase();
   };
 
-  const callerName = callData?.callerName || 'Phone call';
+  const rawCaller = callData?.callerName || 'Phone Call';
+  const callerName = (rawCaller === 'Phone Link' || rawCaller === 'Phone call') ? 'Phone Call' : rawCaller;
   const source = callData?.source || 'Phone Link';
   const initials = getInitials(callerName);
   const hasAvatar = !!callData?.avatar;
@@ -322,9 +323,9 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
             animation: 'callAvatarEntry 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards',
           }}>
             {initials !== '📞' ? initials : (
-              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.75)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21v-2a4 4 0 00-4-4H9a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-              </svg>
+              <div style={{ width: 34, height: 34, borderRadius: '50%', background: '#30d158', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <PhoneIcon size={18} color="#ffffff" />
+              </div>
             )}
           </div>
         )}

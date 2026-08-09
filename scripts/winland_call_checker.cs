@@ -93,8 +93,8 @@ class Program {
                     if (m.Success) {
                         foundCaller = m.Value;
                     } else {
-                        string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Trim();
-                        if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Calling", StringComparison.OrdinalIgnoreCase)) {
+                        string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Replace("Calling", "").Trim();
+                        if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Phone Link", StringComparison.OrdinalIgnoreCase)) {
                             foundCaller = extracted;
                         }
                     }
