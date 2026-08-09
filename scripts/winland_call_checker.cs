@@ -36,14 +36,10 @@ class Program {
     static void Main() {
         try {
             IntPtr hDesk = OpenDesktop("Default", 0, false, GENERIC_ALL);
-            if (hDesk != IntPtr.Zero) {
-                SetThreadDesktop(hDesk);
-            }
+            if (hDesk != IntPtr.Zero) SetThreadDesktop(hDesk);
         } catch {}
 
         EnumDesktopWindows(IntPtr.Zero, (hWnd, lParam) => {
-            if (!IsWindowVisible(hWnd)) return true;
-
             StringBuilder sb = new StringBuilder(256);
             GetWindowText(hWnd, sb, 256);
             string title = sb.ToString();
@@ -52,28 +48,42 @@ class Program {
             GetClassName(hWnd, classSb, 256);
             string className = classSb.ToString();
 
-            if (string.IsNullOrEmpty(title)) return true;
+            uint pid;
+            GetWindowThreadProcessId(hWnd, out pid);
 
-            string lower = title.ToLower();
+            string pname = "";
+            try { pname = Process.GetProcessById((int)pid).ProcessName; } catch {}
 
-            // Explicit Phone Link Call window detection ("Call on PC", "Call from", "Incoming call")
-            if (className == "ApplicationFrameWindow" || className.Contains("Windows.UI") || className.Contains("Chrome")) {
-                if (title.Contains("Call on PC") || title.Contains("Call from") || lower.Contains("incoming call") || (title.Contains("Phone Link") && lower.Contains("call"))) {
+            if (!string.IsNullOrEmpty(title)) {
+                string lower = title.ToLower();
+                // Phone Link Call detection
+                if (title.Contains("Call on PC") || title.Contains("Call from") || lower.Contains("calling") || lower.Contains("incoming call") || (title.Contains("Phone") && (lower.Contains("call") || lower.Contains("calling")))) {
                     foundState = (lower.Contains("incoming") || lower.Contains("ringing")) ? "incoming" : "active";
                     foundCaller = title.Replace("Call on PC", "").Replace("Call from", "").Trim();
                     if (string.IsNullOrEmpty(foundCaller)) foundCaller = "Phone Link Call";
                     foundSource = "Phone Link";
-                    return false; // Stop search
+                    return false;
+                }
+
+                // WhatsApp call detection
+                if (title.Contains("WhatsApp") && (title.Contains("Call") || lower.Contains("calling") || lower.Contains("ringing"))) {
+                    foundState = (lower.Contains("ringing") || lower.Contains("incoming")) ? "incoming" : "active";
+                    foundCaller = title.Replace("WhatsApp Call", "").Replace("WhatsApp", "").Trim();
+                    if (string.IsNullOrEmpty(foundCaller)) foundCaller = "WhatsApp Call";
+                    foundSource = "WhatsApp";
+                    return false;
                 }
             }
 
-            // WhatsApp call window detection
-            if (title.Contains("WhatsApp") && (title.Contains("Call") || lower.Contains("calling") || lower.Contains("ringing"))) {
-                foundState = (lower.Contains("ringing") || lower.Contains("incoming")) ? "incoming" : "active";
-                foundCaller = title.Replace("WhatsApp Call", "").Replace("WhatsApp", "").Trim();
-                if (string.IsNullOrEmpty(foundCaller)) foundCaller = "WhatsApp Call";
-                foundSource = "WhatsApp";
-                return false;
+            // Also check ApplicationFrameWindow or Phone processes with active visible frames
+            if (IsWindowVisible(hWnd) && (pname.Equals("PhoneExperienceHost", StringComparison.OrdinalIgnoreCase) || pname.Equals("YourPhoneAppProxy", StringComparison.OrdinalIgnoreCase) || pname.Equals("CrossDeviceExperienceHost", StringComparison.OrdinalIgnoreCase))) {
+                if (!string.IsNullOrEmpty(title) && !title.Equals("Default IME") && !title.Equals("MSCTFIME UI")) {
+                    foundState = title.ToLower().Contains("incoming") ? "incoming" : "active";
+                    foundCaller = title.Replace("Call on PC", "").Trim();
+                    if (string.IsNullOrEmpty(foundCaller)) foundCaller = "Phone Link Call";
+                    foundSource = "Phone Link";
+                    return false;
+                }
             }
 
             return true;
