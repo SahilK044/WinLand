@@ -596,7 +596,7 @@ export default function DynamicIsland({
             setCallData(data);
             setActiveState((prev) => {
               if (!isOverlayState(prev)) preOverlayStateRef.current = prev;
-              return data.state === 'incoming' ? 'expanded-call' : (prev === 'expanded-call' ? 'expanded-call' : 'compact-call');
+              return 'expanded-call';
             });
           }
         })
