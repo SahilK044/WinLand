@@ -172,20 +172,9 @@ function LauncherButton({ app, onLaunch }) {
   );
 }
 
-export default function LauncherWidget({ onLaunchApp, isDndActive = false }) {
+export default function LauncherWidget({ onLaunchApp }) {
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: isDndActive ? '26px 16px 10px 16px' : '12px 16px',
-        boxSizing: 'border-box',
-        transition: 'padding 0.28s cubic-bezier(0.32, 1.25, 0.36, 1)',
-      }}
-    >
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', boxSizing: 'border-box' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%' }}>
         {PINNED_APPS.map((app) => (
           <LauncherButton key={app.cmd} app={app} onLaunch={onLaunchApp} />

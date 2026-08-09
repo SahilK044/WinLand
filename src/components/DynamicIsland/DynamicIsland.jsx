@@ -1111,7 +1111,7 @@ export default function DynamicIsland({
           )}
 
           {/* Official 1:1 macOS Dark Translucent Glass Focus / Do Not Disturb Badge */}
-          {shouldRenderDnd && activeState !== 'compact-music' && activeState !== 'split' && (
+          {shouldRenderDnd && activeState !== 'compact-music' && activeState !== 'split' && activeState !== 'expanded-launcher' && (
             <button
               title="Focus Mode / Do Not Disturb Active (Click to toggle)"
               onClick={(e) => {

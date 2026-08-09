@@ -650,6 +650,25 @@ export default function SettingsWindow() {
                     <span className="wl-switch-knob" />
                   </button>
                 </div>
+
+                {/* Test Call Notification Banner */}
+                <div className="wl-row">
+                  <div>
+                    <div className="wl-row-title">Test Call Notification Banner</div>
+                    <div className="wl-row-sub">
+                      Simulates an incoming Phone Link / WhatsApp call banner.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="wl-pill"
+                    onClick={() => {
+                      if (window.electronAPI?.triggerDemoCall) window.electronAPI.triggerDemoCall();
+                    }}
+                  >
+                    Simulate Call
+                  </button>
+                </div>
               </div>
             </>
           )}

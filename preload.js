@@ -62,6 +62,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   requestCallStatus: () => ipcRenderer.send('request-call-status'),
   sendCallAction: (action) => ipcRenderer.send('send-call-action', action),
+  triggerDemoCall: () => ipcRenderer.send('trigger-demo-call'),
 
   // Settings persistence
   readSettings: () => ipcRenderer.invoke('read-settings'),

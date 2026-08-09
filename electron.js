@@ -730,22 +730,40 @@ const EXE_CALL = app.isPackaged
   ? path.join(process.resourcesPath, 'scripts', 'winland_call_checker.exe')
   : path.join(__dirname, 'scripts', 'winland_call_checker.exe');
 
+let callTimeoutTimer = null;
+
 function pollCallState() {
   if (!mainWindow || mainWindow.isDestroyed() || isPollingCall) return;
   isPollingCall = true;
+
+  clearTimeout(callTimeoutTimer);
+  callTimeoutTimer = setTimeout(() => {
+    isPollingCall = false;
+  }, 2500);
+
   execFile(EXE_CALL, [], { timeout: 1500, maxBuffer: 32 * 1024 }, (err, stdout) => {
     isPollingCall = false;
-    if (!mainWindow || mainWindow.isDestroyed()) return;
+    clearTimeout(callTimeoutTimer);
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
+
     const parts = (stdout || '').trim().split('|');
     const next = parts.length >= 3 && parts[0] ? {
       state: parts[0] === 'incoming' ? 'incoming' : 'active',
       callerName: parts[1] || 'Phone call',
       source: parts[2] || 'Phone Link',
     } : null;
+
     const nextKey = next ? `${next.state}|${next.callerName}|${next.source}` : null;
     const previousKey = lastCallSnapshot ? `${lastCallSnapshot.state}|${lastCallSnapshot.callerName}|${lastCallSnapshot.source}` : null;
     if (nextKey === previousKey) return;
+
     lastCallSnapshot = next;
+
+    if (next && (next.state === 'incoming' || next.state === 'active')) {
+      mainWindow.showInactive();
+      mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    }
+
     mainWindow.webContents.send('call-update', next || { state: 'ended' });
   });
 }
@@ -767,6 +785,18 @@ ipcMain.on('request-call-status', () => {
   if (lastCallSnapshot) {
     mainWindow.webContents.send('call-update', lastCallSnapshot);
   }
+});
+
+ipcMain.on('trigger-demo-call', () => {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
+  mainWindow.showInactive();
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  lastCallSnapshot = {
+    state: 'incoming',
+    callerName: 'Sahil K',
+    source: 'Phone Link',
+  };
+  mainWindow.webContents.send('call-update', lastCallSnapshot);
 });
 
 // ── Fullscreen App Detector ─────────────────────────────────────────────────
