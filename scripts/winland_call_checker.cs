@@ -84,33 +84,44 @@ class Program {
                 return false;
             }
 
-            // Phone Link Call check — only for visible application frame / call windows
-            if (IsWindowVisible(hWnd) && (className.Equals("ApplicationFrameWindow", StringComparison.OrdinalIgnoreCase) || className.Contains("Windows.UI") || pname.Equals("PhoneExperienceHost", StringComparison.OrdinalIgnoreCase) || pname.Equals("YourPhoneAppProxy", StringComparison.OrdinalIgnoreCase))) {
-                if (title.IndexOf("Call", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Phone", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Calling", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Incoming", StringComparison.OrdinalIgnoreCase) >= 0) {
-                    foundState = (title.IndexOf("incoming", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("ringing", StringComparison.OrdinalIgnoreCase) >= 0) ? "incoming" : "active";
-                    foundSource = "Phone Link";
+            // Phone Link Call check — handles active calls, incoming calls & toast banners
+            if (className.Equals("ApplicationFrameWindow", StringComparison.OrdinalIgnoreCase) || className.Contains("Windows.UI") || className.Contains("Toast") || pname.Equals("PhoneExperienceHost", StringComparison.OrdinalIgnoreCase) || pname.Equals("YourPhoneAppProxy", StringComparison.OrdinalIgnoreCase)) {
+                if (title.IndexOf("Call", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Phone", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Calling", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Incoming", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Ringing", StringComparison.OrdinalIgnoreCase) >= 0) {
 
-                    // Try UIA element extraction first
+                    bool isIncoming = title.IndexOf("incoming", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      title.IndexOf("ringing", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                      title.IndexOf("call from", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                    // Try UIA element extraction first for UWP labels & state
                     try {
                         AutomationElement winEl = AutomationElement.FromHandle(hWnd);
                         if (winEl != null) {
                             AutomationElementCollection textElems = winEl.FindAll(TreeScope.Subtree, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text));
                             foreach (AutomationElement txt in textElems) {
                                 string tName = txt.Current.Name.Trim();
-                                if (!string.IsNullOrEmpty(tName) &&
-                                    !tName.Equals("Calling", StringComparison.OrdinalIgnoreCase) &&
-                                    !tName.Equals("Call on PC", StringComparison.OrdinalIgnoreCase) &&
-                                    !tName.Equals("Transfer to phone", StringComparison.OrdinalIgnoreCase) &&
-                                    !tName.Equals("Mute", StringComparison.OrdinalIgnoreCase) &&
-                                    !tName.Equals("Keypad", StringComparison.OrdinalIgnoreCase) &&
-                                    !tName.Equals("Hold call", StringComparison.OrdinalIgnoreCase) &&
-                                    !tName.Equals("End", StringComparison.OrdinalIgnoreCase)) {
-                                    foundCaller = tName;
-                                    break;
+                                if (!string.IsNullOrEmpty(tName)) {
+                                    string tLower = tName.ToLower();
+                                    if (tLower.Contains("incoming") || tLower.Contains("ringing") || tLower.Contains("accept") || tLower.Contains("decline") || tLower.Contains("answer")) {
+                                        isIncoming = true;
+                                    }
+                                    if (!tName.Equals("Calling", StringComparison.OrdinalIgnoreCase) &&
+                                        !tName.Equals("Call on PC", StringComparison.OrdinalIgnoreCase) &&
+                                        !tName.Equals("Transfer to phone", StringComparison.OrdinalIgnoreCase) &&
+                                        !tName.Equals("Mute", StringComparison.OrdinalIgnoreCase) &&
+                                        !tName.Equals("Keypad", StringComparison.OrdinalIgnoreCase) &&
+                                        !tName.Equals("Hold call", StringComparison.OrdinalIgnoreCase) &&
+                                        !tName.Equals("End", StringComparison.OrdinalIgnoreCase) &&
+                                        !tName.Equals("Accept", StringComparison.OrdinalIgnoreCase) &&
+                                        !tName.Equals("Decline", StringComparison.OrdinalIgnoreCase)) {
+                                        foundCaller = tName;
+                                    }
                                 }
                             }
                         }
                     } catch {}
+
+                    foundState = isIncoming ? "incoming" : "active";
+                    foundSource = "Phone Link";
 
                     // Extract caller contact name/number if present in title
                     if (string.IsNullOrEmpty(foundCaller)) {
@@ -118,7 +129,7 @@ class Program {
                         if (m.Success) {
                             foundCaller = m.Value;
                         } else {
-                            string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Replace("Calling", "").Trim();
+                            string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Replace("Calling", "").Replace("Incoming call", "").Replace("Incoming", "").Trim();
                             if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Phone Link", StringComparison.OrdinalIgnoreCase)) {
                                 foundCaller = extracted;
                             }
@@ -126,7 +137,7 @@ class Program {
                     }
 
                     if (string.IsNullOrEmpty(foundCaller)) {
-                        foundCaller = "555";
+                        foundCaller = isIncoming ? "Incoming Call" : "555";
                     }
 
                     return false;
