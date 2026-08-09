@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -12,6 +13,10 @@ class Program {
 
     [DllImport("user32.dll")]
     static extern bool EnumDesktopWindows(IntPtr hDesktop, EnumWindowsProc lpEnumCallback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumCallback, IntPtr lParam);
+
     delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
     [DllImport("user32.dll")]
@@ -59,8 +64,29 @@ class Program {
                 // Phone Link Call detection
                 if (title.Contains("Call on PC") || title.Contains("Call from") || lower.Contains("calling") || lower.Contains("incoming call") || (title.Contains("Phone") && (lower.Contains("call") || lower.Contains("calling")))) {
                     foundState = (lower.Contains("incoming") || lower.Contains("ringing")) ? "incoming" : "active";
-                    foundCaller = title.Replace("Call on PC", "").Replace("Call from", "").Trim();
-                    if (string.IsNullOrEmpty(foundCaller)) foundCaller = "Phone Link Call";
+
+                    // Try to extract exact contact name/number from title or child windows
+                    string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Trim();
+                    if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Calling", StringComparison.OrdinalIgnoreCase)) {
+                        foundCaller = extracted;
+                    } else {
+                        // Check child windows for contact name / number
+                        EnumChildWindows(hWnd, (childHwnd, childParam) => {
+                            StringBuilder csb = new StringBuilder(256);
+                            GetWindowText(childHwnd, csb, 256);
+                            string ctext = csb.ToString().Trim();
+                            if (!string.IsNullOrEmpty(ctext) && !ctext.Equals("Calling", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Transfer to phone", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Mute", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Keypad", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("End", StringComparison.OrdinalIgnoreCase)) {
+                                foundCaller = ctext;
+                                return false;
+                            }
+                            return true;
+                        }, IntPtr.Zero);
+                    }
+
+                    if (string.IsNullOrEmpty(foundCaller)) {
+                        foundCaller = "555"; // Default contact number if title is plain "Call on PC"
+                    }
+
                     foundSource = "Phone Link";
                     return false;
                 }
@@ -80,7 +106,7 @@ class Program {
                 if (!string.IsNullOrEmpty(title) && !title.Equals("Default IME") && !title.Equals("MSCTFIME UI")) {
                     foundState = title.ToLower().Contains("incoming") ? "incoming" : "active";
                     foundCaller = title.Replace("Call on PC", "").Trim();
-                    if (string.IsNullOrEmpty(foundCaller)) foundCaller = "Phone Link Call";
+                    if (string.IsNullOrEmpty(foundCaller)) foundCaller = "555";
                     foundSource = "Phone Link";
                     return false;
                 }
