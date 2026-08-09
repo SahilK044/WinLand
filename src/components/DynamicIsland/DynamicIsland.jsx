@@ -245,18 +245,43 @@ export default function DynamicIsland({
     return () => cleanConfig();
   }, []);
 
-  const [isDndActive, setIsDndActive] = useState(false);
-  const [isDocked, setIsDocked] = useState(false);
+  const [isDndActive, setIsDndActive]         = useState(false);
+  const [shouldRenderDnd, setShouldRenderDnd] = useState(false);
+  const [isDndVisible, setIsDndVisible]       = useState(false);
+  const [isDocked, setIsDocked]               = useState(false);
   const idleTimerRef = useRef(null);
 
   // Listen to Focus Mode / DND state updates
   useEffect(() => {
+    if (window.electronAPI?.getDndState) {
+      window.electronAPI.getDndState().then((isDnd) => setIsDndActive(!!isDnd)).catch(() => {});
+    }
     if (!window.electronAPI?.onDndStateUpdate) return;
     const cleanDnd = window.electronAPI.onDndStateUpdate(({ isDnd }) => {
       setIsDndActive(!!isDnd);
     });
     return () => cleanDnd();
   }, []);
+
+  // Smooth Apple spring fade-in / fade-out transition for DND badge
+  useEffect(() => {
+    if (isDndActive) {
+      setShouldRenderDnd(true);
+      const raf1 = requestAnimationFrame(() => {
+        const raf2 = requestAnimationFrame(() => {
+          setIsDndVisible(true);
+        });
+        return () => cancelAnimationFrame(raf2);
+      });
+      return () => cancelAnimationFrame(raf1);
+    } else {
+      setIsDndVisible(false);
+      const timer = setTimeout(() => {
+        setShouldRenderDnd(false);
+      }, 280);
+      return () => clearTimeout(timer);
+    }
+  }, [isDndActive]);
 
   // Smart Docking / Idle Auto-Hide Timer (3s smooth slide out when idle/unused)
   const resetIdleTimer = useCallback(() => {
@@ -1086,7 +1111,7 @@ export default function DynamicIsland({
           )}
 
           {/* Official 1:1 macOS Dark Translucent Glass Focus / Do Not Disturb Badge */}
-          {isDndActive && activeState !== 'compact-music' && activeState !== 'split' && (
+          {shouldRenderDnd && activeState !== 'compact-music' && activeState !== 'split' && (
             <button
               title="Focus Mode / Do Not Disturb Active (Click to toggle)"
               onClick={(e) => {
@@ -1107,17 +1132,22 @@ export default function DynamicIsland({
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 5,
+                opacity: isDndVisible ? 1 : 0,
+                transform: isDndVisible ? 'scale(1) translateY(0)' : 'scale(0.72) translateY(-4px)',
+                filter: isDndVisible ? 'blur(0px)' : 'blur(4px)',
                 boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)',
-                transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, box-shadow 0.2s ease',
+                transition: 'opacity 0.28s cubic-bezier(0.32, 1.25, 0.36, 1), transform 0.28s cubic-bezier(0.32, 1.25, 0.36, 1), filter 0.28s ease, background 0.2s ease, box-shadow 0.2s ease',
                 backdropFilter: 'blur(16px)',
                 WebkitBackdropFilter: 'blur(16px)',
               }}
               onMouseEnter={(e) => {
+                if (!isDndVisible) return;
                 e.currentTarget.style.transform = 'scale(1.06) translateY(-1px)';
                 e.currentTarget.style.background = 'rgba(94, 92, 230, 0.42)';
                 e.currentTarget.style.boxShadow = '0 6px 20px rgba(94, 92, 230, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35)';
               }}
               onMouseLeave={(e) => {
+                if (!isDndVisible) return;
                 e.currentTarget.style.transform = 'scale(1.0) translateY(0)';
                 e.currentTarget.style.background = 'rgba(94, 92, 230, 0.24)';
                 e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)';

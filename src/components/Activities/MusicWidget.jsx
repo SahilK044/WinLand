@@ -816,7 +816,7 @@ export default function MusicWidget({
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <AlbumArt coverUrl={coverUrl} title={title} size={52} r={12} />
 
-        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndActive ? 122 : 0 }}>
+        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndActive ? 122 : 0, transition: 'padding-right 0.28s cubic-bezier(0.32, 1.25, 0.36, 1)' }}>
           <MarqueeText style={{ fontSize: 14, fontWeight: 700, color: 'inherit', lineHeight: '18px', letterSpacing: '-0.2px' }}>
             {title}
           </MarqueeText>
