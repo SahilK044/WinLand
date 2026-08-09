@@ -9,8 +9,8 @@
 ### 📞 Phone Link & WhatsApp Call Integration
 - **Real-Time Call Detection**: Instantaneous detection of incoming and active phone calls from Windows Phone Link (`PhoneExperienceHost`) and WhatsApp.
 - **Incoming Call Banner Notification**: Expands into an interactive call card with caller avatar, contact name, duration timer, and green Accept (📞) / red Decline (🚫) controls.
-- **Direct Window UIA Contact Extraction**: Uses C# UI Automation to extract exact contact names (`Mom Airtel`) and caller numbers (`555`) directly from UWP XAML elements.
-- **Full UTF-8 Unicode & Emoji Support**: Renders caller names with full-color native Unicode emojis (`Suar 🐷🐽`) and emoji-aware initials formatting (`S`).
+- **Direct Window UIA Contact Extraction**: Uses C# UI Automation to extract exact contact names and caller numbers directly from UWP XAML elements.
+- **Full UTF-8 Unicode & Emoji Support**: Renders caller names with full-color native Unicode emojis and emoji-aware initials formatting (`S`).
 - **Clean Post-Call Dismissal**: Filters out hidden system background handles (`DDE Server Window`) so the island immediately closes the call card and resumes idle/music view when calls end.
 
 ### 🌙 System-Wide Windows 11 Do Not Disturb (DND) Integration
