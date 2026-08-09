@@ -202,18 +202,7 @@ export default function DynamicIsland({
   });
   const isLight = themeMode === 'light';
 
-  // Apple 120Hz Elastic Squish & Stretch morph tracking
-  const [isMorphing, setIsMorphing] = useState(false);
-  const prevActiveStateRef = useRef(activeState);
 
-  useEffect(() => {
-    if (prevActiveStateRef.current !== activeState) {
-      prevActiveStateRef.current = activeState;
-      setIsMorphing(true);
-      const timer = setTimeout(() => setIsMorphing(false), 550);
-      return () => clearTimeout(timer);
-    }
-  }, [activeState]);
 
   const isMusicState = activeState === 'compact-music' || activeState === 'expanded-music' || activeState === 'expanded-lyrics';
 
@@ -967,7 +956,7 @@ export default function DynamicIsland({
       />
       <div
         ref={capsuleRef}
-        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isMorphing ? 'is-morphing' : ''}`}
+        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''}`}
         onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
         onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
         onMouseLeave={(e) => { handleMouseLeave(e); setIsCapsuleHovered(false); }}
