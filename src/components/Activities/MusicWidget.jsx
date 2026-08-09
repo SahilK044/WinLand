@@ -573,6 +573,7 @@ export default function MusicWidget({
   isExpanded,
   isSplit,
   isLyricsView,
+  isDndActive = false,
   onToggleLyrics,
   trackInfo = {},
   barHeights = [3, 3, 3, 3, 3],
@@ -815,7 +816,7 @@ export default function MusicWidget({
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <AlbumArt coverUrl={coverUrl} title={title} size={52} r={12} />
 
-        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndActive ? 122 : 0 }}>
           <MarqueeText style={{ fontSize: 14, fontWeight: 700, color: 'inherit', lineHeight: '18px', letterSpacing: '-0.2px' }}>
             {title}
           </MarqueeText>

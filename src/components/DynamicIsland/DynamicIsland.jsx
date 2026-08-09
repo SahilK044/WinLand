@@ -1085,7 +1085,7 @@ export default function DynamicIsland({
             <LiveActivitiesWidget onExpand={() => setActiveState('expanded-live-activity')} />
           )}
 
-          {/* Official 1:1 macOS Focus / Do Not Disturb Badge */}
+          {/* Official 1:1 macOS Dark Translucent Glass Focus / Do Not Disturb Badge */}
           {isDndActive && activeState !== 'compact-music' && activeState !== 'split' && (
             <button
               title="Focus Mode / Do Not Disturb Active (Click to toggle)"
@@ -1097,40 +1097,42 @@ export default function DynamicIsland({
                 position: 'absolute',
                 top: activeState.startsWith('expanded-') ? 14 : 9,
                 right: activeState.startsWith('expanded-') ? 16 : 14,
-                background: 'linear-gradient(135deg, #5e5ce6 0%, #4b48d6 100%)',
-                border: '1px solid rgba(255, 255, 255, 0.25)',
+                background: 'rgba(94, 92, 230, 0.24)',
+                border: '1px solid rgba(135, 133, 255, 0.38)',
                 borderRadius: 14,
-                padding: activeState.startsWith('expanded-') ? '3.5px 9px' : '3px 7px',
+                padding: activeState.startsWith('expanded-') ? '3.5px 9px' : '3.5px 7px',
                 cursor: 'pointer',
                 zIndex: 30,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 5,
-                boxShadow: '0 3px 12px rgba(94, 92, 230, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35)',
-                transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, opacity 0.2s ease',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)',
+                transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, box-shadow 0.2s ease',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.08) translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 6px 18px rgba(94, 92, 230, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.45)';
+                e.currentTarget.style.transform = 'scale(1.06) translateY(-1px)';
+                e.currentTarget.style.background = 'rgba(94, 92, 230, 0.42)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(94, 92, 230, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.transform = 'scale(1.0) translateY(0)';
-                e.currentTarget.style.boxShadow = '0 3px 12px rgba(94, 92, 230, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35)';
+                e.currentTarget.style.background = 'rgba(94, 92, 230, 0.24)';
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)';
               }}
             >
-              <Moon size={11.5} color="#ffffff" fill="#ffffff" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
+              <Moon size={11} color="#a5a3ff" fill="#a5a3ff" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }} />
               {activeState.startsWith('expanded-') && (
                 <span
                   style={{
                     fontSize: 10.5,
                     fontWeight: 650,
-                    color: '#ffffff',
+                    color: '#e4e3ff',
                     letterSpacing: '-0.2px',
                     fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+                    textShadow: '0 1px 2px rgba(0,0,0,0.4)',
                     whiteSpace: 'nowrap',
                   }}
                 >
