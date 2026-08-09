@@ -53,10 +53,25 @@ body, html, #root {
 
 button {
   outline: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
+}
+
+button svg {
+  shape-rendering: geometricPrecision;
+  text-rendering: geometricPrecision;
 }
 
 button:active {
-  transform: scale(0.88) !important;
+  transform: scale(0.92) !important;
   transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
 

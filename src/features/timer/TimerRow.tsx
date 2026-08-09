@@ -26,6 +26,71 @@ interface TimerRowProps {
   onUpdateLabel: (id: string, label: string) => void;
 }
 
+interface GlowButtonProps {
+  onClick: (e: React.MouseEvent) => void;
+  title: string;
+  className?: string;
+  style?: React.CSSProperties;
+  hoverStyle?: React.CSSProperties;
+  children: React.ReactNode;
+}
+
+const GlowButton: React.FC<GlowButtonProps> = ({
+  onClick,
+  title,
+  className = '',
+  style = {},
+  hoverStyle = {},
+  children,
+}) => {
+  const [isHovered, setIsHovered] = React.useState(false);
+  const [isPressed, setIsPressed] = React.useState(false);
+
+  const baseStyle: React.CSSProperties = {
+    width: 44,
+    height: 44,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flexShrink: 0,
+    border: 'none',
+    outline: 'none',
+    padding: 0,
+    margin: 0,
+    WebkitAppearance: 'none',
+    WebkitFontSmoothing: 'antialiased',
+    backfaceVisibility: 'hidden',
+    transform: isPressed
+      ? 'translateZ(0) scale(0.92)'
+      : isHovered
+      ? 'translateZ(0) scale(1.08)'
+      : 'translateZ(0) scale(1.0)',
+    transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.18s ease, box-shadow 0.18s ease, color 0.18s ease',
+    ...style,
+    ...(isHovered ? hoverStyle : {}),
+  };
+
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className={`interactive-child ${className}`}
+      style={baseStyle}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setIsPressed(false);
+      }}
+      onMouseDown={() => setIsPressed(true)}
+      onMouseUp={() => setIsPressed(false)}
+    >
+      {children}
+    </button>
+  );
+};
+
 export const TimerRow: React.FC<TimerRowProps> = ({
   timer,
   isFirst,
@@ -37,10 +102,26 @@ export const TimerRow: React.FC<TimerRowProps> = ({
 }) => {
   const isRunning = timer.status === 'running';
   const [localLabel, setLocalLabel] = React.useState(timer.label ?? '');
+  const [isMounted, setIsMounted] = React.useState(false);
+  const [isExiting, setIsExiting] = React.useState(false);
 
   React.useEffect(() => {
     setLocalLabel(timer.label ?? '');
   }, [timer.label]);
+
+  React.useEffect(() => {
+    const raf = requestAnimationFrame(() => setIsMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const handleRemove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isExiting) return;
+    setIsExiting(true);
+    setTimeout(() => {
+      onRemove(timer.id);
+    }, 280);
+  };
 
   const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -61,25 +142,7 @@ export const TimerRow: React.FC<TimerRowProps> = ({
     }
   };
 
-  const baseBtnStyle: React.CSSProperties = {
-    width: 44,
-    height: 44,
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    cursor: 'pointer',
-    flexShrink: 0,
-    border: 'none',
-    outline: 'none',
-    padding: 0,
-    margin: 0,
-    WebkitAppearance: 'none',
-    WebkitFontSmoothing: 'antialiased',
-    backfaceVisibility: 'hidden',
-    transform: 'translateZ(0)',
-    transition: 'transform 0.15s cubic-bezier(0.2, 0.9, 0.2, 1), background 0.15s ease, box-shadow 0.15s ease',
-  };
+  const isVisible = isMounted && !isExiting;
 
   return (
     <div
@@ -88,111 +151,107 @@ export const TimerRow: React.FC<TimerRowProps> = ({
         alignItems: 'center',
         justifyContent: 'space-between',
         width: '100%',
-        height: 56,
-        padding: '0 8px',
+        height: isVisible ? 56 : 0,
+        opacity: isVisible ? 1 : 0,
+        transform: isVisible ? 'translateY(0) scale(1)' : 'translateY(-14px) scale(0.92)',
+        overflow: 'hidden',
+        padding: isVisible ? '0 8px' : '0 8px',
         boxSizing: 'border-box',
         fontFamily: SF_FONT,
+        transition: 'height 0.32s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
+        willChange: 'height, opacity, transform',
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Left cluster: 44px circular control buttons */}
+      {/* Left cluster: 44px circular control buttons with smooth hover glow */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {/* Play/Pause button — solid orange (#FF9F0A) circle */}
-        <button
+        <GlowButton
           onClick={(e) => {
             e.stopPropagation();
             onToggle(timer.id);
           }}
           title={isRunning ? 'Pause' : 'Start'}
-          className="interactive-child"
           style={{
-            ...baseBtnStyle,
             background: isRunning ? 'rgba(255, 159, 10, 0.22)' : TIMER_COLORS.accent,
             color: isRunning ? TIMER_COLORS.accent : '#000000',
             boxShadow: isRunning
-              ? 'inset 0 0 0 1.5px #FF9F0A, 0 0 12px rgba(255, 159, 10, 0.2)'
+              ? 'inset 0 0 0 1.5px #FF9F0A, 0 0 10px rgba(255, 159, 10, 0.2)'
               : '0 0 14px rgba(255, 159, 10, 0.45)',
           }}
-          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(0.94)')}
-          onMouseUp={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(1.0)')}
+          hoverStyle={{
+            background: isRunning ? 'rgba(255, 159, 10, 0.32)' : '#FFAA2C',
+            boxShadow: isRunning
+              ? 'inset 0 0 0 1.5px #FF9F0A, 0 0 20px rgba(255, 159, 10, 0.65)'
+              : '0 0 24px rgba(255, 159, 10, 0.8), 0 0 40px rgba(255, 159, 10, 0.4)',
+          }}
         >
           {isRunning ? (
-            <Pause size={18} fill="currentColor" />
+            <Pause size={18} fill="currentColor" style={{ shapeRendering: 'geometricPrecision' }} />
           ) : (
-            <Play size={18} fill="currentColor" style={{ marginLeft: 2 }} />
+            <Play size={18} fill="currentColor" style={{ marginLeft: 2, shapeRendering: 'geometricPrecision' }} />
           )}
-        </button>
+        </GlowButton>
 
-        {/* Close (X) button — dark gray circle (#3A3A3C) */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(timer.id);
-          }}
+        {/* Close (X) button — dark gray circle (#3A3A3C) with red aura glow on hover */}
+        <GlowButton
+          onClick={handleRemove}
           title="Close Timer"
-          className="interactive-child"
           style={{
-            ...baseBtnStyle,
             background: TIMER_COLORS.buttonSecondary,
             color: TIMER_COLORS.white,
             boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)',
           }}
-          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(0.94)')}
-          onMouseUp={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(1.0)')}
+          hoverStyle={{
+            background: 'rgba(255, 59, 48, 0.26)',
+            color: '#FF453A',
+            boxShadow: 'inset 0 0 0 1.5px #FF453A, 0 0 20px rgba(255, 59, 48, 0.6)',
+          }}
         >
-          <X size={18} />
-        </button>
+          <X size={18} style={{ shapeRendering: 'geometricPrecision' }} />
+        </GlowButton>
 
-        {/* Reset/Restart button — clock-arrow glyph (⟲) */}
-        <button
+        {/* Reset/Restart button — clock-arrow glyph (⟲) with white aura glow on hover */}
+        <GlowButton
           onClick={(e) => {
             e.stopPropagation();
             onReset(timer.id);
           }}
           title="Reset Timer"
-          className="interactive-child"
           style={{
-            ...baseBtnStyle,
             background: TIMER_COLORS.buttonSecondary,
             color: TIMER_COLORS.white,
             boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)',
           }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = '#ffffff';
-            e.currentTarget.style.color = '#000000';
-            e.currentTarget.style.boxShadow = '0 0 12px rgba(255, 255, 255, 0.4)';
+          hoverStyle={{
+            background: '#ffffff',
+            color: '#000000',
+            boxShadow: '0 0 22px rgba(255, 255, 255, 0.75), 0 0 36px rgba(255, 255, 255, 0.35)',
           }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = TIMER_COLORS.buttonSecondary;
-            e.currentTarget.style.color = TIMER_COLORS.white;
-            e.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)';
-          }}
-          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(0.94)')}
-          onMouseUp={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(1.0)')}
         >
-          <RotateCcw size={17} />
-        </button>
+          <RotateCcw size={17} style={{ shapeRendering: 'geometricPrecision' }} />
+        </GlowButton>
 
         {/* Add Split Timer Button (+) on primary row */}
         {isFirst && onAddSplit && (
-          <button
+          <GlowButton
             onClick={(e) => {
               e.stopPropagation();
               onAddSplit();
             }}
             title="Add Split Timer"
-            className="interactive-child"
             style={{
-              ...baseBtnStyle,
               background: 'rgba(255, 159, 10, 0.16)',
               color: TIMER_COLORS.accent,
               boxShadow: 'inset 0 0 0 1.5px rgba(255, 159, 10, 0.45)',
             }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(0.94)')}
-            onMouseUp={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(1.0)')}
+            hoverStyle={{
+              background: 'rgba(255, 159, 10, 0.32)',
+              boxShadow: 'inset 0 0 0 1.5px #FF9F0A, 0 0 22px rgba(255, 159, 10, 0.65)',
+            }}
           >
-            <Plus size={18} />
-          </button>
+            <Plus size={18} style={{ shapeRendering: 'geometricPrecision' }} />
+          </GlowButton>
         )}
       </div>
 
