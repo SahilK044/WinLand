@@ -36,6 +36,50 @@ export const TimerRow: React.FC<TimerRowProps> = ({
   onUpdateLabel,
 }) => {
   const isRunning = timer.status === 'running';
+  const [localLabel, setLocalLabel] = React.useState(timer.label ?? '');
+
+  React.useEffect(() => {
+    setLocalLabel(timer.label ?? '');
+  }, [timer.label]);
+
+  const handleLabelChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setLocalLabel(val);
+    onUpdateLabel(timer.id, val);
+  };
+
+  const handleLabelBlur = () => {
+    if (!localLabel.trim()) {
+      setLocalLabel('Timer');
+      onUpdateLabel(timer.id, 'Timer');
+    }
+  };
+
+  const handleLabelKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.currentTarget.blur();
+    }
+  };
+
+  const baseBtnStyle: React.CSSProperties = {
+    width: 44,
+    height: 44,
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    flexShrink: 0,
+    border: 'none',
+    outline: 'none',
+    padding: 0,
+    margin: 0,
+    WebkitAppearance: 'none',
+    WebkitFontSmoothing: 'antialiased',
+    backfaceVisibility: 'hidden',
+    transform: 'translateZ(0)',
+    transition: 'transform 0.15s cubic-bezier(0.2, 0.9, 0.2, 1), background 0.15s ease, box-shadow 0.15s ease',
+  };
 
   return (
     <div
@@ -62,21 +106,15 @@ export const TimerRow: React.FC<TimerRowProps> = ({
           title={isRunning ? 'Pause' : 'Start'}
           className="interactive-child"
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
-            background: isRunning ? 'rgba(255, 159, 10, 0.28)' : TIMER_COLORS.accent,
-            border: `1.5px solid ${TIMER_COLORS.accent}`,
+            ...baseBtnStyle,
+            background: isRunning ? 'rgba(255, 159, 10, 0.22)' : TIMER_COLORS.accent,
             color: isRunning ? TIMER_COLORS.accent : '#000000',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'transform 0.15s ease, background 0.15s ease',
-            flexShrink: 0,
+            boxShadow: isRunning
+              ? 'inset 0 0 0 1.5px #FF9F0A, 0 0 12px rgba(255, 159, 10, 0.2)'
+              : '0 0 14px rgba(255, 159, 10, 0.45)',
           }}
-          onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.94)')}
-          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.0)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(0.94)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(1.0)')}
         >
           {isRunning ? (
             <Pause size={18} fill="currentColor" />
@@ -94,21 +132,13 @@ export const TimerRow: React.FC<TimerRowProps> = ({
           title="Close Timer"
           className="interactive-child"
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
+            ...baseBtnStyle,
             background: TIMER_COLORS.buttonSecondary,
-            border: '1px solid rgba(255, 255, 255, 0.12)',
             color: TIMER_COLORS.white,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'transform 0.15s ease, background 0.15s ease',
-            flexShrink: 0,
+            boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)',
           }}
-          onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.94)')}
-          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.0)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(0.94)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(1.0)')}
         >
           <X size={18} />
         </button>
@@ -122,29 +152,23 @@ export const TimerRow: React.FC<TimerRowProps> = ({
           title="Reset Timer"
           className="interactive-child"
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: '50%',
+            ...baseBtnStyle,
             background: TIMER_COLORS.buttonSecondary,
-            border: `1.5px solid ${TIMER_COLORS.buttonSecondary}`,
             color: TIMER_COLORS.white,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            transition: 'transform 0.15s ease, background 0.15s ease',
-            flexShrink: 0,
+            boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.background = '#ffffff';
             e.currentTarget.style.color = '#000000';
+            e.currentTarget.style.boxShadow = '0 0 12px rgba(255, 255, 255, 0.4)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.background = TIMER_COLORS.buttonSecondary;
             e.currentTarget.style.color = TIMER_COLORS.white;
+            e.currentTarget.style.boxShadow = 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)';
           }}
-          onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.94)')}
-          onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.0)')}
+          onMouseDown={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(0.94)')}
+          onMouseUp={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(1.0)')}
         >
           <RotateCcw size={17} />
         </button>
@@ -159,21 +183,13 @@ export const TimerRow: React.FC<TimerRowProps> = ({
             title="Add Split Timer"
             className="interactive-child"
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: '50%',
+              ...baseBtnStyle,
               background: 'rgba(255, 159, 10, 0.16)',
-              border: `1.5px solid rgba(255, 159, 10, 0.45)`,
               color: TIMER_COLORS.accent,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'transform 0.15s ease, background 0.15s ease',
-              flexShrink: 0,
+              boxShadow: 'inset 0 0 0 1.5px rgba(255, 159, 10, 0.45)',
             }}
-            onMouseDown={(e) => (e.currentTarget.style.transform = 'scale(0.94)')}
-            onMouseUp={(e) => (e.currentTarget.style.transform = 'scale(1.0)')}
+            onMouseDown={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(0.94)')}
+            onMouseUp={(e) => (e.currentTarget.style.transform = 'translateZ(0) scale(1.0)')}
           >
             <Plus size={18} />
           </button>
@@ -184,8 +200,10 @@ export const TimerRow: React.FC<TimerRowProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <input
           type="text"
-          value={timer.label || 'Timer'}
-          onChange={(e) => onUpdateLabel(timer.id, e.target.value)}
+          value={localLabel}
+          onChange={handleLabelChange}
+          onBlur={handleLabelBlur}
+          onKeyDown={handleLabelKeyDown}
           onClick={(e) => e.stopPropagation()}
           placeholder="Timer"
           style={{
