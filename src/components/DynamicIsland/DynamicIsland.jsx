@@ -202,6 +202,24 @@ export default function DynamicIsland({
   });
   const isLight = themeMode === 'light';
 
+  // Apple 120Hz Elastic Squish & Stretch morph tracking
+  const [isMorphing, setIsMorphing] = useState(false);
+  const prevActiveStateRef = useRef(activeState);
+
+  useEffect(() => {
+    if (prevActiveStateRef.current !== activeState) {
+      prevActiveStateRef.current = activeState;
+      setIsMorphing(true);
+      const timer = setTimeout(() => setIsMorphing(false), 550);
+      return () => clearTimeout(timer);
+    }
+  }, [activeState]);
+
+  // Compute real-time beat pulse from equalizer heights when music is playing
+  const beatPulse = isMusicState && trackInfo?.isPlaying
+    ? (barHeights.reduce((sum, h) => sum + h, 0) / 75)
+    : 0;
+
   useEffect(() => {
     const unsubManager = themeManager.subscribe((mode) => {
       setThemeMode(mode || 'dark');
@@ -949,7 +967,7 @@ export default function DynamicIsland({
       />
       <div
         ref={capsuleRef}
-        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''}`}
+        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isMorphing ? 'is-morphing' : ''}`}
         onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
         onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
         onMouseLeave={(e) => { handleMouseLeave(e); setIsCapsuleHovered(false); }}
@@ -966,12 +984,14 @@ export default function DynamicIsland({
           isPressed={isCapsulePressed}
           accentColor={eqColor}
         />
-        {/* Smooth organic moving liquid aura background — ZERO black borders */}
+        {/* Smooth organic moving liquid aura background — Beat-Synced Equalizer Glow Pulse */}
         <div
           className="liquid-aura-container"
           style={{
-            opacity: showGradient ? 1 : 0,
-            transition: 'opacity 0.8s ease',
+            opacity: showGradient ? (trackInfo?.isPlaying ? 0.65 + beatPulse * 0.35 : 0.75) : 0,
+            transform: `scale(${1 + beatPulse * 0.12})`,
+            filter: `blur(${24 + beatPulse * 8}px)`,
+            transition: 'opacity 0.12s ease, transform 0.15s ease, filter 0.2s ease',
           }}
         >
           <div className="liquid-blob-1" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.35) 55%, transparent 100%)` }} />
