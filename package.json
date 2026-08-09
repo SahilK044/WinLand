@@ -13,7 +13,9 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "app": "electron .",
-    "dist": "vite build && electron-builder --win dir"
+    "dist": "vite build && electron-builder --win dir",
+    "dist:setup": "vite build && electron-builder --win nsis",
+    "dist:all": "vite build && electron-builder --win nsis portable dir"
   },
   "build": {
     "appId": "com.winland.dynamicisland",
@@ -41,8 +43,30 @@
       }
     ],
     "win": {
-      "target": "dir",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        },
+        {
+          "target": "dir",
+          "arch": ["x64"]
+        }
+      ],
       "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WinLand",
+      "uninstallDisplayName": "WinLand",
+      "artifactName": "${productName} Setup ${version}.${ext}"
     }
   },
   "dependencies": {

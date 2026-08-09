@@ -65,8 +65,14 @@ npm run app
 # Build Vite frontend bundle
 npm run build
 
-# Package standalone Windows executable (dist_app/win-unpacked/WinLand.exe)
+# Package unpacked standalone executable (release/win-unpacked/WinLand.exe)
 npm run dist
+
+# Build Windows NSIS Setup Installer Wizard (release/WinLand Setup 1.0.0.exe)
+npm run dist:setup
+
+# Build all distribution formats (Installer, Portable, Unpacked)
+npm run dist:all
 ```
 
 ---
