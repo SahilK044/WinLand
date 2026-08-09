@@ -229,18 +229,6 @@ button:active {
   will-change: top, left;
 }
 
-/* Shared Dynamic Island glass surface. */
-.island-capsule {
-  background: rgba(15, 15, 15, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(16px) saturate(145%);
-  -webkit-backdrop-filter: blur(16px) saturate(145%);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-}
-.island-capsule:focus-visible {
-  outline: 2px solid rgba(255, 255, 255, 0.65) !important;
-  outline-offset: 3px;
-}
 
 @keyframes islandMorphPop {
   0%   { opacity: 0; transform: scale(0.82); }
@@ -957,17 +945,18 @@ button:active {
 
 
 
+
+
 /* Island geometry contract: flush top, fixed bottom radius, opaque cutout. */
 .island-capsule, .island-capsule.primary-split, .island-capsule-secondary {
-  /* Keep the component's state-specific radii. The previous flush-top rule
-     overwrote them with an undefined variable and made the top corners square. */
   background: #000 !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
+  border: none !important;
+  outline: none !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 .island-capsule.theme-light { background: #fff !important; }
 .island-capsule.theme-light::before { background: #fff !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-
-
-
