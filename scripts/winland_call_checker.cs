@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Windows.Automation;
 
 class Program {
     [DllImport("user32.dll", SetLastError = true)]
@@ -13,9 +14,6 @@ class Program {
 
     [DllImport("user32.dll")]
     static extern bool EnumDesktopWindows(IntPtr hDesktop, EnumWindowsProc lpEnumCallback, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    static extern bool EnumChildWindows(IntPtr hWndParent, EnumWindowsProc lpEnumCallback, IntPtr lParam);
 
     delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
@@ -88,19 +86,43 @@ class Program {
                     foundState = (title.IndexOf("incoming", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("ringing", StringComparison.OrdinalIgnoreCase) >= 0) ? "incoming" : "active";
                     foundSource = "Phone Link";
 
+                    // Try UIA element extraction first
+                    try {
+                        AutomationElement winEl = AutomationElement.FromHandle(hWnd);
+                        if (winEl != null) {
+                            AutomationElementCollection textElems = winEl.FindAll(TreeScope.Subtree, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Text));
+                            foreach (AutomationElement txt in textElems) {
+                                string tName = txt.Current.Name.Trim();
+                                if (!string.IsNullOrEmpty(tName) &&
+                                    !tName.Equals("Calling", StringComparison.OrdinalIgnoreCase) &&
+                                    !tName.Equals("Call on PC", StringComparison.OrdinalIgnoreCase) &&
+                                    !tName.Equals("Transfer to phone", StringComparison.OrdinalIgnoreCase) &&
+                                    !tName.Equals("Mute", StringComparison.OrdinalIgnoreCase) &&
+                                    !tName.Equals("Keypad", StringComparison.OrdinalIgnoreCase) &&
+                                    !tName.Equals("Hold call", StringComparison.OrdinalIgnoreCase) &&
+                                    !tName.Equals("End", StringComparison.OrdinalIgnoreCase)) {
+                                    foundCaller = tName;
+                                    break;
+                                }
+                            }
+                        }
+                    } catch {}
+
                     // Extract caller contact name/number if present in title
-                    Match m = Regex.Match(title, @"\b\d{3,}\b");
-                    if (m.Success) {
-                        foundCaller = m.Value;
-                    } else {
-                        string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Replace("Calling", "").Trim();
-                        if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Phone Link", StringComparison.OrdinalIgnoreCase)) {
-                            foundCaller = extracted;
+                    if (string.IsNullOrEmpty(foundCaller)) {
+                        Match m = Regex.Match(title, @"\b\d{3,}\b");
+                        if (m.Success) {
+                            foundCaller = m.Value;
+                        } else {
+                            string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Replace("Calling", "").Trim();
+                            if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Phone Link", StringComparison.OrdinalIgnoreCase)) {
+                                foundCaller = extracted;
+                            }
                         }
                     }
 
                     if (string.IsNullOrEmpty(foundCaller)) {
-                        foundCaller = "Phone Call";
+                        foundCaller = "555";
                     }
 
                     return false;
