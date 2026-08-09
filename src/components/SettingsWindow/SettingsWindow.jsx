@@ -116,6 +116,10 @@ export default function SettingsWindow() {
 
   const [autoHide, setAutoHide]             = useState(() => localStorage.getItem('winland_autohide_enabled') === 'true');
   const [autoHideIdle, setAutoHideIdle]     = useState(() => localStorage.getItem('winland_autohide_idle') !== 'false');
+  const [autoHideDuration, setAutoHideDuration] = useState(() => {
+    const saved = localStorage.getItem('winland_autohide_duration');
+    return saved ? parseInt(saved, 10) : 10;
+  });
   const [displays, setDisplays]             = useState([]);
   const [selectedDisplay, setSelectedDisplay] = useState(() => localStorage.getItem('winland_target_display') || '');
   const [hoveredCardId, setHoveredCardId]   = useState(null);
@@ -144,6 +148,21 @@ export default function SettingsWindow() {
 
   const currentColorHex = DEVICE_COLOR_VARIANTS[selectedColor]?.hex || '#3a3a3c';
 
+  const readDevicePrefs = () => ({
+    phoneId:        selectedPhone,
+    headphonesId:   selectedHeadphones,
+    earbudsId:      selectedEarbuds,
+    controllerId:   selectedController === 'xbox_controller' ? xboxVariant : selectedController,
+    speakerId:      selectedSpeaker,
+    colorVariant:   selectedColor,
+    animStyle:      animStyle,
+    animStyles:     animStyles,
+    autoHideIdle:   autoHideIdle,
+    autoHideDuration: autoHideDuration,
+    autoHide:       autoHide,
+    targetDisplay:  selectedDisplay,
+  });
+
   useEffect(() => {
     localStorage.setItem('winland_phone_id',        selectedPhone);
     localStorage.setItem('winland_headphones_id',   selectedHeadphones);
@@ -154,6 +173,7 @@ export default function SettingsWindow() {
     localStorage.setItem('winland_anim_style',      animStyle);
     localStorage.setItem('winland_autohide_enabled', autoHide ? 'true' : 'false');
     localStorage.setItem('winland_autohide_idle',    autoHideIdle ? 'true' : 'false');
+    localStorage.setItem('winland_autohide_duration', autoHideDuration.toString());
     localStorage.setItem('winland_xbox_variant',    xboxVariant);
     if (selectedDisplay) localStorage.setItem('winland_target_display', selectedDisplay);
     for (const cat of Object.keys(STYLE_KEYS)) {
@@ -161,16 +181,16 @@ export default function SettingsWindow() {
     }
 
     if (window.electronAPI?.writeSettings) {
-      window.electronAPI.writeSettings({ autoHideIdle, hideInFullscreen: autoHide });
+      window.electronAPI.writeSettings({ autoHideIdle, autoHideDuration, hideInFullscreen: autoHide });
     }
 
     window.dispatchEvent(new CustomEvent('winland-settings-changed', {
-      detail: { selectedPhone, selectedHeadphones, selectedEarbuds, selectedController, selectedSpeaker, xboxVariant, selectedColor, animStyle, autoHide },
+      detail: { selectedPhone, selectedHeadphones, selectedEarbuds, selectedController, selectedSpeaker, xboxVariant, selectedColor, animStyle, autoHide, autoHideDuration },
     }));
 
     window.electronAPI?.sendDevicePrefs?.(readDevicePrefs());
   }, [selectedPhone, selectedHeadphones, selectedEarbuds, selectedController,
-      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, selectedDisplay]);
+      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay]);
 
   const handleClose = () => window.electronAPI?.closeSettingsWindow?.();
 
@@ -594,7 +614,7 @@ export default function SettingsWindow() {
                 {/* Smart Docking / Idle Auto-Hide */}
                 <div className="wl-row">
                   <div>
-                    <div className="wl-row-title">Smart Docking (10s Idle Auto-Hide)</div>
+                    <div className="wl-row-title">Smart Docking (Idle Auto-Hide)</div>
                     <div className="wl-row-sub">
                       Slides the island into the top bezel when idle, waking up when hovered.
                     </div>
@@ -610,6 +630,35 @@ export default function SettingsWindow() {
                     <span className="wl-switch-knob" />
                   </button>
                 </div>
+
+                {/* Auto-Hide Idle Timer Duration Select */}
+                {autoHideIdle && (
+                  <div className="wl-row" style={{ paddingTop: 12, borderTop: '1px solid var(--stroke)' }}>
+                    <div>
+                      <div className="wl-row-title">Auto-Hide Timer Duration</div>
+                      <div className="wl-row-sub">
+                        Time before idle island docks into top bezel ({autoHideDuration}s).
+                      </div>
+                    </div>
+                    <select
+                      value={autoHideDuration}
+                      onChange={(e) => setAutoHideDuration(Number(e.target.value))}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8,
+                        background: 'var(--surface)', border: '1px solid var(--stroke)',
+                        color: 'var(--label)', fontSize: 13, outline: 'none', cursor: 'pointer',
+                        fontWeight: 600, minWidth: 140,
+                      }}
+                    >
+                      <option value={3} style={{ background: '#222', color: '#fff' }}>3 Seconds (Fast)</option>
+                      <option value={5} style={{ background: '#222', color: '#fff' }}>5 Seconds</option>
+                      <option value={10} style={{ background: '#222', color: '#fff' }}>10 Seconds (Default)</option>
+                      <option value={15} style={{ background: '#222', color: '#fff' }}>15 Seconds</option>
+                      <option value={30} style={{ background: '#222', color: '#fff' }}>30 Seconds</option>
+                      <option value={60} style={{ background: '#222', color: '#fff' }}>1 Minute</option>
+                    </select>
+                  </div>
+                )}
 
                 {/* Hide during Fullscreen */}
                 <div className="wl-row">

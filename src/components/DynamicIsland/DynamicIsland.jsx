@@ -183,6 +183,28 @@ export default function DynamicIsland({
   const [screenshotData, setScreenshotData] = useState(null);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem('winland_theme_mode') || themeManager.getMode() || 'dark');
   const [weatherConfig, setWeatherConfig] = useState({ weatherUnit: 'C' });
+  const [devicePrefs, setDevicePrefs] = useState(() => {
+    try {
+      const savedDuration = localStorage.getItem('winland_autohide_duration');
+      const savedIdle = localStorage.getItem('winland_autohide_idle');
+      return {
+        autoHideIdle: savedIdle !== 'false',
+        autoHideDuration: savedDuration ? parseInt(savedDuration, 10) : 10,
+      };
+    } catch {
+      return { autoHideIdle: true, autoHideDuration: 10 };
+    }
+  });
+
+  useEffect(() => {
+    if (!window.electronAPI?.onDevicePrefsUpdate) return;
+    const unsub = window.electronAPI.onDevicePrefsUpdate((prefs) => {
+      if (prefs) {
+        setDevicePrefs((prev) => ({ ...prev, ...prefs }));
+      }
+    });
+    return () => unsub();
+  }, []);
   const [callData, setCallData] = useState(null);
   const capsuleRef = useRef(null);
   const secondaryCapsuleRef = useRef(null);
@@ -283,16 +305,20 @@ export default function DynamicIsland({
     }
   }, [isDndActive]);
 
-  // Smart Docking / Idle Auto-Hide Timer (3s smooth slide out when idle/unused)
+  // Smart Docking / Idle Auto-Hide Timer
   const resetIdleTimer = useCallback(() => {
     setIsDocked(false);
     clearTimeout(idleTimerRef.current);
-    if (weatherConfig.autoHideIdle !== false && activeState === 'idle') {
+    const isEnabled = devicePrefs?.autoHideIdle !== false && weatherConfig?.autoHideIdle !== false;
+    const durationSec = devicePrefs?.autoHideDuration || weatherConfig?.autoHideDuration || 10;
+    const delayMs = Math.max(1000, durationSec * 1000);
+
+    if (isEnabled && activeState === 'idle') {
       idleTimerRef.current = setTimeout(() => {
         setIsDocked(true);
-      }, 3000);
+      }, delayMs);
     }
-  }, [activeState, weatherConfig.autoHideIdle]);
+  }, [activeState, devicePrefs?.autoHideIdle, devicePrefs?.autoHideDuration, weatherConfig?.autoHideIdle, weatherConfig?.autoHideDuration]);
 
   useEffect(() => {
     resetIdleTimer();
