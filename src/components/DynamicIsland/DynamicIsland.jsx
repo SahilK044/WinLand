@@ -1147,7 +1147,7 @@ export default function DynamicIsland({
               style={{
                 position: 'absolute',
                 top: activeState.startsWith('expanded-') ? 14 : 9,
-                right: activeState.startsWith('expanded-') ? 16 : 14,
+                right: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') ? 46 : (activeState.startsWith('expanded-') ? 16 : 14),
                 background: 'rgba(94, 92, 230, 0.24)',
                 border: '1px solid rgba(135, 133, 255, 0.38)',
                 borderRadius: 14,
