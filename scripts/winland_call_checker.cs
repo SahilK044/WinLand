@@ -59,22 +59,42 @@ class Program {
             string pname = "";
             try { pname = Process.GetProcessById((int)pid).ProcessName; } catch {}
 
-            if (!string.IsNullOrEmpty(title)) {
-                string lower = title.ToLower();
-                // Phone Link Call detection
-                if (title.Contains("Call on PC") || title.Contains("Call from") || lower.Contains("calling") || lower.Contains("incoming call") || (title.Contains("Phone") && (lower.Contains("call") || lower.Contains("calling")))) {
-                    foundState = (lower.Contains("incoming") || lower.Contains("ringing")) ? "incoming" : "active";
+            // WhatsApp Call check
+            if (title.IndexOf("WhatsApp", StringComparison.OrdinalIgnoreCase) >= 0 && (title.IndexOf("Call", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Calling", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Ringing", StringComparison.OrdinalIgnoreCase) >= 0)) {
+                foundState = (title.IndexOf("ringing", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("incoming", StringComparison.OrdinalIgnoreCase) >= 0) ? "incoming" : "active";
+                foundCaller = title.Replace("WhatsApp Call", "").Replace("WhatsApp", "").Trim();
+                if (string.IsNullOrEmpty(foundCaller)) foundCaller = "WhatsApp Call";
+                foundSource = "WhatsApp";
+                return false;
+            }
 
-                    // Try to extract exact contact name/number from title or child windows
+            // Phone Link Call check
+            if (pname.Equals("PhoneExperienceHost", StringComparison.OrdinalIgnoreCase) ||
+                pname.Equals("YourPhoneAppProxy", StringComparison.OrdinalIgnoreCase) ||
+                pname.Equals("CrossDeviceExperienceHost", StringComparison.OrdinalIgnoreCase) ||
+                (className.Equals("ApplicationFrameWindow", StringComparison.OrdinalIgnoreCase) && (title.IndexOf("Call", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("Phone", StringComparison.OrdinalIgnoreCase) >= 0 || title.IndexOf("PC", StringComparison.OrdinalIgnoreCase) >= 0))) {
+
+                foundState = title.IndexOf("incoming", StringComparison.OrdinalIgnoreCase) >= 0 ? "incoming" : "active";
+                foundSource = "Phone Link";
+
+                // Check title or child text for contact number / name
+                Match m = Regex.Match(title, @"\b\d{3,}\b");
+                if (m.Success) {
+                    foundCaller = m.Value;
+                } else {
                     string extracted = title.Replace("Call on PC", "").Replace("Call from", "").Trim();
                     if (!string.IsNullOrEmpty(extracted) && !extracted.Equals("Calling", StringComparison.OrdinalIgnoreCase)) {
                         foundCaller = extracted;
                     } else {
-                        // Check child windows for contact name / number
                         EnumChildWindows(hWnd, (childHwnd, childParam) => {
                             StringBuilder csb = new StringBuilder(256);
                             GetWindowText(childHwnd, csb, 256);
                             string ctext = csb.ToString().Trim();
+                            Match cm = Regex.Match(ctext, @"\b\d{3,}\b");
+                            if (cm.Success) {
+                                foundCaller = cm.Value;
+                                return false;
+                            }
                             if (!string.IsNullOrEmpty(ctext) && !ctext.Equals("Calling", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Transfer to phone", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Mute", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("Keypad", StringComparison.OrdinalIgnoreCase) && !ctext.Equals("End", StringComparison.OrdinalIgnoreCase)) {
                                 foundCaller = ctext;
                                 return false;
@@ -82,34 +102,13 @@ class Program {
                             return true;
                         }, IntPtr.Zero);
                     }
-
-                    if (string.IsNullOrEmpty(foundCaller)) {
-                        foundCaller = "555"; // Default contact number if title is plain "Call on PC"
-                    }
-
-                    foundSource = "Phone Link";
-                    return false;
                 }
 
-                // WhatsApp call detection
-                if (title.Contains("WhatsApp") && (title.Contains("Call") || lower.Contains("calling") || lower.Contains("ringing"))) {
-                    foundState = (lower.Contains("ringing") || lower.Contains("incoming")) ? "incoming" : "active";
-                    foundCaller = title.Replace("WhatsApp Call", "").Replace("WhatsApp", "").Trim();
-                    if (string.IsNullOrEmpty(foundCaller)) foundCaller = "WhatsApp Call";
-                    foundSource = "WhatsApp";
-                    return false;
+                if (string.IsNullOrEmpty(foundCaller)) {
+                    foundCaller = "555";
                 }
-            }
 
-            // Also check ApplicationFrameWindow or Phone processes with active visible frames
-            if (IsWindowVisible(hWnd) && (pname.Equals("PhoneExperienceHost", StringComparison.OrdinalIgnoreCase) || pname.Equals("YourPhoneAppProxy", StringComparison.OrdinalIgnoreCase) || pname.Equals("CrossDeviceExperienceHost", StringComparison.OrdinalIgnoreCase))) {
-                if (!string.IsNullOrEmpty(title) && !title.Equals("Default IME") && !title.Equals("MSCTFIME UI")) {
-                    foundState = title.ToLower().Contains("incoming") ? "incoming" : "active";
-                    foundCaller = title.Replace("Call on PC", "").Trim();
-                    if (string.IsNullOrEmpty(foundCaller)) foundCaller = "555";
-                    foundSource = "Phone Link";
-                    return false;
-                }
+                return false;
             }
 
             return true;
