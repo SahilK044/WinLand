@@ -27,7 +27,15 @@ export default function VolumeOSDWidget({ volume = 50 }) {
 
       {/* Label */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', marginBottom: 6 }}>
+        <div style={{
+          fontSize: 12,
+          fontWeight: 650,
+          color: '#fff',
+          marginBottom: 6,
+          fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif',
+          letterSpacing: '-0.2px',
+          WebkitFontSmoothing: 'antialiased',
+        }}>
           {isMuted ? 'Muted' : `Volume ${volume}%`}
         </div>
 
@@ -49,12 +57,18 @@ export default function VolumeOSDWidget({ volume = 50 }) {
 
       {/* Percentage */}
       <div style={{
-        fontSize: 13, fontWeight: 700,
+        fontSize: 12.5,
+        fontWeight: 650,
         color: isMuted ? 'var(--danger)' : 'var(--text-2)',
-        minWidth: 32, textAlign: 'right', flexShrink: 0,
+        minWidth: 32,
+        textAlign: 'right',
+        flexShrink: 0,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Rounded", "SF Pro Display", system-ui, sans-serif',
+        letterSpacing: '-0.2px',
         fontVariantNumeric: 'tabular-nums',
+        WebkitFontSmoothing: 'antialiased',
       }}>
-        {volume}
+        {volume}%
       </div>
     </div>
   );
