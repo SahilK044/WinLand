@@ -28,8 +28,9 @@ interface TimerRowProps {
 
 interface GlowButtonProps {
   onClick: (e: React.MouseEvent) => void;
-  title: string;
+  title?: string;
   className?: string;
+  glowColor?: string;
   style?: React.CSSProperties;
   hoverStyle?: React.CSSProperties;
   children: React.ReactNode;
@@ -37,8 +38,8 @@ interface GlowButtonProps {
 
 const GlowButton: React.FC<GlowButtonProps> = ({
   onClick,
-  title,
   className = '',
+  glowColor,
   style = {},
   hoverStyle = {},
   children,
@@ -59,6 +60,7 @@ const GlowButton: React.FC<GlowButtonProps> = ({
     outline: 'none',
     padding: 0,
     margin: 0,
+    position: 'relative',
     WebkitAppearance: 'none',
     WebkitFontSmoothing: 'antialiased',
     backfaceVisibility: 'hidden',
@@ -75,7 +77,6 @@ const GlowButton: React.FC<GlowButtonProps> = ({
   return (
     <button
       onClick={onClick}
-      title={title}
       className={`interactive-child ${className}`}
       style={baseStyle}
       onMouseEnter={() => setIsHovered(true)}
@@ -86,7 +87,23 @@ const GlowButton: React.FC<GlowButtonProps> = ({
       onMouseDown={() => setIsPressed(true)}
       onMouseUp={() => setIsPressed(false)}
     >
-      {children}
+      {glowColor && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: -6,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${glowColor} 0%, transparent 70%)`,
+            opacity: isHovered ? 1 : 0,
+            transition: 'opacity 0.2s ease',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+      )}
+      <span style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {children}
+      </span>
     </button>
   );
 };
@@ -154,8 +171,8 @@ export const TimerRow: React.FC<TimerRowProps> = ({
         height: isVisible ? 56 : 0,
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? 'translateY(0) scale(1)' : 'translateY(-14px) scale(0.92)',
-        overflow: 'hidden',
-        padding: isVisible ? '0 8px' : '0 8px',
+        overflow: isVisible ? 'visible' : 'hidden',
+        padding: '0 8px',
         boxSizing: 'border-box',
         fontFamily: SF_FONT,
         transition: 'height 0.32s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.25s ease, transform 0.32s cubic-bezier(0.32, 0.72, 0, 1)',
@@ -163,7 +180,7 @@ export const TimerRow: React.FC<TimerRowProps> = ({
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Left cluster: 44px circular control buttons with smooth hover glow */}
+      {/* Left cluster: 44px circular control buttons with smooth radial glow */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         {/* Play/Pause button — solid orange (#FF9F0A) circle */}
         <GlowButton
@@ -171,19 +188,19 @@ export const TimerRow: React.FC<TimerRowProps> = ({
             e.stopPropagation();
             onToggle(timer.id);
           }}
-          title={isRunning ? 'Pause' : 'Start'}
+          glowColor="rgba(255, 159, 10, 0.7)"
           style={{
             background: isRunning ? 'rgba(255, 159, 10, 0.22)' : TIMER_COLORS.accent,
             color: isRunning ? TIMER_COLORS.accent : '#000000',
             boxShadow: isRunning
-              ? 'inset 0 0 0 1.5px #FF9F0A, 0 0 10px rgba(255, 159, 10, 0.2)'
-              : '0 0 14px rgba(255, 159, 10, 0.45)',
+              ? 'inset 0 0 0 1.5px #FF9F0A'
+              : '0 2px 10px rgba(255, 159, 10, 0.4)',
           }}
           hoverStyle={{
             background: isRunning ? 'rgba(255, 159, 10, 0.32)' : '#FFAA2C',
             boxShadow: isRunning
-              ? 'inset 0 0 0 1.5px #FF9F0A, 0 0 20px rgba(255, 159, 10, 0.65)'
-              : '0 0 24px rgba(255, 159, 10, 0.8), 0 0 40px rgba(255, 159, 10, 0.4)',
+              ? 'inset 0 0 0 1.5px #FF9F0A'
+              : '0 2px 14px rgba(255, 159, 10, 0.65)',
           }}
         >
           {isRunning ? (
@@ -193,31 +210,31 @@ export const TimerRow: React.FC<TimerRowProps> = ({
           )}
         </GlowButton>
 
-        {/* Close (X) button — dark gray circle (#3A3A3C) with red aura glow on hover */}
+        {/* Close (X) button — dark gray circle (#3A3A3C) */}
         <GlowButton
           onClick={handleRemove}
-          title="Close Timer"
+          glowColor="rgba(255, 59, 48, 0.6)"
           style={{
             background: TIMER_COLORS.buttonSecondary,
             color: TIMER_COLORS.white,
             boxShadow: 'inset 0 0 0 1px rgba(255, 255, 255, 0.16)',
           }}
           hoverStyle={{
-            background: 'rgba(255, 59, 48, 0.26)',
+            background: 'rgba(255, 59, 48, 0.28)',
             color: '#FF453A',
-            boxShadow: 'inset 0 0 0 1.5px #FF453A, 0 0 20px rgba(255, 59, 48, 0.6)',
+            boxShadow: 'inset 0 0 0 1.5px #FF453A',
           }}
         >
           <X size={18} style={{ shapeRendering: 'geometricPrecision' }} />
         </GlowButton>
 
-        {/* Reset/Restart button — clock-arrow glyph (⟲) with white aura glow on hover */}
+        {/* Reset/Restart button — clock-arrow glyph (⟲) */}
         <GlowButton
           onClick={(e) => {
             e.stopPropagation();
             onReset(timer.id);
           }}
-          title="Reset Timer"
+          glowColor="rgba(255, 255, 255, 0.6)"
           style={{
             background: TIMER_COLORS.buttonSecondary,
             color: TIMER_COLORS.white,
@@ -226,7 +243,7 @@ export const TimerRow: React.FC<TimerRowProps> = ({
           hoverStyle={{
             background: '#ffffff',
             color: '#000000',
-            boxShadow: '0 0 22px rgba(255, 255, 255, 0.75), 0 0 36px rgba(255, 255, 255, 0.35)',
+            boxShadow: '0 2px 12px rgba(255, 255, 255, 0.5)',
           }}
         >
           <RotateCcw size={17} style={{ shapeRendering: 'geometricPrecision' }} />
@@ -239,7 +256,7 @@ export const TimerRow: React.FC<TimerRowProps> = ({
               e.stopPropagation();
               onAddSplit();
             }}
-            title="Add Split Timer"
+            glowColor="rgba(255, 159, 10, 0.6)"
             style={{
               background: 'rgba(255, 159, 10, 0.16)',
               color: TIMER_COLORS.accent,
@@ -247,7 +264,7 @@ export const TimerRow: React.FC<TimerRowProps> = ({
             }}
             hoverStyle={{
               background: 'rgba(255, 159, 10, 0.32)',
-              boxShadow: 'inset 0 0 0 1.5px #FF9F0A, 0 0 22px rgba(255, 159, 10, 0.65)',
+              boxShadow: 'inset 0 0 0 1.5px #FF9F0A',
             }}
           >
             <Plus size={18} style={{ shapeRendering: 'geometricPrecision' }} />

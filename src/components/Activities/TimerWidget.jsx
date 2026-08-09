@@ -141,7 +141,6 @@ export default function TimerWidget({
             e.stopPropagation();
             timerStore.toggleTimer(primaryTimer.id);
           }}
-          title={isPrimaryRunning ? 'Pause' : 'Resume'}
           className="interactive-child"
           style={{
             width: 26,
