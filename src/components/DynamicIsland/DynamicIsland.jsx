@@ -1039,24 +1039,6 @@ export default function DynamicIsland({
           <div className="liquid-blob-3" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.2) 45%, transparent 100%)` }} />
         </div>
 
-        {/* Beat-Synced Audio Ripple Aura Border Ring */}
-        {trackInfo?.isPlaying && (
-          <div
-            style={{
-              position: 'absolute',
-              inset: -1,
-              borderRadius: 'inherit',
-              border: `1.5px solid ${eqColor}`,
-              boxShadow: `0 0 ${12 + beatPulse * 28}px ${eqGlow}, inset 0 0 ${8 + beatPulse * 16}px ${eqGlow}`,
-              opacity: 0.45 + beatPulse * 0.55,
-              transform: `scale(${1 + beatPulse * 0.025})`,
-              transition: 'opacity 0.08s ease, transform 0.08s ease, box-shadow 0.08s ease',
-              pointerEvents: 'none',
-              zIndex: 5,
-            }}
-          />
-        )}
-
         <div className="activity-fade-content" key={isMusicState ? 'music' : (activeState === 'compact-timer' || activeState === 'expanded-timer') ? 'timer' : activeState}>
 
           {activeState === 'idle' && <IdleWidget weatherConfig={weatherConfig} />}
