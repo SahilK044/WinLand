@@ -1007,7 +1007,7 @@ export default function DynamicIsland({
       />
       <div
         ref={capsuleRef}
-        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''}`}
+        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''}`}
         onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
         onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
         onMouseLeave={(e) => { handleMouseLeave(e); setIsCapsuleHovered(false); }}
