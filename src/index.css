@@ -119,6 +119,15 @@ button:active {
   will-change: width, height, border-radius, transform;
   overflow: hidden;
   isolation: isolate;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: -webkit-radial-gradient(white, black);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  shape-rendering: geometricPrecision;
 
   /* Apple Dynamic Island Fluid Spring Bezier Curve */
   transition:
@@ -255,8 +264,9 @@ button:active {
   border-radius: inherit;
   background: #000;
   box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.62),
-    0 3px 10px rgba(0, 0, 0, 0.48);
+    0 16px 42px rgba(0, 0, 0, 0.7),
+    0 4px 14px rgba(0, 0, 0, 0.5);
+  border: none !important;
   z-index: -1;
   pointer-events: none;
   transition: box-shadow 0.42s ease;
@@ -265,19 +275,20 @@ button:active {
 /* Hover lifts it very slightly off the desktop rather than lightening it. */
 .island-capsule:hover::before {
   box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.7),
-    0 4px 14px rgba(0, 0, 0, 0.55);
+    0 22px 50px rgba(0, 0, 0, 0.8),
+    0 6px 18px rgba(0, 0, 0, 0.6);
 }
 
-/* A whisper of specular along the very top edge â€” the only surface treatment. */
+/* Specular glass edge highlight for anti-aliased curved borders */
 .island-capsule::after {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: none;
+  border: 0.5px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.14);
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
 }
 
 /* Secondary label color (Apple's dark-mode secondary-label convention).
