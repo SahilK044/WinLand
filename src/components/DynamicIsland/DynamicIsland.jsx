@@ -52,58 +52,66 @@ function extractVibrantColor(imageUrl) {
         ctx.drawImage(img, 0, 0, SIZE, SIZE);
         const { data } = ctx.getImageData(0, 0, SIZE, SIZE);
 
-        let bestR = DEFAULT_ACCENT.r, bestG = DEFAULT_ACCENT.g, bestB = DEFAULT_ACCENT.b;
-        let bestScore = -1;
-
-        let pass2R = DEFAULT_ACCENT.r, pass2G = DEFAULT_ACCENT.g, pass2B = DEFAULT_ACCENT.b;
-        let pass2Score = -1;
-
-        let sumR = 0, sumG = 0, sumB = 0, count = 0;
+        let bestColor = null;
+        let maxVibrancyScore = -1;
+        let fallbackSumR = 0, fallbackSumG = 0, fallbackSumB = 0, validPixelCount = 0;
 
         for (let i = 0; i < data.length; i += 4) {
           const r = data[i], g = data[i + 1], b = data[i + 2], a = data[i + 3];
-          if (a < 200) continue; // skip transparent
-          
-          sumR += r; sumG += g; sumB += b; count++;
+          if (a < 180) continue;
+
+          fallbackSumR += r; fallbackSumG += g; fallbackSumB += b; validPixelCount++;
 
           const max = Math.max(r, g, b);
           const min = Math.min(r, g, b);
           const delta = max - min;
-
           const sat = max === 0 ? 0 : delta / max;
           const bright = max / 255;
-          const score = sat * 0.7 + bright * 0.3;
 
-          // Pass 1
-          if (bright >= 0.15 && bright <= 0.97 && sat >= 0.12) {
-            if (score > bestScore) {
-              bestScore = score;
-              bestR = r; bestG = g; bestB = b;
-            }
-          }
+          // Reject dark muddy pixels (bright < 0.24) and extreme whites (bright > 0.96)
+          if (bright < 0.24 || bright > 0.96) continue;
 
-          // Pass 2
-          if (bright >= 0.10 && bright <= 0.99 && sat > 0.05) {
-            if (score > pass2Score) {
-              pass2Score = score;
-              pass2R = r; pass2G = g; pass2B = b;
-            }
+          // Favor vibrant saturated hues over dull browns
+          const score = sat * 2.8 + bright * 0.4;
+
+          if (sat >= 0.16 && score > maxVibrancyScore) {
+            maxVibrancyScore = score;
+            bestColor = { r, g, b };
           }
         }
 
-        if (bestScore !== -1) {
-          resolve({ r: bestR, g: bestG, b: bestB });
-        } else if (pass2Score !== -1) {
-          resolve({ r: pass2R, g: pass2G, b: pass2B });
-        } else if (count > 0) {
-          resolve({
-            r: Math.round(sumR / count),
-            g: Math.round(sumG / count),
-            b: Math.round(sumB / count)
-          });
-        } else {
-          resolve(DEFAULT_ACCENT);
+        if (bestColor) {
+          // Normalize channel brightness so controls are bright & vivid, never muddy brown
+          const maxChannel = Math.max(bestColor.r, bestColor.g, bestColor.b);
+          if (maxChannel < 165) {
+            const scale = 185 / Math.max(1, maxChannel);
+            bestColor = {
+              r: Math.min(255, Math.round(bestColor.r * scale)),
+              g: Math.min(255, Math.round(bestColor.g * scale)),
+              b: Math.min(255, Math.round(bestColor.b * scale)),
+            };
+          }
+          return resolve(bestColor);
         }
+
+        // Handle monochrome / low-saturation covers (e.g. white/black album art)
+        if (validPixelCount > 0) {
+          const avgR = Math.round(fallbackSumR / validPixelCount);
+          const avgG = Math.round(fallbackSumG / validPixelCount);
+          const avgB = Math.round(fallbackSumB / validPixelCount);
+
+          const max = Math.max(avgR, avgG, avgB);
+          const min = Math.min(avgR, avgG, avgB);
+          const sat = max === 0 ? 0 : (max - min) / max;
+
+          if (sat < 0.15) {
+            // Crisp elegant Apple silver-white accent for monochrome covers
+            return resolve({ r: 235, g: 238, b: 245 });
+          }
+          return resolve({ r: avgR, g: avgG, b: avgB });
+        }
+
+        resolve(DEFAULT_ACCENT);
       } catch {
         resolve(DEFAULT_ACCENT);
       }
@@ -685,6 +693,9 @@ export default function DynamicIsland({
   useEffect(() => {
     if (!window.electronAPI) return;
     const timerHeight = Math.max(82, timers.length * 56 + 26);
+    const shelfCount = shelvedItems.length;
+    const shelfRows = Math.max(1, Math.min(4, Math.ceil(shelfCount / 3)));
+    const shelfHeight = 70 + shelfRows * 95;
     const sizeMap = {
       'idle':              [250, 42],
       'compact-music':     [310, 44],
@@ -702,7 +713,7 @@ export default function DynamicIsland({
       'volume-osd':        [360, 85],
       'notification':      [400, 110],
       'expanded-weather':  [370, 210],
-      'expanded-shelf':    [380, 210],
+      'expanded-shelf':    [380, shelfHeight],
       'expanded-sysmon':   [370, 150],
       'expanded-launcher': [360, 180],
       'expanded-screenshot':[360, 90],
@@ -710,7 +721,7 @@ export default function DynamicIsland({
     };
     const [w, h] = sizeMap[activeState] || [250, 44];
     window.electronAPI.resizeWindow(w, h);
-  }, [activeState]);
+  }, [activeState, timers.length, shelvedItems.length]);
 
   // ── State class map ───────────────────────────────────────────────────────
   const getStateClass = () => {
@@ -812,17 +823,50 @@ export default function DynamicIsland({
     }
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const files = Array.from(e.dataTransfer?.files || []);
-    const items = files.map((f) => ({ name: f.name, type: f.type, path: f.path }));
+    const rawFiles = Array.from(e.dataTransfer?.files || []);
+    const items = await Promise.all(
+      rawFiles.map(async (f) => {
+        let resolvedPath = f.path;
+        if ((!resolvedPath || resolvedPath === '') && window.electronAPI?.getPathForFile) {
+          try {
+            resolvedPath = window.electronAPI.getPathForFile(f);
+          } catch {}
+        }
+        let iconUrl = null;
+        if (resolvedPath && window.electronAPI?.getFileIcon) {
+          try {
+            iconUrl = await window.electronAPI.getFileIcon(resolvedPath);
+          } catch {}
+        }
+        const nameLower = f.name.toLowerCase();
+        const ext = nameLower.includes('.') ? nameLower.split('.').pop() : '';
+        const isShortcutOrFile = ext === 'lnk' || ext === 'url' || ext === 'exe' || (ext.length > 0 && ext.length <= 5);
+        const isFolder = !isShortcutOrFile && (f.type.includes('folder') || f.type === 'directory' || !ext);
+        const displayName = f.name.replace(/\.lnk$/i, '').replace(/\.exe$/i, '').replace(/\.url$/i, '');
+        return {
+          name: displayName,
+          type: isFolder ? 'folder' : (f.type || 'file'),
+          path: resolvedPath || f.path || f.name,
+          iconUrl: iconUrl,
+        };
+      })
+    );
     const textData = e.dataTransfer?.getData('text');
-    if (textData) {
-      items.push({ name: textData.slice(0, 35), text: textData, type: 'text/plain' });
+    if (textData && (!items.length || !items.some((i) => i.text === textData))) {
+      items.push({ name: textData.slice(0, 35), text: textData, type: 'text/plain', iconUrl: null });
     }
     if (items.length > 0) {
       setShelvedItems((prev) => [...prev, ...items]);
+    }
+  };
+
+  const handleOpenItem = (item) => {
+    const targetPath = item.path || item.name;
+    if (targetPath && window.electronAPI?.openPath) {
+      window.electronAPI.openPath(targetPath);
     }
   };
 
@@ -848,12 +892,6 @@ export default function DynamicIsland({
       window.electronAPI.launchApp(cmd);
     }
     setActiveState(trackInfo.title && isTimerActive ? 'split' : (trackInfo.title ? 'compact-music' : (isTimerActive ? 'compact-timer' : 'idle')));
-  };
-
-  const handleOpenItem = (item) => {
-    if (item.path && window.electronAPI?.openPath) {
-      window.electronAPI.openPath(item.path);
-    }
   };
 
   const handleIslandClick = (e) => {
@@ -996,7 +1034,7 @@ export default function DynamicIsland({
           width: 360,
           height: 32,
           zIndex: 9999,
-          pointerEvents: 'auto',
+          pointerEvents: activeState === 'idle' ? 'auto' : 'none',
         }}
         onMouseEnter={(e) => {
           resetIdleTimer();
@@ -1007,6 +1045,7 @@ export default function DynamicIsland({
       />
       <div
         ref={capsuleRef}
+        style={{ '--shelf-dynamic-height': `${70 + Math.max(1, Math.min(4, Math.ceil(shelvedItems.length / 3))) * 95}px` }}
         className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''}`}
         onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
         onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
@@ -1024,19 +1063,21 @@ export default function DynamicIsland({
           isPressed={isCapsulePressed}
           accentColor={eqColor}
         />
-        {/* Smooth organic moving liquid aura background — Beat-Synced Equalizer Glow Pulse */}
+        {/* Smooth organic moving liquid aura background — Beat-Synced Equalizer Glow Pulse with 0.75s Silk Fade */}
         <div
           className="liquid-aura-container"
           style={{
-            opacity: showGradient ? (trackInfo?.isPlaying ? 0.65 + beatPulse * 0.35 : 0.75) : 0,
+            opacity: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo.title
+              ? (trackInfo?.isPlaying ? 0.72 + beatPulse * 0.28 : 0.16)
+              : 0,
             transform: `scale(${1 + beatPulse * 0.12})`,
             filter: `blur(${24 + beatPulse * 8}px)`,
-            transition: 'opacity 0.12s ease, transform 0.15s ease, filter 0.2s ease',
+            transition: 'opacity 0.75s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.9, 0.2, 1), filter 0.6s ease',
           }}
         >
-          <div className="liquid-blob-1" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.35) 55%, transparent 100%)` }} />
-          <div className="liquid-blob-2" style={{ background: `radial-gradient(circle, rgba(${smoothR},${smoothG},${smoothB},0.9) 0%, rgba(${smoothR},${smoothG},${smoothB},0.25) 50%, transparent 100%)` }} />
-          <div className="liquid-blob-3" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.2) 45%, transparent 100%)` }} />
+          <div className="liquid-blob-1" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.35) 55%, transparent 100%)`, transition: 'background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)' }} />
+          <div className="liquid-blob-2" style={{ background: `radial-gradient(circle, rgba(${smoothR},${smoothG},${smoothB},0.9) 0%, rgba(${smoothR},${smoothG},${smoothB},0.25) 50%, transparent 100%)`, transition: 'background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)' }} />
+          <div className="liquid-blob-3" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.2) 45%, transparent 100%)`, transition: 'background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)' }} />
         </div>
 
         <div className="activity-fade-content" key={isMusicState ? 'music' : (activeState === 'compact-timer' || activeState === 'expanded-timer') ? 'timer' : activeState}>

@@ -111,40 +111,92 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
     setPlainLyrics('');
 
     const cleanTitle = title.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').split('-')[0].trim();
-    const cleanArtist = artist ? artist.split(',')[0].trim() : '';
+    const cleanArtist = artist ? artist.split(',')[0].split('&')[0].trim() : '';
 
-    const fetchDirect = async () => {
+    const attemptFetch = async () => {
+      // Strategy 1: LRCLIB Direct Match (Title + Artist)
       try {
-        const query = cleanArtist
-          ? `track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`
-          : `track_name=${encodeURIComponent(cleanTitle)}`;
-        const res = await fetch(`https://lrclib.net/api/get?${query}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.syncedLyrics) { setLyrics(parseLrc(data.syncedLyrics)); setLoading(false); return true; }
-          if (data.plainLyrics) { setPlainLyrics(data.plainLyrics); setLoading(false); return true; }
+        if (cleanArtist) {
+          const res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.syncedLyrics) { setLyrics(parseLrc(data.syncedLyrics)); setLoading(false); return; }
+            if (data.plainLyrics) { setPlainLyrics(data.plainLyrics); setLoading(false); return; }
+          }
         }
       } catch (e) {}
-      return false;
-    };
 
-    const fetchSearch = async () => {
+      // Strategy 2: LRCLIB Search (Title + Artist)
       try {
         const q = `${cleanTitle} ${cleanArtist}`.trim();
         const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`);
         if (res.ok) {
           const results = await res.json();
           if (Array.isArray(results) && results.length > 0) {
-            const best = results.find((r) => r.syncedLyrics) || results[0];
-            if (best.syncedLyrics) setLyrics(parseLrc(best.syncedLyrics));
-            else if (best.plainLyrics) setPlainLyrics(best.plainLyrics);
+            const synced = results.find((r) => r.syncedLyrics);
+            if (synced) { setLyrics(parseLrc(synced.syncedLyrics)); setLoading(false); return; }
+            const plain = results.find((r) => r.plainLyrics);
+            if (plain) { setPlainLyrics(plain.plainLyrics); setLoading(false); return; }
           }
         }
       } catch (e) {}
+
+      // Strategy 3: LRCLIB Search (Title Only - handles remix/feat artist mismatches like Mondo / Khalid)
+      try {
+        const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`);
+        if (res.ok) {
+          const results = await res.json();
+          if (Array.isArray(results) && results.length > 0) {
+            const synced = results.find((r) => r.syncedLyrics);
+            if (synced) { setLyrics(parseLrc(synced.syncedLyrics)); setLoading(false); return; }
+            const plain = results.find((r) => r.plainLyrics);
+            if (plain) { setPlainLyrics(plain.plainLyrics); setLoading(false); return; }
+          }
+        }
+      } catch (e) {}
+
+      // Strategy 4: Lyrics.ovh API Fallback
+      try {
+        if (cleanArtist) {
+          const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.lyrics && data.lyrics.trim()) {
+              setPlainLyrics(data.lyrics.trim());
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch (e) {}
+
+      // Strategy 5: NetEase Synced LRC API
+      try {
+        const searchRes = await fetch(`https://music.163.com/api/search/get/web?csrf_token=&u=1&s=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}&type=1&offset=0&total=true&limit=5`);
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          const songId = searchData?.result?.songs?.[0]?.id;
+          if (songId) {
+            const lrcRes = await fetch(`https://music.163.com/api/song/lyric?os=pc&id=${songId}&lv=-1&kv=-1&tv=-1`);
+            if (lrcRes.ok) {
+              const lrcData = await lrcRes.json();
+              if (lrcData?.lrc?.lyric) {
+                const parsed = parseLrc(lrcData.lrc.lyric);
+                if (parsed.length > 0) {
+                  setLyrics(parsed);
+                  setLoading(false);
+                  return;
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {}
+
       setLoading(false);
     };
 
-    fetchDirect().then((ok) => { if (!ok) fetchSearch(); });
+    attemptFetch();
   }, [title, artist]);
 
   // Find active line index using sub-second smoothMs

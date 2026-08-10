@@ -1,6 +1,8 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  getPathForFile: (file) => (webUtils ? webUtils.getPathForFile(file) : (file?.path || '')),
+  getFileIcon: (filePath) => ipcRenderer.invoke('get-file-icon', filePath),
   // Spotify now-playing updates
   onSystemMediaUpdate: (callback) => {
     const handler = (_event, value) => callback(value);

@@ -39,6 +39,10 @@ export class WallpaperSampler {
   sampleSource(sourceElement) {
     if (!this.wallpaperCtx || !sourceElement) return;
 
+    const now = Date.now();
+    if (now - this.lastSampleTime < 2000) return;
+    this.lastSampleTime = now;
+
     try {
       this.wallpaperCtx.drawImage(sourceElement, 0, 0, 128, 128);
       const imgData = this.wallpaperCtx.getImageData(0, 0, 128, 128).data;

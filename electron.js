@@ -170,7 +170,7 @@ function createWindow() {
   // state-notification/expanded-call: 400 wide) plus margin so no state's rounded
   // corners get hard-clipped by the OS window bounds.
   const windowWidth = 540;
-  const windowHeight = 440;
+  const windowHeight = 680;
 
   mainWindow = new BrowserWindow({
     title: 'WinLand',
@@ -473,7 +473,7 @@ function pollSpotifyTitle() {
 }
 
 function fallbackSpotifyPoll(onDone) {
-  exec(PS_SPOTIFY_CMD, { timeout: 5000 }, (err, stdout) => {
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', PS1_SPOTIFY], { timeout: 5000 }, (err, stdout) => {
     if (onDone) onDone();
     if (!mainWindow || !mainWindow.webContents) return;
     const title = (stdout || '').trim();
@@ -507,7 +507,7 @@ function pollBattery() {
   if (!mainWindow || !mainWindow.webContents || isPollingBattery) return;
   isPollingBattery = true;
 
-  exec(PS_BATTERY_CMD, { timeout: 8000 }, (err, stdout) => {
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', PS1_BATTERY], { timeout: 8000 }, (err, stdout) => {
     isPollingBattery = false;
     if (!mainWindow || !mainWindow.webContents) return;
     const raw = (stdout || '').trim();
@@ -705,7 +705,7 @@ ipcMain.on('request-bluetooth-status', () => {
 ipcMain.on('trigger-phone-notification', () => {
   if (!mainWindow || !mainWindow.webContents) return;
   mainWindow.webContents.send('bluetooth-update', {
-    deviceName: "Sahil's S24 Ultra",
+    deviceName: "Galaxy S24 Ultra",
     batteryPct: 88,
     isCharging: false,
     leftPct: null,
@@ -722,7 +722,7 @@ function startBluetoothPoller() {
   bluetoothMissingStreaks.clear();
   isPollingBluetooth = false;
   pollBluetooth();
-  bluetoothInterval = setInterval(pollBluetooth, 2000);
+  bluetoothInterval = setInterval(pollBluetooth, 4000);
 }
 
 // ── Windows call detector ───────────────────────────────────────────────────
@@ -793,7 +793,7 @@ ipcMain.on('trigger-demo-call', () => {
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
   lastCallSnapshot = {
     state: 'incoming',
-    callerName: 'Sahil K',
+    callerName: 'Alex Morgan',
     source: 'Phone Link',
   };
   mainWindow.webContents.send('call-update', lastCallSnapshot);
@@ -812,7 +812,7 @@ function pollFullscreen() {
   if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingFullscreen) return;
   isPollingFullscreen = true;
 
-  exec(`"${EXE_FULLSCREEN}"`, { timeout: 2000 }, (err, stdout) => {
+  execFile(EXE_FULLSCREEN, [], { timeout: 2000 }, (err, stdout) => {
     isPollingFullscreen = false;
     if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
 
@@ -1007,11 +1007,88 @@ ipcMain.handle('get-bluetooth-state', () => {
   return null;
 });
 
-ipcMain.on('open-path', (event, filePath) => {
+ipcMain.on('open-path', async (event, filePath) => {
   if (filePath) {
-    shell.openPath(filePath).catch(() => {
+    try {
+      const err = await shell.openPath(filePath);
+      if (err) {
+        execFile('explorer.exe', [filePath]);
+      }
+    } catch {
       execFile('explorer.exe', [filePath]);
-    });
+    }
+  }
+});
+
+function expandEnvVars(str) {
+  if (!str) return str;
+  return str.replace(/%([^%]+)%/g, (_, name) => process.env[name] || process.env[name.toUpperCase()] || `%${name}%`);
+}
+
+ipcMain.handle('get-file-icon', async (_event, filePath) => {
+  if (!filePath) return null;
+  try {
+    const expanded = expandEnvVars(filePath);
+    const lower = expanded.toLowerCase();
+
+    // For .lnk shortcuts: dereference to target .exe FIRST, then get its icon
+    if (lower.endsWith('.lnk')) {
+      try {
+        const details = shell.readShortcutLink(expanded);
+        if (details) {
+          // Try target executable
+          if (details.target && !details.target.includes('://')) {
+            const targetPath = expandEnvVars(details.target);
+            if (fs.existsSync(targetPath)) {
+              const nativeImg = await app.getFileIcon(targetPath, { size: 'large' });
+              if (nativeImg && !nativeImg.isEmpty()) {
+                return nativeImg.toDataURL();
+              }
+            }
+          }
+          // Try icon field
+          if (details.icon && details.icon.trim() !== '' && details.icon.trim() !== ',0') {
+            const iconFile = expandEnvVars(details.icon.split(',')[0].trim());
+            if (iconFile && fs.existsSync(iconFile)) {
+              const nativeImg = await app.getFileIcon(iconFile, { size: 'large' });
+              if (nativeImg && !nativeImg.isEmpty()) {
+                return nativeImg.toDataURL();
+              }
+            }
+          }
+        }
+      } catch {}
+      // Fall through to direct icon on the .lnk itself
+    }
+
+    // For .url shortcuts: parse IconFile from the .url INI content
+    if (lower.endsWith('.url')) {
+      try {
+        const content = fs.readFileSync(expanded, 'utf8');
+        const match = content.match(/IconFile=(.+)/i);
+        if (match && match[1]) {
+          const iconFile = expandEnvVars(match[1].trim().replace(/^"|"$/g, ''));
+          if (iconFile && fs.existsSync(iconFile)) {
+            const nativeImg = await app.getFileIcon(iconFile, { size: 'large' });
+            if (nativeImg && !nativeImg.isEmpty()) {
+              return nativeImg.toDataURL();
+            }
+          }
+        }
+      } catch {}
+    }
+
+    // Direct icon extraction (works for .exe, folders, and regular files)
+    try {
+      const nativeImg = await app.getFileIcon(expanded, { size: 'large' });
+      if (nativeImg && !nativeImg.isEmpty()) {
+        return nativeImg.toDataURL();
+      }
+    } catch {}
+
+    return null;
+  } catch {
+    return null;
   }
 });
 
