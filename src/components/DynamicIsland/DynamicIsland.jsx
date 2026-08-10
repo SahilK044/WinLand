@@ -605,7 +605,7 @@ export default function DynamicIsland({
           if (data && data.deviceName) {
             const timestamped = { ...data, timestamp: Date.now() };
             setBluetoothData(timestamped);
-            if (data.isInitial) return;
+            if (data.isInitial && !data.forceShow) return;
             setIsDocked(false);
             soundEngine.playChime();
             setActiveState((prev) => {

@@ -681,8 +681,9 @@ function pollBluetooth() {
   });
 }
 
-ipcMain.on('request-bluetooth-status', () => {
+ipcMain.on('request-bluetooth-status', (_event, options) => {
   if (!mainWindow || !mainWindow.webContents) return;
+  const forceShow = typeof options === 'boolean' ? options : (options && options.forceShow);
   if (lastBluetoothDevices && lastBluetoothDevices.size > 0) {
     const [, firstDev] = Array.from(lastBluetoothDevices.entries())[0];
     mainWindow.webContents.send('bluetooth-update', {
@@ -693,7 +694,8 @@ ipcMain.on('request-bluetooth-status', () => {
       rightPct: null,
       typeStr: firstDev.typeStr || 'phone',
       connectionState: 'connected',
-      isInitial: true,
+      isInitial: forceShow ? false : true,
+      forceShow: !!forceShow,
       timestamp: Date.now(),
     });
   } else {
@@ -704,8 +706,17 @@ ipcMain.on('request-bluetooth-status', () => {
 
 ipcMain.on('trigger-phone-notification', () => {
   if (!mainWindow || !mainWindow.webContents) return;
+  let phoneName = "Sahil's S24 Ultra";
+  if (lastBluetoothDevices && lastBluetoothDevices.size > 0) {
+    for (const [, info] of lastBluetoothDevices) {
+      if (info.typeStr === 'phone' || (info.name && info.name.match(/Galaxy|S24|S25|S26|iPhone|Pixel|Phone|Ultra/i))) {
+        phoneName = info.name;
+        break;
+      }
+    }
+  }
   mainWindow.webContents.send('bluetooth-update', {
-    deviceName: "Galaxy S24 Ultra",
+    deviceName: phoneName,
     batteryPct: 88,
     isCharging: false,
     leftPct: null,

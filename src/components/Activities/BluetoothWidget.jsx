@@ -265,11 +265,17 @@ function getDeviceCategory(deviceName = '', typeStr = '') {
   // 6. Phone
   if (str.includes('phone') ||
       str.includes('s24') ||
+      str.includes('s25') ||
+      str.includes('s26') ||
       str.includes('s23') ||
       str.includes('s22') ||
       str.includes('galaxy') ||
+      str.includes('samsung') ||
+      str.includes('ultra') ||
       str.includes('iphone') ||
       str.includes('pixel') ||
+      str.includes('oneplus') ||
+      str.includes('xiaomi') ||
       str.includes('android') ||
       str.includes('mobile')) {
     return 'phone';
