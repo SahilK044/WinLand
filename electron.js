@@ -1147,13 +1147,17 @@ ipcMain.handle('save-screen-recording', async (_event, recording) => {
       return { ok: false, error: 'Recording is empty.' };
     }
 
-    const videosDir = app.getPath('videos');
-    const outputDir = path.join(videosDir, 'WinLand Recordings');
-    fs.mkdirSync(outputDir, { recursive: true });
+    const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Captures');
+    if (!fs.existsSync(videosDir)) {
+      fs.mkdirSync(videosDir, { recursive: true });
+    }
 
-    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filePath = path.join(outputDir, `WinLand Recording ${stamp}.webm`);
-    await fs.promises.writeFile(filePath, Buffer.from(new Uint8Array(bytes)));
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const timeStr = new Date().toTimeString().slice(0, 8).replace(/:/g, '-');
+    const fileName = `WinLand_Rec_${dateStr}_${timeStr}.webm`;
+    const filePath = path.join(videosDir, fileName);
+
+    fs.writeFileSync(filePath, Buffer.from(new Uint8Array(bytes)));
     return { ok: true, filePath };
   } catch (err) {
     return { ok: false, error: err?.message || 'Could not save recording.' };
@@ -1166,24 +1170,6 @@ ipcMain.on('toggle-screenrec', () => {
     state: 'open',
     startTime: Date.now(),
   });
-});
-
-ipcMain.handle('save-screen-recording', async (_event, { buffer, mimeType }) => {
-  try {
-    const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Captures');
-    if (!fs.existsSync(videosDir)) {
-      fs.mkdirSync(videosDir, { recursive: true });
-    }
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const timeStr = new Date().toTimeString().slice(0, 8).replace(/:/g, '-');
-    const fileName = `WinLand_Rec_${dateStr}_${timeStr}.webm`;
-    const filePath = path.join(videosDir, fileName);
-
-    fs.writeFileSync(filePath, Buffer.from(buffer));
-    return { ok: true, filePath };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
 });
 
 ipcMain.on('open-file-location', (_event, filePath) => {
