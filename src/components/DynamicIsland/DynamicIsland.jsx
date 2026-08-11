@@ -735,7 +735,7 @@ export default function DynamicIsland({
       'expanded-call':     [310, 240],
       'expanded-airdrop':  [380, 200],
       'expanded-recorder': [370, 205],
-      'expanded-screenrec':[390, 185],
+      'expanded-screenrec':[430, 220],
       'compact-screenrec': [260, 44],
       'expanded-battery':  [340, 85],
       'volume-osd':        [360, 85],

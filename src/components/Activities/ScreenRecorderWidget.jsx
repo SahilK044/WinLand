@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Square, Folder, Play, Pause, MousePointer2, Settings2, Video, Check, CircleDot } from 'lucide-react';
+import { Square, Folder, Play, Pause, MousePointer2, ZoomIn, Video, Sparkles } from 'lucide-react';
 
 const RESOLUTION_OPTIONS = [
-  { id: '720p', label: '720p', width: 1280, height: 720, defaultBitrate: 5000000 },
-  { id: '1080p', label: '1080p', width: 1920, height: 1080, defaultBitrate: 9000000 },
-  { id: '1440p', label: '1440p', width: 2560, height: 1440, defaultBitrate: 15000000 },
-  { id: '4k', label: '4K', width: 3840, height: 2160, defaultBitrate: 25000000 },
+  { id: '1080p', label: '1080p HD', width: 1920, height: 1080, bitrate: 15000000 },
+  { id: '1440p', label: '1440p 2K', width: 2560, height: 1440, bitrate: 22000000 },
+  { id: '4k', label: '4K Ultra', width: 3840, height: 2160, bitrate: 35000000 },
 ];
 
 const FPS_OPTIONS = [30, 60, 120];
@@ -15,6 +14,7 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
   const [status, setStatus] = useState('ready'); // 'ready' | 'recording' | 'paused' | 'saving' | 'saved'
   const [resolutionId, setResolutionId] = useState('1080p');
   const [selectedFps, setSelectedFps] = useState(60);
+  const [enableZoom, setEnableZoom] = useState(true);
   const [showCursor, setShowCursor] = useState(true);
   const [savedPath, setSavedPath] = useState('');
 
@@ -30,6 +30,9 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
   const clicksRef = useRef([]);
   const mouseTargetRef = useRef({ x: 0, y: 0 });
   const mousePosRef = useRef({ x: 0, y: 0 });
+  const camPosRef = useRef({ x: 0, y: 0 });
+  const zoomRef = useRef(1.0);
+  const lastClickTimeRef = useRef(0);
 
   // Live Timer Tick
   useEffect(() => {
@@ -68,7 +71,7 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
     ctx.restore();
   };
 
-  // HDR sRGB Tone-Mapped Canvas Compositer with Smooth RapiDemo Cursor Tracking
+  // RapiDemo Auto-Zoom Camera Engine + HDR Tone-Mapped Color Matrix
   const createComposedStream = async (screenStream, source, preset, targetFps) => {
     const video = document.createElement('video');
     video.muted = true;
@@ -82,34 +85,65 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
     canvas.height = preset.height;
     canvasRef.current = canvas;
 
-    // Force sRGB color space context to tone-map HDR screen capture without washed-out gray colors
+    // Force sRGB color space context + HDR color correction filter to eliminate washed-out gray/purple tones
     const ctx = canvas.getContext('2d', { alpha: false, colorSpace: 'srgb' });
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
 
     const bounds = source.bounds || { x: 0, y: 0, width: preset.width, height: preset.height };
 
+    // Initial camera position centered on screen
+    camPosRef.current = { x: preset.width / 2, y: preset.height / 2 };
+
     const draw = () => {
       if (!ctx || !videoRef.current) return;
+
+      const now = performance.now();
+
+      // Smooth RapiDemo spring interpolation for 60fps/120fps mouse movement
+      const current = mousePosRef.current;
+      const target = mouseTargetRef.current;
+      current.x += (target.x - current.x) * 0.25;
+      current.y += (target.y - current.y) * 0.25;
+
+      const cursorX = ((current.x - bounds.x) / bounds.width) * canvas.width;
+      const cursorY = ((current.y - bounds.y) / bounds.height) * canvas.height;
+
+      // RapiDemo Auto-Zoom Camera Logic: Zooms into cursor on click/action (1.35x zoom)
+      let desiredZoom = 1.0;
+      if (enableZoom && now - lastClickTimeRef.current < 1800) {
+        desiredZoom = 1.35;
+      }
+      zoomRef.current += (desiredZoom - zoomRef.current) * 0.08;
+
+      const currentCam = camPosRef.current;
+      currentCam.x += (cursorX - currentCam.x) * 0.08;
+      currentCam.y += (cursorY - currentCam.y) * 0.08;
+
+      const zoom = zoomRef.current;
+
+      ctx.save();
+      // Apply sRGB HDR color correction matrix filter to prevent washed-out colors
+      ctx.filter = 'contrast(105%) saturate(112%) brightness(101%)';
+
+      if (enableZoom && zoom > 1.01) {
+        // Transform canvas matrix centered around RapiDemo camera focus point
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-currentCam.x, -currentCam.y);
+      }
+
+      // Render video frame
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
       if (showCursor) {
-        // Smooth RapiDemo spring interpolation for 60fps/120fps mouse movement
-        const current = mousePosRef.current;
-        const target = mouseTargetRef.current;
-        current.x += (target.x - current.x) * 0.35;
-        current.y += (target.y - current.y) * 0.35;
-
-        const cursorX = ((current.x - bounds.x) / bounds.width) * canvas.width;
-        const cursorY = ((current.y - bounds.y) / bounds.height) * canvas.height;
-
-        const now = performance.now();
+        // Clean old click ripples
         clicksRef.current = clicksRef.current.filter((c) => now - c.startedAt < 650);
 
         // Render click ripple rings
         for (const click of clicksRef.current) {
           const progress = Math.min(1, (now - click.startedAt) / 650);
-          const radius = 10 + progress * 35;
+          const radius = 12 + progress * 38;
           ctx.save();
           ctx.globalAlpha = 1 - progress;
           ctx.strokeStyle = click.button === 'right' ? '#0a84ff' : '#30d158';
@@ -125,6 +159,7 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
         }
       }
 
+      ctx.restore();
       animationFrameRef.current = requestAnimationFrame(draw);
     };
 
@@ -143,27 +178,26 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
         return;
       }
 
-      const preset = RESOLUTION_OPTIONS.find((p) => p.id === resolutionId) || RESOLUTION_OPTIONS[1];
+      const preset = RESOLUTION_OPTIONS.find((p) => p.id === resolutionId) || RESOLUTION_OPTIONS[0];
       const source = await window.electronAPI.getPrimaryScreenSource();
       if (!source?.id) return;
 
       // Start global RapiDemo mouse listener
-      if (showCursor) {
-        mouseCleanupRef.current = window.electronAPI?.onScreenRecMouseUpdate?.((data) => {
-          if (!data) return;
-          mouseTargetRef.current = { x: data.x, y: data.y };
-          if (data.eventType === 'down') {
-            const bounds = source.bounds;
-            clicksRef.current.push({
-              x: ((data.x - bounds.x) / bounds.width) * preset.width,
-              y: ((data.y - bounds.y) / bounds.height) * preset.height,
-              button: data.button,
-              startedAt: performance.now(),
-            });
-          }
-        });
-        window.electronAPI?.startScreenRecMouseTracking?.();
-      }
+      mouseCleanupRef.current = window.electronAPI?.onScreenRecMouseUpdate?.((data) => {
+        if (!data) return;
+        mouseTargetRef.current = { x: data.x, y: data.y };
+        if (data.eventType === 'down') {
+          lastClickTimeRef.current = performance.now();
+          const bounds = source.bounds;
+          clicksRef.current.push({
+            x: ((data.x - bounds.x) / bounds.width) * preset.width,
+            y: ((data.y - bounds.y) / bounds.height) * preset.height,
+            button: data.button,
+            startedAt: performance.now(),
+          });
+        }
+      });
+      window.electronAPI?.startScreenRecMouseTracking?.();
 
       const screenStream = await navigator.mediaDevices.getUserMedia({
         audio: false,
@@ -171,9 +205,10 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
           mandatory: {
             chromeMediaSource: 'desktop',
             chromeMediaSourceId: source.id,
+            minFrameRate: selectedFps,
+            maxFrameRate: selectedFps,
             maxWidth: preset.width,
             maxHeight: preset.height,
-            maxFrameRate: selectedFps,
           },
         },
       });
@@ -188,7 +223,7 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
 
       const recorder = new MediaRecorder(composedStream, {
         mimeType,
-        videoBitsPerSecond: preset.defaultBitrate,
+        videoBitsPerSecond: selectedFps >= 60 ? preset.bitrate * 1.5 : preset.bitrate,
       });
 
       mediaRecorderRef.current = recorder;
@@ -266,7 +301,7 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
     window.electronAPI?.openFileLocation?.(savedPath);
   };
 
-  const currentPreset = RESOLUTION_OPTIONS.find((p) => p.id === resolutionId) || RESOLUTION_OPTIONS[1];
+  const currentPreset = RESOLUTION_OPTIONS.find((p) => p.id === resolutionId) || RESOLUTION_OPTIONS[0];
 
   // Compact Notch Mode (Pinned at top notch while recording)
   if (isCompact) {
@@ -279,7 +314,7 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 8px',
+          padding: '0 10px',
           boxSizing: 'border-box',
           cursor: 'pointer',
         }}
@@ -302,8 +337,8 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
         </div>
 
         {/* Center: Resolution + FPS Badge */}
-        <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255, 255, 255, 0.65)' }}>
-          {currentPreset.label} • {selectedFps}FPS
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255, 255, 255, 0.75)' }}>
+          {currentPreset.label} • {selectedFps}FPS {enableZoom ? '• Zoom' : ''}
         </div>
 
         {/* Right: Instant Stop Button */}
@@ -338,7 +373,7 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '12px 14px',
+        padding: '14px 16px',
         boxSizing: 'border-box',
       }}
     >
@@ -347,29 +382,29 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div
             style={{
-              width: 9,
-              height: 9,
+              width: 10,
+              height: 10,
               borderRadius: '50%',
-              background: status === 'ready' ? '#0a84ff' : status === 'saved' ? '#30d158' : status === 'paused' ? '#ffcc00' : '#ff453a',
-              boxShadow: status === 'ready' ? '0 0 10px #0a84ff' : status === 'saved' ? '0 0 10px #30d158' : '0 0 10px #ff453a',
+              background: status === 'ready' ? '#30d158' : status === 'saved' ? '#30d158' : status === 'paused' ? '#ffcc00' : '#ff453a',
+              boxShadow: status === 'ready' ? '0 0 10px #30d158' : status === 'saved' ? '0 0 10px #30d158' : '0 0 10px #ff453a',
             }}
           />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#fff', letterSpacing: '-0.2px' }}>
               {status === 'ready'
-                ? 'Screen Studio Setup'
+                ? 'RapiDemo Screen Studio'
                 : status === 'saved'
                 ? 'Screen Recording Saved'
                 : status === 'paused'
                 ? 'Recording Paused'
-                : 'HDR Screen Studio Active'}
+                : 'RapiDemo Studio Active'}
             </div>
             <div style={{ fontSize: 10, color: 'rgba(255, 255, 255, 0.55)', marginTop: 1 }}>
               {status === 'ready'
-                ? 'Configure resolution, FPS & RapiDemo cursor'
+                ? 'Configure resolution, FPS & dynamic auto-zoom'
                 : status === 'saved'
                 ? 'Saved to Videos\\WinLand Captures'
-                : `sRGB Tone-Mapped • ${currentPreset.label} • ${selectedFps} FPS`}
+                : `HDR Tone-Mapped • ${currentPreset.label} • ${selectedFps} FPS`}
             </div>
           </div>
         </div>
@@ -381,13 +416,13 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
         )}
       </div>
 
-      {/* Configuration Controls (Shown in SETUP mode & RECORDING mode) */}
+      {/* Configuration Controls Grid (Shown in SETUP mode & RECORDING mode) */}
       {status !== 'saved' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, margin: '8px 0' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, margin: '8px 0' }}>
           {/* Row 1: Resolution Selectors */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>Quality:</span>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Quality:</span>
+            <div style={{ display: 'flex', gap: 6 }}>
               {RESOLUTION_OPTIONS.map((r) => (
                 <button
                   key={r.id}
@@ -397,15 +432,16 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
                     setResolutionId(r.id);
                   }}
                   style={{
-                    background: resolutionId === r.id ? 'rgba(10, 132, 255, 0.3)' : 'rgba(255, 255, 255, 0.06)',
-                    border: resolutionId === r.id ? '1px solid #0a84ff' : '1px solid transparent',
-                    borderRadius: 6,
-                    padding: '2px 6px',
-                    color: '#fff',
-                    fontSize: 9,
-                    fontWeight: 700,
+                    background: resolutionId === r.id ? 'rgba(48, 209, 88, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                    border: resolutionId === r.id ? '1px solid #30d158' : '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 7,
+                    padding: '3px 8px',
+                    color: resolutionId === r.id ? '#30d158' : '#fff',
+                    fontSize: 10,
+                    fontWeight: 800,
                     cursor: status === 'ready' ? 'pointer' : 'default',
-                    opacity: status === 'ready' ? 1 : 0.6,
+                    opacity: status === 'ready' ? 1 : 0.65,
+                    transition: 'all 0.18s ease',
                   }}
                 >
                   {r.label}
@@ -414,10 +450,10 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
             </div>
           </div>
 
-          {/* Row 2: FPS + Cursor Tracking Toggle */}
+          {/* Row 2: FPS + Auto-Zoom + Cursor Controls */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)' }}>FPS:</span>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>FPS:</span>
+            <div style={{ display: 'flex', gap: 6 }}>
               {FPS_OPTIONS.map((fpsVal) => (
                 <button
                   key={fpsVal}
@@ -427,15 +463,16 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
                     setSelectedFps(fpsVal);
                   }}
                   style={{
-                    background: selectedFps === fpsVal ? 'rgba(10, 132, 255, 0.3)' : 'rgba(255, 255, 255, 0.06)',
-                    border: selectedFps === fpsVal ? '1px solid #0a84ff' : '1px solid transparent',
-                    borderRadius: 6,
-                    padding: '2px 8px',
-                    color: '#fff',
-                    fontSize: 9,
-                    fontWeight: 700,
+                    background: selectedFps === fpsVal ? 'rgba(48, 209, 88, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                    border: selectedFps === fpsVal ? '1px solid #30d158' : '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 7,
+                    padding: '3px 8px',
+                    color: selectedFps === fpsVal ? '#30d158' : '#fff',
+                    fontSize: 10,
+                    fontWeight: 800,
                     cursor: status === 'ready' ? 'pointer' : 'default',
-                    opacity: status === 'ready' ? 1 : 0.6,
+                    opacity: status === 'ready' ? 1 : 0.65,
+                    transition: 'all 0.18s ease',
                   }}
                 >
                   {fpsVal} FPS
@@ -443,28 +480,29 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
               ))}
             </div>
 
+            {/* RapiDemo Auto-Zoom Button */}
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                setShowCursor(!showCursor);
+                setEnableZoom(!enableZoom);
               }}
-              title="Toggle RapiDemo Cursor & Click Overlay"
+              title="Toggle RapiDemo Auto-Zoom Camera"
               style={{
-                background: showCursor ? 'rgba(48, 209, 88, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                border: showCursor ? '1px solid rgba(48, 209, 88, 0.4)' : '1px solid transparent',
-                borderRadius: 6,
-                padding: '2px 8px',
-                color: showCursor ? '#30d158' : 'rgba(255,255,255,0.5)',
-                fontSize: 9,
-                fontWeight: 700,
+                background: enableZoom ? 'rgba(10, 132, 255, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                border: enableZoom ? '1px solid #0a84ff' : '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: 7,
+                padding: '3px 8px',
+                color: enableZoom ? '#0a84ff' : 'rgba(255,255,255,0.5)',
+                fontSize: 10,
+                fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: 4,
               }}
             >
-              <MousePointer2 size={10} />
-              Cursor {showCursor ? 'ON' : 'OFF'}
+              <ZoomIn size={11} />
+              Zoom {enableZoom ? 'ON' : 'OFF'}
             </button>
           </div>
         </div>
@@ -477,8 +515,8 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
             onClick={handleStartRecording}
             style={{
               flex: 1,
-              height: 34,
-              borderRadius: 9,
+              height: 36,
+              borderRadius: 10,
               background: '#30d158',
               border: 'none',
               color: '#000',
@@ -489,11 +527,11 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
               alignItems: 'center',
               justifyContent: 'center',
               gap: 6,
-              boxShadow: '0 2px 12px rgba(48, 209, 88, 0.45)',
+              boxShadow: '0 3px 14px rgba(48, 209, 88, 0.45)',
             }}
           >
-            <Play size={13} fill="#000" />
-            Start Recording Screen
+            <Play size={14} fill="#000" />
+            Start Screen Recording
           </button>
         ) : status === 'saved' ? (
           <>
@@ -501,13 +539,13 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
               onClick={handleOpenFolder}
               style={{
                 flex: 1,
-                height: 34,
-                borderRadius: 9,
+                height: 36,
+                borderRadius: 10,
                 background: 'rgba(48, 209, 88, 0.2)',
                 border: '1px solid rgba(48, 209, 88, 0.4)',
                 color: '#30d158',
                 fontSize: 11,
-                fontWeight: 700,
+                fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -515,15 +553,15 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
                 gap: 6,
               }}
             >
-              <Folder size={13} />
+              <Folder size={14} />
               Open File Location
             </button>
             <button
               onClick={onStop}
               style={{
-                height: 34,
-                padding: '0 14px',
-                borderRadius: 9,
+                height: 36,
+                padding: '0 16px',
+                borderRadius: 10,
                 background: 'rgba(255, 255, 255, 0.1)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 color: '#fff',
@@ -540,9 +578,9 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
             <button
               onClick={handleTogglePause}
               style={{
-                width: 34,
-                height: 34,
-                borderRadius: 9,
+                width: 36,
+                height: 36,
+                borderRadius: 10,
                 background: 'rgba(255, 255, 255, 0.1)',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 color: '#fff',
@@ -553,28 +591,28 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
               }}
               title={status === 'paused' ? 'Resume Recording' : 'Pause Recording'}
             >
-              {status === 'paused' ? <Play size={13} fill="#fff" /> : <Pause size={13} fill="#fff" />}
+              {status === 'paused' ? <Play size={14} fill="#fff" /> : <Pause size={14} fill="#fff" />}
             </button>
             <button
               onClick={handleStopRecording}
               style={{
                 flex: 1,
-                height: 34,
-                borderRadius: 9,
-                background: 'rgba(255, 69, 58, 0.85)',
+                height: 36,
+                borderRadius: 10,
+                background: 'rgba(255, 69, 58, 0.88)',
                 border: 'none',
                 color: '#fff',
-                fontSize: 11,
-                fontWeight: 700,
+                fontSize: 12,
+                fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: 6,
-                boxShadow: '0 2px 10px rgba(255, 69, 58, 0.4)',
+                boxShadow: '0 3px 12px rgba(255, 69, 58, 0.45)',
               }}
             >
-              <Square size={11} fill="#fff" />
+              <Square size={12} fill="#fff" />
               Stop Recording Instantly
             </button>
           </>
