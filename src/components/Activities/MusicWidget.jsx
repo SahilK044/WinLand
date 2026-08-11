@@ -219,20 +219,34 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
     attemptFetch();
   }, [title, artist]);
 
-  // Find active line index using sub-second smoothMs
+  const [userOffsetMs, setUserOffsetMs] = useState(() => {
+    try { return parseInt(localStorage.getItem('winland_lyrics_offset') || '0', 10); } catch { return 0; }
+  });
+
+  const handleOffsetChange = (delta, e) => {
+    e?.stopPropagation();
+    setUserOffsetMs((prev) => {
+      const next = Math.max(-2500, Math.min(2500, prev + delta));
+      try { localStorage.setItem('winland_lyrics_offset', next.toString()); } catch {}
+      return next;
+    });
+  };
+
+  // Find active line index using effectiveMs (audio latency lead compensation +380ms + user offset)
+  const effectiveMs = smoothMs + userOffsetMs + 380;
   let activeIndex = -1;
   for (let i = 0; i < lyrics.length; i++) {
-    if (smoothMs >= lyrics[i].timeMs) activeIndex = i;
+    if (effectiveMs >= lyrics[i].timeMs) activeIndex = i;
     else break;
   }
 
-  // Karaoke word-wipe progress within the active line (0–100)
+  // Karaoke word-wipe progress within active line
   let activeFillPct = 0;
   if (activeIndex >= 0) {
     const lineStart = lyrics[activeIndex].timeMs;
-    const lineEnd = lyrics[activeIndex + 1]?.timeMs ?? (lineStart + 4000);
+    const lineEnd = lyrics[activeIndex + 1]?.timeMs ?? (lineStart + 3500);
     const span = Math.max(1, lineEnd - lineStart);
-    activeFillPct = Math.max(0, Math.min(100, ((smoothMs - lineStart) / span) * 100));
+    activeFillPct = Math.max(0, Math.min(100, ((effectiveMs - lineStart) / span) * 100));
   }
 
   // Snappy spring-eased smooth scroll to center the active lyric line
@@ -269,10 +283,10 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
         overflow: 'hidden',
       }}
     >
-      {/* Ambient accent glow — quiet, restrained, ties the lyric view back to the track's color */}
+      {/* Ambient accent glow */}
       <div className="lyric-ambient-glow" style={{ '--lyric-glow-color': glowColor }} />
 
-      {/* Header: album art + song title + artist */}
+      {/* Header: album art + song title + artist + sync adjuster */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexShrink: 0, position: 'relative', zIndex: 1 }}>
         {/* Mini album art */}
         <div
@@ -307,6 +321,46 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
           <MarqueeText style={{ fontSize: 10, fontWeight: 500, color: 'rgba(255,255,255,0.45)', marginTop: 1 }}>
             {artist}
           </MarqueeText>
+        </div>
+
+        {/* Real-time Sync Tuning Controls */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 3,
+            background: 'rgba(255, 255, 255, 0.08)',
+            padding: '3px 6px',
+            borderRadius: 8,
+            border: '1px solid rgba(255, 255, 255, 0.12)',
+            flexShrink: 0,
+          }}
+        >
+          <button
+            onClick={(e) => handleOffsetChange(-200, e)}
+            style={{
+              background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)',
+              fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '1px 3px',
+              borderRadius: 4, transition: 'color 0.15s ease',
+            }}
+            title="Lyrics 0.2s earlier"
+          >
+            -0.2s
+          </button>
+          <span style={{ fontSize: 9, fontWeight: 600, color: userOffsetMs !== 0 ? '#30d158' : 'rgba(255,255,255,0.4)' }}>
+            {userOffsetMs > 0 ? `+${(userOffsetMs / 1000).toFixed(1)}s` : userOffsetMs < 0 ? `${(userOffsetMs / 1000).toFixed(1)}s` : 'Sync'}
+          </span>
+          <button
+            onClick={(e) => handleOffsetChange(200, e)}
+            style={{
+              background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)',
+              fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '1px 3px',
+              borderRadius: 4, transition: 'color 0.15s ease',
+            }}
+            title="Lyrics 0.2s later"
+          >
+            +0.2s
+          </button>
         </div>
       </div>
 
