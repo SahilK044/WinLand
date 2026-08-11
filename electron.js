@@ -539,12 +539,13 @@ function startBatteryPoller() {
 const PS1_BLUETOOTH = path.join(SCRIPT_DIR, 'winland_bluetooth_poll.ps1');
 fs.writeFileSync(PS1_BLUETOOTH, [
   '$systemIgnore = "Realtek|NVIDIA|Intel\\(R\\)|Microsoft|Surround Sound|Virtual Audio|DisplayAudio|High Definition|Stereo Mix|Streaming Service|Enumerator|Service|Protocol|Transport|Attribute|Adapter|Hub|Root|Interface|Composite|Gateway|Push|Access|Serial|RFCOMM|Generic Attribute|Generic Access|Device Identification|Object Push|Phonebook Access|Personal Area Network"',
+  '$phonePattern = "Galaxy|S2[0-9]|S1[0-9]|iPhone|Pixel|OnePlus|Xiaomi|Redmi|Poco|Realme|Vivo|OPPO|Motorola|Moto|Fold|Flip|Ultra|Phone|Mobile|Android"',
   '$connected = @{}',
   'function Add-ConnectedDevice($id, $friendlyName, $devType) {',
   '    if (-not $friendlyName) { return }',
   '    $name = $friendlyName.Trim()',
   '    $name = $name -replace "^(Speakers|Microphone|Headset|Headphones)\\s*\\(", "" -replace "\\)$", ""',
-  '    $name = ($name -replace "\\s*(Avrcp Transport|Hands-Free.*|AG Audio|HF Audio|A2DP Audio|Pse Service)", "").Trim()',
+  '    $name = ($name -replace "\\s*(Avrcp Transport|Hands-Free.*|AG Audio|HF Audio|A2DP Audio|Pse Service|A2DP SNK)", "").Trim()',
   '    if (-not $name -or $name -match $systemIgnore) { return }',
   '    $key = if ($id) { $id } else { $name }',
   '    if ($connected.ContainsKey($key) -or $connected.ContainsKey($name)) { return }',
@@ -554,24 +555,18 @@ fs.writeFileSync(PS1_BLUETOOTH, [
   '}',
   '',
   '$btDevices = Get-PnpDevice -PresentOnly -Class Bluetooth -ErrorAction SilentlyContinue | Where-Object {',
-  '    $_.Status -eq "OK" -and $_.FriendlyName -and $_.InstanceId -match "^(BTHENUM|BTHLE)\\\\DEV_([0-9A-Fa-f]{12})\\\\"',
+  '    $_.Status -eq "OK" -and $_.FriendlyName -and $_.InstanceId -match "^(BTHENUM|BTHLE)\\\\DEV_([0-9A-Fa-f]{12})"',
   '}',
   'foreach ($dev in $btDevices) {',
-  '    $match = [regex]::Match($dev.InstanceId, "^(BTHENUM|BTHLE)\\\\DEV_([0-9A-Fa-f]{12})\\\\")',
+  '    $match = [regex]::Match($dev.InstanceId, "^(BTHENUM|BTHLE)\\\\DEV_([0-9A-Fa-f]{12})")',
   '    if (-not $match.Success) { continue }',
   '    $address = $match.Groups[2].Value.ToUpperInvariant()',
   '    $connectedProp = Get-PnpDeviceProperty -InputObject $dev -KeyName "{83DA6326-97A6-4088-9453-A1923F573B29} 15" -ErrorAction SilentlyContinue',
-  '    $phoneConnectedProp = Get-PnpDeviceProperty -InputObject $dev -KeyName "{5FBD34CD-561A-412E-BA98-478A6B0FEF1D} 13" -ErrorAction SilentlyContinue',
-  '    if (($connectedProp -and [bool]$connectedProp.Data) -or ($phoneConnectedProp -and [bool]$phoneConnectedProp.Data)) {',
-  '        $devType = if ($dev.FriendlyName -match "Galaxy|S24|S25|S26|iPhone|Pixel|OnePlus|Xiaomi|Phone") { "phone" } else { "audio" }',
+  '    if ($connectedProp -and [bool]$connectedProp.Data -eq $true) {',
+  '        $isPhone = $dev.FriendlyName -match $phonePattern',
+  '        $devType = if ($isPhone) { "phone" } else { "audio" }',
   '        Add-ConnectedDevice $address $dev.FriendlyName $devType',
   '    }',
-  '}',
-  '',
-  '$surfaceDevices = Get-PnpDevice -PresentOnly -Class WPD,AudioEndpoint -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq "OK" -and $_.FriendlyName }',
-  'foreach ($dev in $surfaceDevices) {',
-  '    $devType = if ($dev.FriendlyName -match "Galaxy|S24|S25|S26|iPhone|Pixel|OnePlus|Xiaomi|Phone") { "phone" } else { "audio" }',
-  '    Add-ConnectedDevice $null $dev.FriendlyName $devType',
   '}',
 ].join('\n'), 'utf8');
 
@@ -611,16 +606,18 @@ function pollBluetooth() {
     if (lastBluetoothDevices === null) {
       lastBluetoothDevices = new Map(raw);
       if (raw.size > 0) {
-        const [, firstDev] = Array.from(raw.entries())[0];
+        // Prioritize phone device if present
+        let devToNotify = Array.from(raw.values()).find(d => d.typeStr === 'phone') || Array.from(raw.values())[0];
         mainWindow.webContents.send('bluetooth-update', {
-          deviceName: firstDev.name,
-          batteryPct: firstDev.battery,
+          deviceName: devToNotify.name,
+          batteryPct: devToNotify.battery,
           isCharging: false,
           leftPct: null,
           rightPct: null,
-          typeStr: firstDev.typeStr || 'phone',
+          typeStr: devToNotify.typeStr || 'phone',
           connectionState: 'connected',
           isInitial: true,
+          forceShow: true,
           timestamp: Date.now(),
         });
       }
@@ -644,6 +641,7 @@ function pollBluetooth() {
           typeStr: info.typeStr || 'phone',
           connectionState: 'connected',
           isInitial: false,
+          forceShow: true,
           timestamp: Date.now(),
         });
         return;
@@ -670,8 +668,10 @@ function pollBluetooth() {
         isCharging: false,
         leftPct: null,
         rightPct: null,
+        typeStr: info.typeStr || 'phone',
         connectionState: 'disconnected',
         isInitial: false,
+        forceShow: true,
         timestamp: Date.now(),
       });
       return;
@@ -685,17 +685,17 @@ ipcMain.on('request-bluetooth-status', (_event, options) => {
   if (!mainWindow || !mainWindow.webContents) return;
   const forceShow = typeof options === 'boolean' ? options : (options && options.forceShow);
   if (lastBluetoothDevices && lastBluetoothDevices.size > 0) {
-    const [, firstDev] = Array.from(lastBluetoothDevices.entries())[0];
+    let dev = Array.from(lastBluetoothDevices.values()).find(d => d.typeStr === 'phone') || Array.from(lastBluetoothDevices.values())[0];
     mainWindow.webContents.send('bluetooth-update', {
-      deviceName: firstDev.name,
-      batteryPct: firstDev.battery,
+      deviceName: dev.name,
+      batteryPct: dev.battery,
       isCharging: false,
       leftPct: null,
       rightPct: null,
-      typeStr: firstDev.typeStr || 'phone',
+      typeStr: dev.typeStr || 'phone',
       connectionState: 'connected',
-      isInitial: forceShow ? false : true,
-      forceShow: !!forceShow,
+      isInitial: false,
+      forceShow: true,
       timestamp: Date.now(),
     });
   } else {
@@ -724,6 +724,8 @@ ipcMain.on('trigger-phone-notification', () => {
     typeStr: 'phone',
     connectionState: 'connected',
     isInitial: false,
+    forceShow: true,
+    timestamp: Date.now(),
   });
 });
 
