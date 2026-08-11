@@ -556,7 +556,7 @@ export default function DynamicIsland({
       }
     }) : null;
 
-    const isOverlayState = (s) => s === 'expanded-battery' || s === 'volume-osd' || s === 'expanded-bluetooth' || s === 'expanded-call' || s === 'compact-call';
+    const isOverlayState = (s) => s === 'expanded-battery' || s === 'volume-osd' || s === 'expanded-bluetooth' || s === 'expanded-call' || s === 'compact-call' || s === 'compact-screenrec' || s === 'expanded-screenrec';
     const resumeFromOverlay = () => {
       const resumeState = preOverlayStateRef.current;
       preOverlayStateRef.current = null;
@@ -656,9 +656,9 @@ export default function DynamicIsland({
 
     const cleanScreenRec = window.electronAPI?.onScreenRecUpdate
       ? window.electronAPI.onScreenRecUpdate((data) => {
-          if (data && data.state === 'recording') {
+          if (data && data.state === 'open') {
             setIsDocked(false);
-            setActiveState('compact-screenrec');
+            setActiveState('expanded-screenrec');
           } else {
             setActiveState((prev) => (prev === 'compact-screenrec' || prev === 'expanded-screenrec') ? resumeFromOverlay() : prev);
           }
@@ -735,7 +735,8 @@ export default function DynamicIsland({
       'expanded-call':     [310, 240],
       'expanded-airdrop':  [380, 200],
       'expanded-recorder': [370, 205],
-      'expanded-screenrec':[340, 100],
+      'expanded-screenrec':[360, 95],
+      'compact-screenrec': [260, 44],
       'expanded-battery':  [340, 85],
       'volume-osd':        [360, 85],
       'notification':      [400, 110],
@@ -1164,7 +1165,7 @@ export default function DynamicIsland({
             <VoiceMemoWidget onStop={() => setActiveState('idle')} />
           )}
           {activeState === 'expanded-screenrec' && (
-            <ScreenRecorderWidget onStop={() => setActiveState('idle')} />
+            <ScreenRecorderWidget onClose={() => setActiveState('idle')} />
           )}
           {activeState === 'expanded-battery' && (
             <BatteryWidget pct={battery.pct} charging={battery.charging} minsLeft={battery.minsLeft} />
@@ -1196,6 +1197,19 @@ export default function DynamicIsland({
           )}
           {activeState === 'expanded-screenshot' && (
             <ScreenshotWidget imageSrc={screenshotData} onDismiss={() => setActiveState('idle')} />
+          )}
+          {activeState === 'compact-screenrec' && (
+            <ScreenRecorderWidget
+              isCompact={true}
+              onExpand={() => setActiveState('expanded-screenrec')}
+              onStop={() => setActiveState('idle')}
+            />
+          )}
+          {activeState === 'expanded-screenrec' && (
+            <ScreenRecorderWidget
+              isCompact={false}
+              onStop={() => setActiveState('idle')}
+            />
           )}
           {activeState === 'expanded-bluetooth' && (
             <BluetoothWidget

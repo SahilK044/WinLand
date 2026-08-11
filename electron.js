@@ -1,7 +1,7 @@
 import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, desktopCapturer, clipboard } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { exec, execFile } from 'child_process';
+import { exec, execFile, spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 
@@ -1126,25 +1126,145 @@ ipcMain.handle('take-screenshot', async () => {
   return null;
 });
 
-let isRecordingScreen = false;
-let screenRecStartTime = null;
+ipcMain.handle('get-primary-screen-source', async () => {
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: 0, height: 0 },
+    });
+    const primary = sources && sources[0];
+    const display = screen.getPrimaryDisplay();
+    return primary ? { id: primary.id, name: primary.name, bounds: display.bounds } : null;
+  } catch {
+    return null;
+  }
+});
+
+ipcMain.handle('save-screen-recording', async (_event, recording) => {
+  try {
+    const bytes = recording?.buffer;
+    if (!bytes || typeof bytes.byteLength !== 'number' || bytes.byteLength === 0) {
+      return { ok: false, error: 'Recording is empty.' };
+    }
+
+    const videosDir = app.getPath('videos');
+    const outputDir = path.join(videosDir, 'WinLand Recordings');
+    fs.mkdirSync(outputDir, { recursive: true });
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filePath = path.join(outputDir, `WinLand Recording ${stamp}.webm`);
+    await fs.promises.writeFile(filePath, Buffer.from(new Uint8Array(bytes)));
+    return { ok: true, filePath };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Could not save recording.' };
+  }
+});
 
 ipcMain.on('toggle-screenrec', () => {
   if (!mainWindow || !mainWindow.webContents) return;
-  isRecordingScreen = !isRecordingScreen;
-  if (isRecordingScreen) {
-    screenRecStartTime = Date.now();
-    mainWindow.webContents.send('screenrec-update', {
-      state: 'recording',
-      startTime: screenRecStartTime,
-    });
-  } else {
-    mainWindow.webContents.send('screenrec-update', {
-      state: 'stopped',
-      duration: screenRecStartTime ? Math.round((Date.now() - screenRecStartTime) / 1000) : 0,
-    });
-    screenRecStartTime = null;
+  mainWindow.webContents.send('screenrec-update', {
+    state: 'open',
+    startTime: Date.now(),
+  });
+});
+
+ipcMain.handle('save-screen-recording', async (_event, { buffer, mimeType }) => {
+  try {
+    const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Captures');
+    if (!fs.existsSync(videosDir)) {
+      fs.mkdirSync(videosDir, { recursive: true });
+    }
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const timeStr = new Date().toTimeString().slice(0, 8).replace(/:/g, '-');
+    const fileName = `WinLand_Rec_${dateStr}_${timeStr}.webm`;
+    const filePath = path.join(videosDir, fileName);
+
+    fs.writeFileSync(filePath, Buffer.from(buffer));
+    return { ok: true, filePath };
+  } catch (err) {
+    return { ok: false, error: err.message };
   }
+});
+
+ipcMain.on('open-file-location', (_event, filePath) => {
+  if (filePath && fs.existsSync(filePath)) {
+    shell.showItemInFolder(filePath);
+  } else {
+    const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Captures');
+    if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
+    shell.openPath(videosDir);
+  }
+});
+
+const MOUSE_TRACKER_EXE = app.isPackaged
+  ? path.join(process.resourcesPath, 'scripts', 'mouse_tracker.exe')
+  : path.join(__dirname, 'scripts', 'mouse_tracker.exe');
+
+let mouseTrackerProc = null;
+let mouseTrackerInterval = null;
+let lastMouseButtons = 0;
+
+function emitRecorderMouseUpdate(extra = {}) {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
+  const point = screen.getCursorScreenPoint();
+  mainWindow.webContents.send('screenrec-mouse-update', {
+    x: point.x,
+    y: point.y,
+    buttons: lastMouseButtons,
+    time: Date.now(),
+    ...extra,
+  });
+}
+
+function stopRecorderMouseTracking() {
+  if (mouseTrackerInterval) {
+    clearInterval(mouseTrackerInterval);
+    mouseTrackerInterval = null;
+  }
+  if (mouseTrackerProc) {
+    try { mouseTrackerProc.kill(); } catch {}
+    mouseTrackerProc = null;
+  }
+  lastMouseButtons = 0;
+}
+
+ipcMain.on('start-screenrec-mouse-tracking', () => {
+  stopRecorderMouseTracking();
+  emitRecorderMouseUpdate();
+  mouseTrackerInterval = setInterval(() => emitRecorderMouseUpdate(), 33);
+
+  if (!fs.existsSync(MOUSE_TRACKER_EXE)) return;
+  try {
+    mouseTrackerProc = spawn(MOUSE_TRACKER_EXE, [], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    mouseTrackerProc.stdout.setEncoding('utf8');
+    let buffer = '';
+    mouseTrackerProc.stdout.on('data', (chunk) => {
+      buffer += chunk;
+      const lines = buffer.split(/\r?\n/);
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const parts = line.trim().split('|');
+        if (parts.length < 2) continue;
+        const buttons = parseInt(parts[0], 10) || 0;
+        const eventType = parts[1] || 'move';
+        lastMouseButtons = buttons;
+        emitRecorderMouseUpdate({
+          eventType,
+          button: parts[2] || null,
+        });
+      }
+    });
+    mouseTrackerProc.on('exit', () => {
+      mouseTrackerProc = null;
+    });
+  } catch {}
+});
+
+ipcMain.on('stop-screenrec-mouse-tracking', () => {
+  stopRecorderMouseTracking();
 });
 
 // Device / animation preferences live in the Settings window but are consumed

@@ -132,6 +132,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   toggleScreenRec: () => ipcRenderer.send('toggle-screenrec'),
+  getPrimaryScreenSource: () => ipcRenderer.invoke('get-primary-screen-source'),
+  saveScreenRecording: (recording) => ipcRenderer.invoke('save-screen-recording', recording),
+  startScreenRecMouseTracking: () => ipcRenderer.send('start-screenrec-mouse-tracking'),
+  stopScreenRecMouseTracking: () => ipcRenderer.send('stop-screenrec-mouse-tracking'),
+  onScreenRecMouseUpdate: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('screenrec-mouse-update', handler);
+    return () => ipcRenderer.removeListener('screenrec-mouse-update', handler);
+  },
   onScreenshotCaptured: (callback) => {
     const handler = (_event, dataUrl) => callback(dataUrl);
     ipcRenderer.on('screenshot-captured', handler);
@@ -142,4 +151,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('screenrec-update', handler);
     return () => ipcRenderer.removeListener('screenrec-update', handler);
   },
+  openFileLocation: (filePath) => ipcRenderer.send('open-file-location', filePath),
 });
