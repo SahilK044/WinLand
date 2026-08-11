@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, Music, Globe, Settings, Power, Timer as TimerIcon, Camera } from 'lucide-react';
+import { Folder, Music, Globe, Settings, Power, Timer as TimerIcon, Camera, Video } from 'lucide-react';
 
 const PINNED_APPS = [
   {
@@ -8,7 +8,7 @@ const PINNED_APPS = [
     color: '#ff9f0a',
     icon: (isHovered) => (
       <TimerIcon
-        size={24}
+        size={22}
         color="#ff9f0a"
         style={{
           transform: isHovered ? 'rotate(18deg) scale(1.16)' : 'rotate(0deg) scale(1.0)',
@@ -24,7 +24,7 @@ const PINNED_APPS = [
     color: '#30d158',
     icon: (isHovered) => (
       <Music
-        size={24}
+        size={22}
         color="#30d158"
         style={{
           transform: isHovered ? 'translateY(-3px) scale(1.18)' : 'translateY(0) scale(1.0)',
@@ -40,7 +40,7 @@ const PINNED_APPS = [
     color: '#0a84ff',
     icon: (isHovered) => (
       <Globe
-        size={24}
+        size={22}
         color="#0a84ff"
         style={{
           transform: isHovered ? 'rotate(180deg) scale(1.16)' : 'rotate(0deg) scale(1.0)',
@@ -56,7 +56,7 @@ const PINNED_APPS = [
     color: '#ffd60a',
     icon: (isHovered) => (
       <Folder
-        size={24}
+        size={22}
         color="#ffd60a"
         style={{
           transform: isHovered ? 'translateY(-2px) rotate(-10deg) scale(1.16)' : 'translateY(0) rotate(0deg) scale(1.0)',
@@ -67,28 +67,12 @@ const PINNED_APPS = [
     ),
   },
   {
-    name: 'Exit',
-    cmd: 'exit',
-    color: '#ff453a',
-    icon: (isHovered) => (
-      <Power
-        size={24}
-        color="#ff453a"
-        style={{
-          transform: isHovered ? 'scale(1.22)' : 'scale(1.0)',
-          transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
-          filter: isHovered ? 'drop-shadow(0 0 10px rgba(255, 69, 58, 0.85))' : 'none',
-        }}
-      />
-    ),
-  },
-  {
     name: 'Capture',
     cmd: 'screenshot',
     color: '#30d158',
     icon: (isHovered) => (
       <Camera
-        size={24}
+        size={22}
         color="#30d158"
         style={{
           transform: isHovered ? 'scale(1.18)' : 'scale(1.0)',
@@ -99,17 +83,49 @@ const PINNED_APPS = [
     ),
   },
   {
+    name: 'Record',
+    cmd: 'screenrec',
+    color: '#ff3b30',
+    icon: (isHovered) => (
+      <Video
+        size={22}
+        color="#ff3b30"
+        style={{
+          transform: isHovered ? 'scale(1.18)' : 'scale(1.0)',
+          transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          filter: isHovered ? 'drop-shadow(0 0 8px rgba(255, 59, 48, 0.75))' : 'none',
+        }}
+      />
+    ),
+  },
+  {
     name: 'Settings',
     cmd: 'settings',
     color: '#98989d',
     icon: (isHovered) => (
       <Settings
-        size={24}
+        size={22}
         color="#98989d"
         style={{
           transform: isHovered ? 'rotate(90deg) scale(1.16)' : 'rotate(0deg) scale(1.0)',
           transition: 'transform 0.4s ease',
           filter: isHovered ? 'drop-shadow(0 0 8px rgba(255, 255, 255, 0.65))' : 'none',
+        }}
+      />
+    ),
+  },
+  {
+    name: 'Exit',
+    cmd: 'exit',
+    color: '#ff453a',
+    icon: (isHovered) => (
+      <Power
+        size={22}
+        color="#ff453a"
+        style={{
+          transform: isHovered ? 'scale(1.22)' : 'scale(1.0)',
+          transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          filter: isHovered ? 'drop-shadow(0 0 10px rgba(255, 69, 58, 0.85))' : 'none',
         }}
       />
     ),
@@ -130,14 +146,14 @@ function LauncherButton({ app, onLaunch }) {
       style={{
         background: isHovered ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
         border: isHovered ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid transparent',
-        borderRadius: 14,
+        borderRadius: 12,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 6,
+        gap: 4,
         cursor: 'pointer',
-        padding: '8px 4px',
+        padding: '6px 2px',
         boxSizing: 'border-box',
         transform: isPressed
           ? 'translateZ(0) scale(0.92)'
@@ -165,7 +181,7 @@ function LauncherButton({ app, onLaunch }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: 28,
+          height: 26,
         }}
       >
         {app.icon(isHovered)}
@@ -174,7 +190,7 @@ function LauncherButton({ app, onLaunch }) {
       {/* Label */}
       <span
         style={{
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: 600,
           color: isHovered ? '#ffffff' : 'rgba(255, 255, 255, 0.82)',
           letterSpacing: '0.2px',
@@ -190,8 +206,8 @@ function LauncherButton({ app, onLaunch }) {
 
 export default function LauncherWidget({ onLaunchApp }) {
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px 16px', boxSizing: 'border-box' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, width: '100%' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 12px', boxSizing: 'border-box' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, width: '100%' }}>
         {PINNED_APPS.map((app) => (
           <LauncherButton key={app.cmd} app={app} onLaunch={onLaunchApp} />
         ))}

@@ -742,7 +742,7 @@ export default function DynamicIsland({
       'expanded-weather':  [370, 210],
       'expanded-shelf':    [380, shelfHeight],
       'expanded-sysmon':   [370, 150],
-      'expanded-launcher': [360, 180],
+      'expanded-launcher': [390, 185],
       'expanded-screenshot':[360, 90],
       'expanded-bluetooth': [376, 61],
     };
