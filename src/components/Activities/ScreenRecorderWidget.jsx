@@ -14,7 +14,7 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
   const [status, setStatus] = useState('ready'); // 'ready' | 'recording' | 'paused' | 'saving' | 'saved'
   const [resolutionId, setResolutionId] = useState('1080p');
   const [selectedFps, setSelectedFps] = useState(60);
-  const [enableZoom, setEnableZoom] = useState(true);
+  const [enableZoom, setEnableZoom] = useState(false);
   const [showCursor, setShowCursor] = useState(true);
   const [savedPath, setSavedPath] = useState('');
 
@@ -214,14 +214,20 @@ export default function ScreenRecorderWidget({ isCompact, onStop, onExpand }) {
       });
 
       streamRef.current = screenStream;
-      const composedStream = await createComposedStream(screenStream, source, preset, selectedFps);
-      composedStreamRef.current = composedStream;
+
+      let recordingStream = screenStream;
+      if (enableZoom) {
+        recordingStream = await createComposedStream(screenStream, source, preset, selectedFps);
+        composedStreamRef.current = recordingStream;
+      }
 
       const mimeType = MediaRecorder.isTypeSupported('video/webm; codecs=vp9')
         ? 'video/webm; codecs=vp9'
-        : 'video/webm; codecs=vp8';
+        : MediaRecorder.isTypeSupported('video/webm; codecs=vp8')
+        ? 'video/webm; codecs=vp8'
+        : 'video/webm';
 
-      const recorder = new MediaRecorder(composedStream, {
+      const recorder = new MediaRecorder(recordingStream, {
         mimeType,
         videoBitsPerSecond: selectedFps >= 60 ? preset.bitrate * 1.5 : preset.bitrate,
       });
