@@ -129,4 +129,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('timer-update', handler);
     return () => ipcRenderer.removeListener('timer-update', handler);
   },
+
+  takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
+  toggleScreenRec: () => ipcRenderer.send('toggle-screenrec'),
+  onScreenshotCaptured: (callback) => {
+    const handler = (_event, dataUrl) => callback(dataUrl);
+    ipcRenderer.on('screenshot-captured', handler);
+    return () => ipcRenderer.removeListener('screenshot-captured', handler);
+  },
+  onScreenRecUpdate: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('screenrec-update', handler);
+    return () => ipcRenderer.removeListener('screenrec-update', handler);
+  },
 });

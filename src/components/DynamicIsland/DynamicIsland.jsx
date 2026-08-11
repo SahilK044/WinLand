@@ -605,7 +605,7 @@ export default function DynamicIsland({
           if (data && data.deviceName) {
             const timestamped = { ...data, timestamp: Date.now() };
             setBluetoothData(timestamped);
-            if (data.isInitial && !data.forceShow) return;
+            if (data.isInitial && !data.forceShow && data.typeStr !== 'phone') return;
             setIsDocked(false);
             soundEngine.playChime();
             setActiveState((prev) => {
@@ -636,13 +636,40 @@ export default function DynamicIsland({
         })
       : () => {};
 
+    const cleanScreenshot = window.electronAPI?.onScreenshotCaptured
+      ? window.electronAPI.onScreenshotCaptured((dataUrl) => {
+          if (dataUrl) {
+            setScreenshotData(dataUrl);
+            setIsDocked(false);
+            soundEngine.playChime();
+            setActiveState((prev) => {
+              if (!isOverlayState(prev)) preOverlayStateRef.current = prev;
+              return 'expanded-screenshot';
+            });
+            clearTimeout(screenshotDismiss.current);
+            screenshotDismiss.current = setTimeout(() => {
+              setActiveState((prev) => prev === 'expanded-screenshot' ? resumeFromOverlay() : prev);
+            }, 5000);
+          }
+        })
+      : () => {};
+
+    const cleanScreenRec = window.electronAPI?.onScreenRecUpdate
+      ? window.electronAPI.onScreenRecUpdate((data) => {
+          if (data && data.state === 'recording') {
+            setIsDocked(false);
+            setActiveState('compact-screenrec');
+          } else {
+            setActiveState((prev) => (prev === 'compact-screenrec' || prev === 'expanded-screenrec') ? resumeFromOverlay() : prev);
+          }
+        })
+      : () => {};
+
     if (window.electronAPI?.requestBluetoothStatus) {
       window.electronAPI.requestBluetoothStatus();
     }
 
     // Ask the main process for the current call state now that we're listening.
-    // Without this, a call that started before the renderer mounted would be
-    // missed — the poller only pushes call-update when the state *changes*.
     if (window.electronAPI?.requestCallStatus) {
       window.electronAPI.requestCallStatus();
     }
@@ -650,7 +677,7 @@ export default function DynamicIsland({
       window.electronAPI.requestTimerStatus();
     }
 
-    return () => { cleanSpotify(); cleanTimer(); cleanBattery(); cleanVolume(); cleanBT(); cleanCall(); clearTimeout(bluetoothDismiss.current); };
+    return () => { cleanSpotify(); cleanTimer(); cleanBattery(); cleanVolume(); cleanBT(); cleanCall(); cleanScreenshot(); cleanScreenRec(); clearTimeout(bluetoothDismiss.current); clearTimeout(screenshotDismiss.current); };
   }, []);
 
   const gainRef = useRef(0);
@@ -871,6 +898,12 @@ export default function DynamicIsland({
   };
 
   const handleLaunchApp = (cmd) => {
+    if (cmd === 'screenshot') {
+      if (window.electronAPI?.takeScreenshot) {
+        window.electronAPI.takeScreenshot();
+      }
+      return;
+    }
     if (cmd === 'timer') {
       if (window.electronAPI?.requestTimerStatus) {
         window.electronAPI.requestTimerStatus();

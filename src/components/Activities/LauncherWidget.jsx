@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, Music, Globe, Settings, Power, Timer as TimerIcon } from 'lucide-react';
+import { Folder, Music, Globe, Settings, Power, Timer as TimerIcon, Camera } from 'lucide-react';
 
 const PINNED_APPS = [
   {
@@ -78,6 +78,22 @@ const PINNED_APPS = [
           transform: isHovered ? 'scale(1.22)' : 'scale(1.0)',
           transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
           filter: isHovered ? 'drop-shadow(0 0 10px rgba(255, 69, 58, 0.85))' : 'none',
+        }}
+      />
+    ),
+  },
+  {
+    name: 'Capture',
+    cmd: 'screenshot',
+    color: '#30d158',
+    icon: (isHovered) => (
+      <Camera
+        size={24}
+        color="#30d158"
+        style={{
+          transform: isHovered ? 'scale(1.18)' : 'scale(1.0)',
+          transition: 'transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+          filter: isHovered ? 'drop-shadow(0 0 8px rgba(48, 209, 88, 0.75))' : 'none',
         }}
       />
     ),

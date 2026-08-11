@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell } from 'electron';
+import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, desktopCapturer, clipboard } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec, execFile } from 'child_process';
@@ -1102,6 +1102,48 @@ ipcMain.handle('get-file-icon', async (_event, filePath) => {
     return null;
   } catch {
     return null;
+  }
+});
+
+ipcMain.handle('take-screenshot', async () => {
+  if (!mainWindow) return null;
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: 1280, height: 720 },
+    });
+    if (sources && sources.length > 0) {
+      const primarySource = sources[0];
+      const nativeImg = primarySource.thumbnail;
+      if (nativeImg && !nativeImg.isEmpty()) {
+        try { clipboard.writeImage(nativeImg); } catch {}
+        const dataUrl = nativeImg.toDataURL();
+        mainWindow.webContents.send('screenshot-captured', dataUrl);
+        return dataUrl;
+      }
+    }
+  } catch (err) {}
+  return null;
+});
+
+let isRecordingScreen = false;
+let screenRecStartTime = null;
+
+ipcMain.on('toggle-screenrec', () => {
+  if (!mainWindow || !mainWindow.webContents) return;
+  isRecordingScreen = !isRecordingScreen;
+  if (isRecordingScreen) {
+    screenRecStartTime = Date.now();
+    mainWindow.webContents.send('screenrec-update', {
+      state: 'recording',
+      startTime: screenRecStartTime,
+    });
+  } else {
+    mainWindow.webContents.send('screenrec-update', {
+      state: 'stopped',
+      duration: screenRecStartTime ? Math.round((Date.now() - screenRecStartTime) / 1000) : 0,
+    });
+    screenRecStartTime = null;
   }
 });
 
