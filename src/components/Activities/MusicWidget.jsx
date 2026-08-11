@@ -34,15 +34,28 @@ function parseLrc(lrcText) {
   const lines = lrcText.split('\n');
   const result = [];
 
-  for (const line of lines) {
-    const match = line.match(/^\[(\d+):(\d+(?:\.\d+)?)\]\s*(.*)/);
-    if (match) {
-      const min = parseInt(match[1], 10);
-      const sec = parseFloat(match[2]);
-      const timeMs = Math.round((min * 60 + sec) * 1000);
-      const text = match[3].trim();
-      if (text) {
-        result.push({ timeMs, text });
+  for (let line of lines) {
+    line = line.trim();
+    if (!line) continue;
+
+    // Match all timestamp headers like [01:23.45], [01:23:45], or [01:23.456]
+    const timestampMatches = Array.from(line.matchAll(/\[(\d+):(\d+)(?:[.:](\d+))?\]/g));
+    if (timestampMatches.length > 0) {
+      // Strip out timestamp headers and inline tags like <00:12.34>
+      const cleanText = line.replace(/\[\d+:\d+(?:[.:]\d+)?\]/g, '').replace(/<[^>]+>/g, '').trim();
+      if (cleanText) {
+        for (const match of timestampMatches) {
+          const min = parseInt(match[1], 10);
+          const sec = parseInt(match[2], 10);
+          const fractionStr = match[3] || '0';
+          let msFraction = 0;
+          if (fractionStr.length === 1) msFraction = parseInt(fractionStr, 10) * 100;
+          else if (fractionStr.length === 2) msFraction = parseInt(fractionStr, 10) * 10;
+          else if (fractionStr.length >= 3) msFraction = parseInt(fractionStr.slice(0, 3), 10);
+
+          const timeMs = min * 60000 + sec * 1000 + msFraction;
+          result.push({ timeMs, text: cleanText });
+        }
       }
     }
   }
@@ -50,8 +63,8 @@ function parseLrc(lrcText) {
   return result.sort((a, b) => a.timeMs - b.timeMs);
 }
 
-// Fluid Apple decelerating smooth scroll for active lyric tracking
-function smoothScrollTo(container, targetTop, duration = 680) {
+// Fast responsive Apple decelerating smooth scroll for active lyric tracking
+function smoothScrollTo(container, targetTop, duration = 300) {
   const startTop = container.scrollTop;
   const delta = targetTop - startTop;
   if (Math.abs(delta) < 1) return;
@@ -61,7 +74,7 @@ function smoothScrollTo(container, targetTop, duration = 680) {
   function step(now) {
     const elapsed = now - startTime;
     const t = Math.min(1, elapsed / duration);
-    const ease = 1 - Math.pow(1 - t, 3);
+    const ease = 1 - Math.pow(1 - t, 4); // Fast Quartic ease-out for snappy vocal tracking
     container.scrollTop = startTop + delta * ease;
     if (t < 1) {
       container.__lyricScrollRaf = requestAnimationFrame(step);
@@ -85,8 +98,15 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
   const syncRef = useRef({ baseMs: progressMs, baseTime: performance.now() });
 
   useEffect(() => {
-    const drift = Math.abs(progressMs - smoothMs);
-    if (drift > 1200 || !isPlaying) {
+    if (!isPlaying) {
+      syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
+      setSmoothMs(progressMs);
+      return;
+    }
+    const currentSmooth = syncRef.current.baseMs + (performance.now() - syncRef.current.baseTime);
+    const drift = Math.abs(progressMs - currentSmooth);
+    // Lower drift threshold from 1200ms to 250ms for sub-100ms sync accuracy on fast songs
+    if (drift > 250) {
       syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
       setSmoothMs(progressMs);
     }
@@ -217,12 +237,19 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
 
   // Snappy spring-eased smooth scroll to center the active lyric line
   useEffect(() => {
-    if (!scrollRef.current || !activeRef.current) return;
+    if (!scrollRef.current || !activeRef.current || activeIndex < 0) return;
     const container = scrollRef.current;
     const el = activeRef.current;
     const target = (el.offsetTop + el.offsetHeight / 2) - (container.clientHeight / 2);
-    smoothScrollTo(container, target, 680);
-  }, [activeIndex]);
+
+    // Dynamic scroll duration for fast vs slow songs
+    const currentLineMs = lyrics[activeIndex]?.timeMs || 0;
+    const nextLineMs = lyrics[activeIndex + 1]?.timeMs || (currentLineMs + 3000);
+    const lineDuration = nextLineMs - currentLineMs;
+    const scrollDuration = Math.max(160, Math.min(320, Math.floor(lineDuration * 0.35)));
+
+    smoothScrollTo(container, target, scrollDuration);
+  }, [activeIndex, lyrics]);
 
   const glowColor = eqGlow || (eqColor ? `${eqColor}55` : 'rgba(255,255,255,0.16)');
 
