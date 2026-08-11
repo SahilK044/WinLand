@@ -904,6 +904,12 @@ export default function DynamicIsland({
       }
       return;
     }
+    if (cmd === 'screenrec') {
+      if (window.electronAPI?.toggleScreenRec) {
+        window.electronAPI.toggleScreenRec();
+      }
+      return;
+    }
     if (cmd === 'timer') {
       if (window.electronAPI?.requestTimerStatus) {
         window.electronAPI.requestTimerStatus();
