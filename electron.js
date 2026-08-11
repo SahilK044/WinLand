@@ -11,6 +11,9 @@ const __dirname = path.dirname(__filename);
 // NOTE: no-sandbox / disable-http-cache were removed — the sandbox stays on and
 // Chromium's HTTP cache makes album-art fetches cheap.
 
+// Force sRGB color space profile for screen capture & WebM encoding on Windows HDR displays
+app.commandLine.appendSwitch('force-color-profile', 'srgb');
+
 let mainWindow;
 let isQuitting = false; // set when the user chooses Exit, so window-all-closed lets us go
 let lastDetectedTitle = '';
