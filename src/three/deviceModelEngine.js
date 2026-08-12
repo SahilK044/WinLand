@@ -41,6 +41,14 @@ import soundbarGlb       from '../assets/models/soundbar.glb?url';
 import ps5ControllerGlb  from '../assets/models/ps5_controller.glb?url';
 import xboxBlackGlb      from '../assets/models/xbox_black.glb?url';
 import xboxWhiteGlb      from '../assets/models/xbox_white.glb?url';
+import pixel6proGlb      from '../assets/models/pixel6pro.glb?url';
+import pixel7proGlb      from '../assets/models/pixel7pro.glb?url';
+import pixel8proGlb      from '../assets/models/pixel8pro.glb?url';
+import s21ultraGlb       from '../assets/models/s21ultra.glb?url';
+import s22ultraGlb       from '../assets/models/s22ultra.glb?url';
+import note20ultraGlb    from '../assets/models/note20ultra.glb?url';
+import zflip3Glb         from '../assets/models/zflip3.glb?url';
+import zfold2Glb         from '../assets/models/zfold2.glb?url';
 
 export const GLB_MODEL_MAP = {
   s24ultra: s24ultraGlb,
@@ -66,6 +74,16 @@ export const GLB_MODEL_MAP = {
   ps5_controller: ps5ControllerGlb,
   xbox_black: xboxBlackGlb,
   xbox_white: xboxWhiteGlb,
+  pixel6pro: pixel6proGlb,
+  pixel7pro: pixel7proGlb,
+  pixel8pro: pixel8proGlb,
+  s21ultra: s21ultraGlb,
+  s22ultra: s22ultraGlb,
+  note20ultra: note20ultraGlb,
+  zflip3: zflip3Glb,
+  zflip2: zflip3Glb,
+  zfold2: zfold2Glb,
+  zfold3: zfold2Glb,
 };
 
 // ——— Per-model Base Pose & Scale Configs (calibrated against the real GLBs) —
@@ -87,6 +105,14 @@ export const MODEL_CONFIGS = {
   iphone16:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
   iphone15:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
   iphone12:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  pixel6pro:      { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  pixel7pro:      { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  pixel8pro:      { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  s21ultra:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  s22ultra:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  note20ultra:    { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  zflip3:         { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  zfold2:         { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
   // The Razer GLB is authored front-on (thinnest axis Z), so it needs no turn
   // to face the viewer; the Sony GLB is authored side-on (thinnest axis X) and
   // needs a turn to match. Both end up presenting the same front view.
@@ -118,6 +144,7 @@ export const MODEL_CONFIGS = {
 export const SPIN_MODELS = new Set([
   's24ultra', 's25ultra', 's26ultra', 'zfold6', 'zflip6',
   'iphone17pro', 'iphone17air', 'iphone16pro', 'iphone15pro', 'iphone16', 'iphone15', 'iphone12',
+  'pixel6pro', 'pixel7pro', 'pixel8pro', 's21ultra', 's22ultra', 'note20ultra', 'zflip3', 'zfold2',
 ]);
 
 // Tilt applied to the whole group while an earbud case is open. Shared so the

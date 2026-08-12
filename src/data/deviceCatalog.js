@@ -19,6 +19,14 @@ export const DEVICE_CATALOG = {
     { id: 'iphone15pro', name: 'iPhone 15 Pro',            brand: 'Apple',   formFactor: 'bar',  defaultColor: 'white' },
     { id: 'iphone15',    name: 'iPhone 15',                brand: 'Apple',   formFactor: 'bar',  defaultColor: 'black' },
     { id: 'iphone12',    name: 'iPhone 12',                brand: 'Apple',   formFactor: 'bar',  defaultColor: 'white' },
+    { id: 'pixel8pro',    name: 'Google Pixel 8 Pro',       brand: 'Google',  formFactor: 'bar',  defaultColor: 'black' },
+    { id: 'pixel7pro',    name: 'Google Pixel 7 Pro',       brand: 'Google',  formFactor: 'bar',  defaultColor: 'space-grey' },
+    { id: 'pixel6pro',    name: 'Google Pixel 6 Pro',       brand: 'Google',  formFactor: 'bar',  defaultColor: 'space-grey' },
+    { id: 's22ultra',     name: 'Samsung Galaxy S22 Ultra',  brand: 'Samsung', formFactor: 'bar',  defaultColor: 'space-grey' },
+    { id: 's21ultra',     name: 'Samsung Galaxy S21 Ultra',  brand: 'Samsung', formFactor: 'bar',  defaultColor: 'black' },
+    { id: 'note20ultra',  name: 'Samsung Galaxy Note 20 Ultra', brand: 'Samsung', formFactor: 'bar', defaultColor: 'space-grey' },
+    { id: 'zflip3',       name: 'Samsung Galaxy Z Flip 3',  brand: 'Samsung', formFactor: 'flip', defaultColor: 'white' },
+    { id: 'zfold2',       name: 'Samsung Galaxy Z Fold 2',  brand: 'Samsung', formFactor: 'fold', defaultColor: 'space-grey' },
   ],
   headphones: [
     { id: 'razerbarracuda', name: 'Razer Barracuda X 2.4G', brand: 'Razer', defaultColor: 'black' },
@@ -97,12 +105,29 @@ export function parseDeviceArchetype(deviceName = '') {
     return { id: 'xbox_controller', name: deviceName, formFactor: 'controller', brand: 'Microsoft' };
   if (lower.includes('barracuda') || lower.includes('razer'))
     return { id: 'razerbarracuda', name: deviceName, formFactor: 'headphone', brand: 'Razer' };
+  if (lower.includes('fold 2') || lower.includes('zfold2'))
+    return { id: 'zfold2', name: deviceName, formFactor: 'fold', brand: 'Samsung' };
   if (lower.includes('fold'))   return { id: 'zfold6',    name: deviceName, formFactor: 'fold', brand: 'Samsung' };
+  if (lower.includes('flip 3') || lower.includes('zflip3'))
+    return { id: 'zflip3', name: deviceName, formFactor: 'flip', brand: 'Samsung' };
   if (lower.includes('flip'))   return { id: 'zflip6',    name: deviceName, formFactor: 'flip', brand: 'Samsung' };
+  if (lower.includes('note 20') || lower.includes('note20'))
+    return { id: 'note20ultra', name: deviceName, formFactor: 'bar', brand: 'Samsung' };
   if (lower.includes('s26'))    return { id: 's26ultra',  name: deviceName, formFactor: 'bar',  brand: 'Samsung' };
   if (lower.includes('s25'))    return { id: 's25ultra',  name: deviceName, formFactor: 'bar',  brand: 'Samsung' };
-  if (lower.includes('s24') || lower.includes('galaxy'))
+  if (lower.includes('s24'))    return { id: 's24ultra',  name: deviceName, formFactor: 'bar',  brand: 'Samsung' };
+  if (lower.includes('s22'))    return { id: 's22ultra',  name: deviceName, formFactor: 'bar',  brand: 'Samsung' };
+  if (lower.includes('s21'))    return { id: 's21ultra',  name: deviceName, formFactor: 'bar',  brand: 'Samsung' };
+  if (lower.includes('galaxy'))
     return { id: 's24ultra', name: deviceName, formFactor: 'bar', brand: 'Samsung' };
+  if (lower.includes('pixel 8') || lower.includes('pixel8'))
+    return { id: 'pixel8pro', name: deviceName, formFactor: 'bar', brand: 'Google' };
+  if (lower.includes('pixel 7') || lower.includes('pixel7'))
+    return { id: 'pixel7pro', name: deviceName, formFactor: 'bar', brand: 'Google' };
+  if (lower.includes('pixel 6') || lower.includes('pixel6'))
+    return { id: 'pixel6pro', name: deviceName, formFactor: 'bar', brand: 'Google' };
+  if (lower.includes('pixel'))
+    return { id: 'pixel8pro', name: deviceName, formFactor: 'bar', brand: 'Google' };
   if (lower.includes('iphone'))
     return { id: lower.includes('pro') ? 'iphone16pro' : 'iphone16', name: deviceName, formFactor: 'bar', brand: 'Apple' };
   return { id: 's24ultra', name: deviceName || 'Smartphone', formFactor: 'bar', brand: 'Generic' };
