@@ -166,8 +166,6 @@ fs.writeFileSync(PS1_SPOTIFY, [
   'if ($main) { Write-Output $main.MainWindowTitle }',
 ].join('\n'), 'utf8');
 
-const PS_SPOTIFY_CMD = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${PS1_SPOTIFY}"`;
-
 const PS1_BATTERY = path.join(SCRIPT_DIR, 'winland_battery_poll.ps1');
 fs.writeFileSync(PS1_BATTERY, [
   '$b = Get-WmiObject Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1',
@@ -186,8 +184,6 @@ fs.writeFileSync(PS1_BATTERY, [
   '  Write-Output "$pct|$charging|$mins"',
   '}',
 ].join('\n'), 'utf8');
-
-const PS_BATTERY_CMD = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${PS1_BATTERY}"`;
 
 // ── Multi-Monitor Pinning ────────────────────────────────────────────────
 // Resolves the display the island should live on: the pinned display if it
@@ -422,6 +418,7 @@ function pollSpotifyTitle() {
   isPollingSpotify = true;
   let doneCalled = false;
   const done = () => {
+    clearTimeout(safetyTimer);
     if (!doneCalled) {
       doneCalled = true;
       isPollingSpotify = false;
@@ -1853,48 +1850,6 @@ ipcMain.on('launch-app', (event, cmd) => {
       // Unrecognized command — do not shell-exec arbitrary renderer input.
       console.warn('Ignored unrecognized launch-app command:', cmd);
   }
-});
-
-ipcMain.on('trigger-bluetooth-demo', (event, customDevice) => {
-  if (!mainWindow || !mainWindow.webContents) return;
-  const name = typeof customDevice === 'string' ? customDevice : (customDevice?.deviceName || 'AirPods Pro');
-  mainWindow.webContents.send('bluetooth-update', {
-    deviceName: name,
-    batteryPct: customDevice?.batteryPct ?? 88,
-    isCharging: false,
-    leftPct: customDevice?.leftPct ?? 85,
-    rightPct: customDevice?.rightPct ?? 90,
-    connectionState: 'connected',
-    isInitial: false,
-  });
-});
-
-ipcMain.on('trigger-bluetooth-disconnect', (event, customDevice) => {
-  if (!mainWindow || !mainWindow.webContents) return;
-  const name = typeof customDevice === 'string' ? customDevice : (customDevice?.deviceName || 'AirPods Pro');
-  mainWindow.webContents.send('bluetooth-update', {
-    deviceName: name,
-    batteryPct: null,
-    isCharging: false,
-    leftPct: null,
-    rightPct: null,
-    connectionState: 'disconnected',
-    isInitial: false,
-  });
-});
-
-ipcMain.on('trigger-bluetooth-low-battery', (event, customDevice, pct) => {
-  if (!mainWindow || !mainWindow.webContents) return;
-  const name = typeof customDevice === 'string' ? customDevice : (customDevice?.deviceName || 'AirPods Pro');
-  mainWindow.webContents.send('bluetooth-update', {
-    deviceName: name,
-    batteryPct: pct || 15,
-    isCharging: false,
-    leftPct: 12,
-    rightPct: 15,
-    connectionState: 'low-battery',
-    isInitial: false,
-  });
 });
 
 // ── App Lifecycle & Safety ──────────────────────────────────────────────────

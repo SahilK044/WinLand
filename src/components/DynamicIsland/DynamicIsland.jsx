@@ -379,7 +379,7 @@ export default function DynamicIsland({
   useEffect(() => {
     const handleGamepadConnected = (e) => {
       const gp = e.gamepad;
-      const isPs = gp.id.toLowerCase().includes('dualsense') || gp.id.toLowerCase().includes('playstation') || gp.id.toLowerCase().includes('054c');
+      const isPs = gp.id?.toLowerCase().includes('dualsense') || gp.id?.toLowerCase().includes('playstation') || gp.id?.toLowerCase().includes('054c');
       const name = isPs ? 'DualSense Wireless Controller' : 'Xbox Wireless Controller';
 
       setNotification?.({
@@ -568,7 +568,7 @@ export default function DynamicIsland({
         // Native timer finished or stopped - clear native sync state
         isNativeSyncedRef.current = false;
         timerStore.clearNativeTimer();
-        setActiveState((cur) => cur === 'expanded-timer' ? (trackInfo.title ? 'compact-music' : 'idle') : cur);
+        setActiveState((cur) => cur === 'expanded-timer' ? (trackInfoRef.current.title ? 'compact-music' : 'idle') : cur);
       }
     }) : null;
 
@@ -798,14 +798,12 @@ export default function DynamicIsland({
       'expanded-shelf':    'state-expanded-shelf',
       'expanded-sysmon':   'state-expanded-sysmon',
       'expanded-launcher': 'state-expanded-launcher',
-      'expanded-settings': 'state-expanded-settings',
       'expanded-screenshot':'state-expanded-screenshot',
       'expanded-bluetooth':'state-expanded-bluetooth',
     }[activeState] || 'state-idle';
   };
 
   // 100% Solid Opaque background gradient (strictly #000000 when idle)
-  const pillBg = buildPillBg(accentColor, activeState === 'expanded-music', !!trackInfo.title, isLight);
 
   // ── Mouse Passthrough Management ──────────────────────────────────────────
   // The renderer window is intentionally larger than the visible pill so it
@@ -909,7 +907,7 @@ export default function DynamicIsland({
       window.removeEventListener('keydown', handleKeyDown);
       unsubIPC();
     };
-  }, [trackInfo.title, setActiveState]);
+  }, [trackInfo.title, isTimerActive, setActiveState]);
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -946,7 +944,7 @@ export default function DynamicIsland({
         const nameLower = f.name.toLowerCase();
         const ext = nameLower.includes('.') ? nameLower.split('.').pop() : '';
         const isShortcutOrFile = ext === 'lnk' || ext === 'url' || ext === 'exe' || (ext.length > 0 && ext.length <= 5);
-        const isFolder = !isShortcutOrFile && (f.type.includes('folder') || f.type === 'directory' || !ext);
+        const isFolder = !isShortcutOrFile && (f.type?.includes('folder') || f.type === 'directory' || !ext);
         const displayName = f.name.replace(/\.lnk$/i, '').replace(/\.exe$/i, '').replace(/\.url$/i, '');
         return {
           name: displayName,
@@ -1008,7 +1006,7 @@ export default function DynamicIsland({
 
   const handleIslandClick = (e) => {
     if (e.defaultPrevented) return;
-    if (activeState === 'expanded-settings' || activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') return;
+    if (activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') return;
     if (e.target && (e.target.closest('button') || e.target.closest('input') || e.target.closest('svg') || e.target.closest('.interactive-child'))) {
       return;
     }
@@ -1058,9 +1056,6 @@ export default function DynamicIsland({
   const eqColor  = `rgb(${smoothR},${smoothG},${smoothB})`;
   const eqGlow   = `rgba(${smoothR},${smoothG},${smoothB},0.42)`;
   const progGrad = `linear-gradient(90deg, rgb(${smoothR},${smoothG},${smoothB}), rgba(${smoothR},${smoothG},${smoothB},0.75))`;
-
-  const expandedGradient = buildPillBg(displayAccentColor, true, true, isLight);
-  const showGradient = (activeState === 'expanded-music' || activeState === 'expanded-lyrics') && trackInfo.isPlaying && !!trackInfo.title;
 
   if (activeState === 'split') {
     return (

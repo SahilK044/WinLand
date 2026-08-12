@@ -26,15 +26,6 @@
   -webkit-user-drag: none;
 }
 
-.no-scrollbar::-webkit-scrollbar {
-  display: none !important;
-}
-
-.no-scrollbar {
-  -ms-overflow-style: none !important;
-  scrollbar-width: none !important;
-}
-
 body, html, #root {
   width: 100%;
   height: 100%;
@@ -443,21 +434,6 @@ button:active {
   }
 }
 
-/* Active Mic/Camera Hardware Indicator Dot */
-.mic-hardware-dot {
-  position: absolute;
-  top: 13px;
-  left: 38px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #ff9500;
-  z-index: 50;
-  pointer-events: none;
-  box-shadow: 0 0 8px rgba(255, 149, 0, 0.8);
-  transition: opacity 0.3s ease;
-}
-
 /* Active State Dimensions */
 .state-idle {
   width: 250px;
@@ -784,45 +760,11 @@ button:active {
   }
 }
 
-/* Glassmorphic backdrop cards */
-.glass-card {
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border: 1px solid var(--glass-border);
-}
-
-.glass-pill {
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
 /* Apple Pulse Glow effect */
 @keyframes applePulse {
   0% { transform: scale(1); opacity: 0.8; }
   50% { transform: scale(1.08); opacity: 1; }
   100% { transform: scale(1); opacity: 0.8; }
-}
-
-.animate-apple-pulse {
-  animation: applePulse 2s ease-in-out infinite;
-}
-
-/* Equalizer Visualizer Bar Styles */
-.eq-bar-container {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 24px;
-}
-
-.eq-bar {
-  width: 3px;
-  border-radius: 2px;
-  will-change: height;
-  transition: height 0.08s linear, background 0.5s ease;
 }
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

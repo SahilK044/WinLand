@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Music, RefreshCw, X, Volume1, Volume2, VolumeX } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Music, RefreshCw, Volume1, Volume2, VolumeX } from 'lucide-react';
 
 const MAC_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif';
 
@@ -305,6 +305,12 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
     const scrollDuration = Math.max(160, Math.min(320, Math.floor(lineDuration * 0.35)));
 
     smoothScrollTo(container, target, scrollDuration);
+
+    return () => {
+      if (container.__lyricScrollRaf) {
+        cancelAnimationFrame(container.__lyricScrollRaf);
+      }
+    };
   }, [activeIndex, lyrics]);
 
   const glowColor = eqGlow || (eqColor ? `${eqColor}55` : 'rgba(255,255,255,0.16)');
@@ -559,7 +565,7 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, onClick }) => {
     if (onClick) {
       onClick(e);
     } else if (window.electronAPI?.launchApp) {
-      window.electronAPI.launchApp('spotify');
+      window.electronAPI?.launchApp?.('spotify');
     }
   };
 
@@ -637,7 +643,11 @@ const SystemVolumeControl = ({ eqColor, eqGlow }) => {
       }).catch(() => {});
     }
 
-    if (!window.electronAPI?.onVolumeUpdate) return;
+    if (!window.electronAPI?.onVolumeUpdate) {
+      return () => {
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      };
+    }
     const unsub = window.electronAPI.onVolumeUpdate(({ vol }) => {
       if (typeof vol === 'number' && !isNaN(vol)) {
         setVolume(vol);
@@ -649,7 +659,10 @@ const SystemVolumeControl = ({ eqColor, eqGlow }) => {
         }
       }
     });
-    return unsub;
+    return () => {
+      if (typeof unsub === 'function') unsub();
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
   }, []);
 
   const triggerBadge = () => {
@@ -753,6 +766,36 @@ const SystemVolumeControl = ({ eqColor, eqGlow }) => {
   );
 };
 
+// Common Equalizer Component (Smooth Liquid Spring Animation)
+const EqBars = ({ h = 14, visualizerOpacity, barHeights, eqColor, eqGlow }) => (
+  <div style={{
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: 2.5,
+    height: h,
+    flexShrink: 0,
+    opacity: visualizerOpacity,
+    transform: `scaleY(${0.92 + visualizerOpacity * 0.08})`,
+    transformOrigin: 'bottom center',
+    filter: visualizerOpacity < 1 ? 'blur(0.4px)' : 'none',
+    transition: 'opacity 0.36s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.42s cubic-bezier(0.2, 0.9, 0.2, 1), filter 0.36s ease',
+  }}>
+    {barHeights.map((bh, i) => (
+      <div
+        key={i}
+        style={{
+          width: 2.5,
+          height: `${Math.max(8, bh)}%`,
+          background: `linear-gradient(180deg, rgba(255,255,255,0.94), ${eqColor} 38%, ${eqColor})`,
+          borderRadius: 2,
+          boxShadow: bh > 10 ? `0 0 7px ${eqGlow}, 0 0 14px ${eqGlow}` : `0 0 4px ${eqGlow}`,
+          transition: 'height 0.05s linear, background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)',
+        }}
+      />
+    ))}
+  </div>
+);
+
 export default function MusicWidget({
   isCompact,
   isExpanded,
@@ -771,7 +814,7 @@ export default function MusicWidget({
   onPrev,
   onSeek,
 }) {
-  const { title, artist, album, coverUrl, isPlaying = false, progressMs = 0, durationMs = 0 } = trackInfo;
+  const { title, artist, coverUrl, isPlaying = false, progressMs = 0, durationMs = 0 } = trackInfo;
 
   const [time, setTime] = useState(new Date());
   const [isDragging, setIsDragging] = useState(false);
@@ -874,11 +917,6 @@ export default function MusicWidget({
     onSeek?.(targetMs);
   };
 
-  const handleScrubberClick = (e) => {
-    e.stopPropagation();
-    const targetMs = calcMsFromEvent(e);
-    onSeek?.(targetMs);
-  };
 
   const hours = time.getHours();
   const mins = time.getMinutes();
@@ -886,35 +924,6 @@ export default function MusicWidget({
   const timeString = `${displayHours}:${mins < 10 ? '0' : ''}${mins}`;
   const dateString = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  // Common Equalizer Component (Smooth Liquid Spring Animation)
-  const EqBars = ({ h = 14 }) => (
-    <div style={{
-      display: 'flex',
-      alignItems: 'flex-end',
-      gap: 2.5,
-      height: h,
-      flexShrink: 0,
-      opacity: visualizerOpacity,
-      transform: `scaleY(${0.92 + visualizerOpacity * 0.08})`,
-      transformOrigin: 'bottom center',
-      filter: visualizerOpacity < 1 ? 'blur(0.4px)' : 'none',
-      transition: 'opacity 0.36s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.42s cubic-bezier(0.2, 0.9, 0.2, 1), filter 0.36s ease',
-    }}>
-      {barHeights.map((bh, i) => (
-        <div
-          key={i}
-          style={{
-            width: 2.5,
-            height: `${Math.max(8, bh)}%`,
-            background: `linear-gradient(180deg, rgba(255,255,255,0.94), ${eqColor} 38%, ${eqColor})`,
-            borderRadius: 2,
-            boxShadow: bh > 10 ? `0 0 7px ${eqGlow}, 0 0 14px ${eqGlow}` : `0 0 4px ${eqGlow}`,
-            transition: 'height 0.05s linear, background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)',
-          }}
-        />
-      ))}
-    </div>
-  );
 
   /* ─── SPLIT PILL (Primary Left Component) ─── */
   if (isSplit) {
@@ -932,7 +941,7 @@ export default function MusicWidget({
           )}
         </div>
         <div style={{ flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}>
-          <EqBars h={14} />
+          <EqBars h={14} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
         </div>
       </div>
     );
@@ -961,7 +970,7 @@ export default function MusicWidget({
           )}
         </div>
         <div style={{ flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}>
-          <EqBars h={14} />
+          <EqBars h={14} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
         </div>
       </div>
     );
@@ -1015,7 +1024,7 @@ export default function MusicWidget({
           </div>
         </div>
 
-        <EqBars h={20} />
+        <EqBars h={20} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
       </div>
 
       {/* ── Middle Row: Scrubber / Progress Bar & Timers ── */}
@@ -1049,7 +1058,6 @@ export default function MusicWidget({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={() => setIsDragging(false)}
-          onClick={handleScrubberClick}
           style={{ width: '100%', height: 6, background: 'rgba(255, 255, 255, 0.14)', borderRadius: 4, cursor: 'pointer', position: 'relative', overflow: 'visible' }}
         >
           {/* Filled Progress Bar — strict overflow: hidden so shimmer is 100% contained */}

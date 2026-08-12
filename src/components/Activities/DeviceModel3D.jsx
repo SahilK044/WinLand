@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import {
   GLB_MODEL_MAP, loadSharedModel, prepareDeviceModel, addStudioLights,
 } from '../../three/deviceModelEngine';
+import Phone3D from './Phone3D';
 
 /**
  * Renders the user's chosen real 3D device inside the Dynamic Island's

@@ -27,7 +27,6 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
   const [resolutionId, setResolutionId] = useState('1080p');
   const [selectedFps, setSelectedFps] = useState(60);
   const [enableZoom, setEnableZoom] = useState(false);
-  const [savedPath, setSavedPath] = useState('');
 
   const mediaRecorderRef = useRef(null);
   const streamRef = useRef(null);
@@ -44,13 +43,10 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
   const camPosRef = useRef({ x: 0, y: 0 });
   const zoomRef = useRef(1.0);
   const lastClickTimeRef = useRef(0);
-  const lastMoveTimeRef = useRef(0);
   const lastMovePosRef = useRef({ x: 0, y: 0 });
 
   // Keyboard-driven zoom override: 'none' | 'pan-out' | 'zoom-in'
   const keyZoomModeRef = useRef('none');
-  // Track zoom velocity for smooth transitions
-  const prevZoomRef = useRef(1.0);
 
   // Keep a ref in sync with the React state so the draw-loop closure
   // always reads the latest value without needing to be recreated.
@@ -105,6 +101,28 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
     const interval = setInterval(() => setSeconds((s) => s + 1), 1000);
     return () => clearInterval(interval);
   }, [status]);
+
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try { mediaRecorderRef.current.stop(); } catch {}
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop());
+      }
+      if (composedStreamRef.current) {
+        composedStreamRef.current.getTracks().forEach(t => t.stop());
+      }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.pause();
+      }
+      mouseCleanupRef.current?.();
+      window.electronAPI?.stopScreenRecMouseTracking?.();
+      window.electronAPI?.stopScreenRecHotkeys?.();
+      stopDrawLoop();
+    };
+  }, []);
 
   const formatTime = (secs) => {
     const m = Math.floor(secs / 60);
@@ -222,13 +240,30 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
     video.playsInline = true;
     video.srcObject = screenStream;
     await new Promise((resolve) => {
+      let resolved = false;
+      let fallbackTimer;
+
       video.onloadedmetadata = () => {
-        video.play().then(resolve).catch(resolve);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(fallbackTimer);
+          video.play().then(resolve).catch(resolve);
+        }
       };
+
       if (video.readyState >= 2) {
-        video.play().then(resolve).catch(resolve);
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(fallbackTimer);
+          video.play().then(resolve).catch(resolve);
+        }
       } else {
-        setTimeout(resolve, 400);
+        fallbackTimer = setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            resolve();
+          }
+        }, 400);
       }
     });
     videoRef.current = video;
@@ -239,14 +274,13 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
     canvasRef.current = canvas;
 
     const ctx = canvas.getContext('2d', { alpha: false });
+    if (!ctx) { reject(new Error('Canvas 2D context not available')); return; }
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'medium';
 
     const bounds = source?.bounds || { x: 0, y: 0, width: preset.width, height: preset.height };
     camPosRef.current = { x: preset.width / 2, y: preset.height / 2 };
-    lastMoveTimeRef.current = performance.now();
     lastMovePosRef.current = { x: mouseTargetRef.current.x, y: mouseTargetRef.current.y };
-    prevZoomRef.current = 1.0;
 
     const IDLE_ZOOM = 1.0;
     const CLICK_PUNCH_ZOOM = 1.5;
@@ -279,7 +313,6 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
 
       const movedSince = Math.hypot(target.x - lastMovePosRef.current.x, target.y - lastMovePosRef.current.y);
       if (movedSince > MOVE_THRESHOLD_PX) {
-        lastMoveTimeRef.current = now;
         lastMovePosRef.current = { x: target.x, y: target.y };
       }
 
@@ -337,7 +370,6 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
       ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
 
       ctx.restore();
-      prevZoomRef.current = zoom;
     };
 
     const frameMs = 1000 / targetFps;
@@ -387,6 +419,8 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
   const handleStartRecording = async (e) => {
     e?.stopPropagation();
     dbg('[REC_DEBUG] handleStartRecording clicked');
+    
+    setStatus('starting');
 
     try {
       const preset = RESOLUTION_OPTIONS.find((p) => p.id === resolutionId) || RESOLUTION_OPTIONS[0];
@@ -449,6 +483,17 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         try {
           dbg('[REC_DEBUG] creating Auto Zoom composed stream');
           recordingStream = await createComposedStream(screenStream, source, preset, captureFps);
+          
+          if (statusRef.current !== 'starting') {
+            dbgWarn('[REC_DEBUG] Recording cancelled during stream composition');
+            if (recordingStream) recordingStream.getTracks().forEach(t => t.stop());
+            if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+            if (videoRef.current) {
+              videoRef.current.srcObject = null;
+              videoRef.current.pause();
+            }
+            return;
+          }
         } catch (zoomErr) {
           dbgWarn('[REC_DEBUG] createComposedStream failed, falling back to direct screenStream:', zoomErr);
           recordingStream = screenStream;
@@ -494,6 +539,11 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
 
       recorder.onstop = async () => {
         dbg('[REC_DEBUG] recorder.onstop fired! chunks length:', chunksRef.current.length);
+        
+        mouseCleanupRef.current?.();
+        window.electronAPI?.stopScreenRecMouseTracking?.();
+        window.electronAPI?.stopScreenRecHotkeys?.();
+
         const finalMime = recorder.mimeType || supportedType || 'video/webm';
         const blob = new Blob(chunksRef.current, { type: finalMime });
         chunksRef.current = [];
@@ -505,6 +555,10 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         if (composedStreamRef.current) {
           try { composedStreamRef.current.getTracks().forEach((t) => t.stop()); } catch {}
           composedStreamRef.current = null;
+        }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+          videoRef.current.pause();
         }
         stopDrawLoop();
 
@@ -557,6 +611,10 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch {}
         streamRef.current = null;
       }
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+        videoRef.current.pause();
+      }
       stopDrawLoop();
       setStatus('ready');
       onStop?.();
@@ -584,11 +642,6 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
     } catch (err) {
       dbgErr('[REC_DEBUG] handleTogglePause error:', err);
     }
-  };
-
-  const handleOpenFolder = (e) => {
-    e?.stopPropagation();
-    window.electronAPI?.openFileLocation?.(savedPath);
   };
 
   const currentPreset = RESOLUTION_OPTIONS.find((p) => p.id === resolutionId) || RESOLUTION_OPTIONS[0];

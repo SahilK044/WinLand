@@ -125,13 +125,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('escape-pressed', handler);
   },
 
-  requestTimerStatus: () => ipcRenderer.send('request-timer-status'),
-  onTimerUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('timer-update', handler);
-    return () => ipcRenderer.removeListener('timer-update', handler);
-  },
-
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   toggleScreenRec: () => ipcRenderer.send('toggle-screenrec'),
   getPrimaryScreenSource: () => ipcRenderer.invoke('get-primary-screen-source'),
