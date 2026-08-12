@@ -141,6 +141,15 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
     const cleanArtist = artist ? artist.split(',')[0].split('&')[0].trim() : '';
     const isStale = () => lyricsRequestIdRef.current !== requestId;
 
+    const isArtistMatch = (resArtist, targetArtist) => {
+      if (!targetArtist) return true;
+      if (!resArtist) return false;
+      const a = resArtist.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const b = targetArtist.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!a || !b) return false;
+      return a.includes(b) || b.includes(a);
+    };
+
     const attemptFetch = async () => {
       // Strategy 1: LRCLIB Direct Match (Title + Artist)
       try {
@@ -166,27 +175,34 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
           const results = await res.json();
           if (isStale()) return;
           if (Array.isArray(results) && results.length > 0) {
-            const synced = results.find((r) => r.syncedLyrics);
+            const matched = results.filter((r) => isArtistMatch(r.artistName, cleanArtist));
+            const pool = matched.length > 0 ? matched : results;
+            const synced = pool.find((r) => r.syncedLyrics);
             if (synced) { setLyrics(parseLrc(synced.syncedLyrics)); setLoading(false); return; }
-            const plain = results.find((r) => r.plainLyrics);
+            const plain = pool.find((r) => r.plainLyrics);
             if (plain) { setPlainLyrics(plain.plainLyrics); setLoading(false); return; }
           }
         }
       } catch (e) {}
       if (isStale()) return;
 
-      // Strategy 3: LRCLIB Search (Title Only - handles remix/feat artist mismatches like Mondo / Khalid)
+      // Strategy 3: LRCLIB Search (Title Only - ONLY accept if artist matches)
       try {
-        const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`);
-        if (isStale()) return;
-        if (res.ok) {
-          const results = await res.json();
+        if (cleanArtist) {
+          const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`);
           if (isStale()) return;
-          if (Array.isArray(results) && results.length > 0) {
-            const synced = results.find((r) => r.syncedLyrics);
-            if (synced) { setLyrics(parseLrc(synced.syncedLyrics)); setLoading(false); return; }
-            const plain = results.find((r) => r.plainLyrics);
-            if (plain) { setPlainLyrics(plain.plainLyrics); setLoading(false); return; }
+          if (res.ok) {
+            const results = await res.json();
+            if (isStale()) return;
+            if (Array.isArray(results) && results.length > 0) {
+              const matched = results.filter((r) => isArtistMatch(r.artistName, cleanArtist));
+              if (matched.length > 0) {
+                const synced = matched.find((r) => r.syncedLyrics);
+                if (synced) { setLyrics(parseLrc(synced.syncedLyrics)); setLoading(false); return; }
+                const plain = matched.find((r) => r.plainLyrics);
+                if (plain) { setPlainLyrics(plain.plainLyrics); setLoading(false); return; }
+              }
+            }
           }
         }
       } catch (e) {}
@@ -216,7 +232,9 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
         if (isStale()) return;
         if (searchRes.ok) {
           const searchData = await searchRes.json();
-          const songId = searchData?.result?.songs?.[0]?.id;
+          const songs = searchData?.result?.songs || [];
+          const matchedSong = songs.find((s) => s.artists?.some((a) => isArtistMatch(a.name, cleanArtist))) || songs[0];
+          const songId = matchedSong?.id;
           if (songId) {
             const lrcRes = await fetch(`https://music.163.com/api/song/lyric?os=pc&id=${songId}&lv=-1&kv=-1&tv=-1`);
             if (isStale()) return;
