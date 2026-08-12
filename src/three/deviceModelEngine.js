@@ -554,6 +554,8 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
  * scene with no environment renders almost black no matter how many lights are
  * added â€” the polished cases and chrome trim need this to read as metal at all.
  */
+let sharedEnvTexture = null;
+
 export function addStudioLights(scene, renderer) {
   scene.add(new THREE.AmbientLight(0xffffff, 2.4));
   const key = new THREE.DirectionalLight(0xffffff, 3.4);
@@ -567,15 +569,15 @@ export function addStudioLights(scene, renderer) {
   scene.add(fill);
 
   if (renderer) {
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const roomEnv = new RoomEnvironment();
-    const env = pmrem.fromScene(roomEnv, 0.04);
-    scene.environment = env.texture;
-    pmrem.dispose();
-    roomEnv.dispose();
-    return () => {
-      if (env && env.texture) env.texture.dispose();
-    };
+    if (!sharedEnvTexture) {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const roomEnv = new RoomEnvironment();
+      const env = pmrem.fromScene(roomEnv, 0.04);
+      sharedEnvTexture = env.texture;
+      pmrem.dispose();
+      roomEnv.dispose();
+    }
+    scene.environment = sharedEnvTexture;
   }
   return () => {};
 }

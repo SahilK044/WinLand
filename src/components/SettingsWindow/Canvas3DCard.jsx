@@ -176,9 +176,12 @@ export default function Canvas3DCard({
       if (!loadedModel) return !loadFailed;
       if (!hasRenderedLoadedModel) return true;
       if (hoverRef.current || activateRef.current) return true;
-      if (Math.abs(hoverProgress) > 0.002 || Math.abs(openProgress) > 0.002) return true;
-      if (Math.abs(masterGroup.position.y) > 0.002) return true;
-      if (Math.abs(masterGroup.rotation.x) > 0.002 || Math.abs(masterGroup.rotation.y) > 0.002) return true;
+      if (isSpin) {
+        return Math.abs(masterGroup.rotation.x) > 0.005;
+      }
+      if (Math.abs(hoverProgress) > 0.005 || Math.abs(openProgress) > 0.005) return true;
+      if (Math.abs(masterGroup.position.y) > 0.005) return true;
+      if (Math.abs(masterGroup.rotation.x) > 0.005 || Math.abs(masterGroup.rotation.y) > 0.005) return true;
       return false;
     };
 
@@ -194,18 +197,23 @@ export default function Canvas3DCard({
       // NOTE: masterGroup is the PARENT of loadedModel, and loadedModel already
       // carries this model's base rotation (baseRotX/baseRotY, applied once
       // after auto-fit). Anything set on masterGroup STACKS on top of that, so
-      // every branch below must contribute only the animated *delta* â€” never
+      // every branch below must contribute only the animated *delta* — never
       // baseX/baseY again, which would double the base rotation.
       if (isSpin) {
         if (isHov) {
           spinY += dt * 0.65;
+          masterGroup.rotation.y = spinY;
+          masterGroup.rotation.x = THREE.MathUtils.lerp(
+            masterGroup.rotation.x,
+            Math.sin(spinY * 0.5) * 0.08,
+            0.12
+          );
+        } else {
+          masterGroup.rotation.x = THREE.MathUtils.lerp(masterGroup.rotation.x, 0, 0.15);
+          if (Math.abs(masterGroup.rotation.x) < 0.005) {
+            masterGroup.rotation.x = 0;
+          }
         }
-        masterGroup.rotation.y = spinY;
-        masterGroup.rotation.x = THREE.MathUtils.lerp(
-          masterGroup.rotation.x,
-          isHov ? Math.sin(spinY * 0.5) * 0.08 : 0,
-          0.06
-        );
       } else if (category === 'earbud') {
         // â”€â”€ State Machine: â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         // 1. Hover only: the closed case levitates.
