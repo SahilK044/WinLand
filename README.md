@@ -36,9 +36,11 @@
   - **3D Wireless Earbuds**: Ceramic white charging case with backwards flip lid, open-air levitation, and magnetic slot docking.
   - **3D Soundbar**: Anodized space-gray aluminum body with perforated acoustic front grille, metallic chrome trims, and front center LED equalizer lightstrip.
   - **3D Headphones**: 360° showcase spin with physical earcups, metallic headband, and acoustic inner mesh.
-  - **Dynamic Smartphone Adaptation**: Automatically detects connected smartphone models:
-    - **Samsung Galaxy S24 Ultra**: Sharp boxy titanium frame, centered Infinity-O front camera punch-hole dot, and 5 separate floating rear camera rings directly on glass.
-    - **iPhone 15 Pro / 16 Pro / 17 Pro**: Curved titanium frame with Dynamic Island pill cutout and triangular 3-lens camera bump.
+  - **Dynamic Smartphone Adaptation**: Automatically detects and renders 20 flagship 3D smartphone models:
+    - **Samsung Galaxy Series**: S24 Ultra, S25 Ultra, S26 Ultra, S22 Ultra, S21 Ultra, Note 20 Ultra.
+    - **Samsung Foldables**: Z Fold 6, Z Fold 2, Z Flip 6, Z Flip 3.
+    - **Google Pixel Series**: Pixel 8 Pro, Pixel 7 Pro, Pixel 6 Pro.
+    - **Apple iPhone Series**: iPhone 17 Pro, iPhone 17 Air, iPhone 16 Pro, iPhone 16, iPhone 15 Pro, iPhone 15, iPhone 12.
 
 ### 🎵 System Now-Playing, Live Lyrics & Liquid Color Aura
 - **Media Controls**: Live track metadata, album artwork, progress bar, play/pause/skip controls via Windows System Media Transport Controls (GSMTC) & Spotify API.
