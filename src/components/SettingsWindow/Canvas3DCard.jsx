@@ -38,7 +38,24 @@ export default function Canvas3DCard({
   // screen. A tab like Smartphones holds a dozen cards, and eagerly starting
   // all of them meant a dozen contexts and a dozen model decodes competing the
   // instant Settings opened â€” the stall when the window appeared.
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === 'undefined') { setIsVisible(true); return; }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) {
+          setIsVisible(entry.isIntersecting);
+        }
+      },
+      { root: null, rootMargin: '150px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const container = containerRef.current;
