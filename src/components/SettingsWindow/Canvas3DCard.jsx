@@ -38,23 +38,7 @@ export default function Canvas3DCard({
   // screen. A tab like Smartphones holds a dozen cards, and eagerly starting
   // all of them meant a dozen contexts and a dozen model decodes competing the
   // instant Settings opened â€” the stall when the window appeared.
-  const [isVisible, setIsVisible] = useState(false);
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    if (typeof IntersectionObserver === 'undefined') { setIsVisible(true); return; }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setIsVisible(true);
-          observer.disconnect(); // once shown, keep it alive for the tab's lifetime
-        }
-      },
-      { root: null, rootMargin: '200px' } // warm up just before scrolling into view
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -349,7 +333,6 @@ export default function Canvas3DCard({
       });
       disposeEnv();
       renderer.dispose();
-      renderer.forceContextLoss();
       if (canvas.parentNode === container) container.removeChild(canvas);
     };
   }, [modelId, category, formFactor, brand, colorHex, isVisible]);

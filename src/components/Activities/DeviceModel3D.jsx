@@ -513,7 +513,6 @@ export default function DeviceModel3D({
       });
       disposeEnv();
       renderer.dispose();
-      renderer.forceContextLoss();
       if (canvas.parentNode === container) container.removeChild(canvas);
     };
   }, [modelId, category, styleCategory, animStyle, size, isDisconnected, loop, fit]);
