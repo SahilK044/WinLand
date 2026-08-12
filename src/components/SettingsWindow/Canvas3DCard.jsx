@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {
   GLB_MODEL_MAP, MODEL_CONFIGS, SPIN_MODELS,
@@ -72,15 +72,14 @@ export default function Canvas3DCard({
       precision: 'highp',
     });
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
     renderer.setPixelRatio(dpr);
-    renderer.setSize(220, 240, false);
+    renderer.setSize(110, 120, true);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.8;
 
     const canvas = renderer.domElement;
-    canvas.style.width   = '110px';
-    canvas.style.height  = '120px';
     canvas.style.display = 'block';
     container.appendChild(canvas);
 

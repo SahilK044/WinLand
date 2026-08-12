@@ -230,14 +230,14 @@ export default function DeviceModel3D({
     const renderer = new THREE.WebGLRenderer({
       alpha: true, antialias: true, powerPreference: 'high-performance',
     });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(size, size, false);
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    renderer.setPixelRatio(dpr);
+    renderer.setSize(size, size, true);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.8;
 
     const canvas = renderer.domElement;
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
     canvas.style.display = 'block';
     container.appendChild(canvas);
 
