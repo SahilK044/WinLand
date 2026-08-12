@@ -14,6 +14,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 // â”€â”€â”€ Real 3D GLB Asset Imports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import s24ultraGlb       from '../assets/models/s24ultra.glb?url';
@@ -111,8 +112,8 @@ export const MODEL_CONFIGS = {
   s21ultra:       { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
   s22ultra:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
   note20ultra:    { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
-  zflip3:         { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
-  zfold2:         { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  zflip3:         { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.35 },
+  zfold2:         { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.40 },
   // The Razer GLB is authored front-on (thinnest axis Z), so it needs no turn
   // to face the viewer; the Sony GLB is authored side-on (thinnest axis X) and
   // needs a turn to match. Both end up presenting the same front view.
@@ -327,7 +328,7 @@ export function loadSharedModel(modelId) {
  */
 export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
   const config = MODEL_CONFIGS[modelId] || { baseRotY: 0, baseRotX: 0, scaleFactor: 1.6 };
-  const root = gltf.scene.clone(true);
+  const root = cloneSkeleton ? cloneSkeleton(gltf.scene) : gltf.scene.clone(true);
 
   if (category === 'earbud') dedupeOverlappingMeshes(root);
 
