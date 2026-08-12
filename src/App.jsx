@@ -59,6 +59,7 @@ export default function App() {
           activeState={activeState}
           setActiveState={setActiveState}
           notification={notification}
+          setNotification={setNotification}
           onClearNotification={() => {
             setNotification(null);
             setActiveState('idle');

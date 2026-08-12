@@ -102,7 +102,7 @@ button:active {
   background-color: transparent !important;
   box-shadow: none !important;
   border: none !important;
-  pointer-events: none !important;
+  pointer-events: auto;
   z-index: 100;
 }
 
@@ -140,8 +140,8 @@ button:active {
 
 .island-capsule:active,
 .island-capsule.is-pressed {
-  transform: scale(0.965, 0.955) translateY(1px) !important;
-  transition: transform 0.12s cubic-bezier(0.2, 0.9, 0.2, 1) !important;
+  transform: scale3d(0.97, 0.97, 1) !important;
+  transition: transform 0.14s cubic-bezier(0.2, 0.9, 0.2, 1) !important;
 }
 
 @keyframes floatBlob1 {
@@ -722,9 +722,22 @@ button:active {
 }
 
 .state-expanded-screenrec {
-  width: 340px;
-  height: 100px;
+  width: 400px;
+  height: 214px;
   border-radius: 30px;
+}
+
+.state-compact-screenrec {
+  width: 190px;
+  height: 36px;
+  border-radius: 20px;
+}
+
+/* Screen recorder REC-dot pulse (compact pill + expanded setup card) */
+@keyframes pulse {
+  0%   { transform: scale(1); opacity: 1; }
+  50%  { transform: scale(1.35); opacity: 0.55; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
 .state-expanded-battery {

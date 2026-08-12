@@ -22,9 +22,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.send('media-control', action);
   },
 
-  // Dynamic window resizing & mouse passthrough
-  resizeWindow: (width, height) => {
-    ipcRenderer.send('resize-window', { width, height });
+  // Dynamic window resizing & mouse passthrough. `growing` tells main whether
+  // this transition is getting bigger, mirroring preload.cjs so both windows
+  // share the same resize-window contract.
+  resizeWindow: (width, height, growing) => {
+    ipcRenderer.send('resize-window', { width, height, growing });
   },
   setIgnoreMouseEvents: (ignore) => {
     ipcRenderer.send('set-ignore-mouse-events', ignore);
@@ -134,8 +136,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   toggleScreenRec: () => ipcRenderer.send('toggle-screenrec'),
   getPrimaryScreenSource: () => ipcRenderer.invoke('get-primary-screen-source'),
   saveScreenRecording: (recording) => ipcRenderer.invoke('save-screen-recording', recording),
+  startNativeScreenRecording: (options) => ipcRenderer.invoke('start-native-screen-recording', options),
+  stopNativeScreenRecording: () => ipcRenderer.invoke('stop-native-screen-recording'),
+  muxNativeRecordingAudio: (data) => ipcRenderer.invoke('mux-native-recording-audio', data),
   startScreenRecMouseTracking: () => ipcRenderer.send('start-screenrec-mouse-tracking'),
   stopScreenRecMouseTracking: () => ipcRenderer.send('stop-screenrec-mouse-tracking'),
+  startScreenRecHotkeys: () => ipcRenderer.send('start-screenrec-hotkeys'),
+  stopScreenRecHotkeys: () => ipcRenderer.send('stop-screenrec-hotkeys'),
+  onScreenRecHotkey: (callback) => {
+    const handler = (_event, key) => callback(key);
+    ipcRenderer.on('screenrec-hotkey', handler);
+    return () => ipcRenderer.removeListener('screenrec-hotkey', handler);
+  },
   onScreenRecMouseUpdate: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('screenrec-mouse-update', handler);

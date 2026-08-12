@@ -93,13 +93,11 @@ class TimerStore {
 
     const nativeTimerIndex = this.timers.findIndex((t) => t.id === 'native');
     if (nativeTimerIndex >= 0) {
-      this.timers[nativeTimerIndex] = {
-        ...this.timers[nativeTimerIndex],
-        label: label || this.timers[nativeTimerIndex].label,
-        durationMs,
-        remainingMs,
-        status,
-      };
+      this.timers = this.timers.map((t, i) => (
+        i === nativeTimerIndex
+          ? { ...t, label: label || t.label, durationMs, remainingMs, status }
+          : t
+      ));
     } else {
       this.timers = [
         {

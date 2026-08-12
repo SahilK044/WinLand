@@ -178,6 +178,7 @@ export default function DynamicIsland({
   activeState,
   setActiveState,
   notification,
+  setNotification,
   onClearNotification,
 }) {
   const [trackInfo, setTrackInfo] = useState(IDLE_TRACK);
@@ -339,6 +340,7 @@ export default function DynamicIsland({
   const tRef                  = useRef(0);
   const volumeDismiss         = useRef(null);
   const bluetoothDismiss      = useRef(null);
+  const screenshotDismiss     = useRef(null);
   // Remembers what the island was showing (e.g. expanded-lyrics) right before a
   // transient overlay (bluetooth / battery / volume) interrupted it, so we can
   // resume that view instead of always dropping back to the compact player -
@@ -380,7 +382,7 @@ export default function DynamicIsland({
       const isPs = gp.id.toLowerCase().includes('dualsense') || gp.id.toLowerCase().includes('playstation') || gp.id.toLowerCase().includes('054c');
       const name = isPs ? 'DualSense Wireless Controller' : 'Xbox Wireless Controller';
 
-      setNotification({
+      setNotification?.({
         title: `${name} Connected`,
         subtitle: `Gaming Gamepad • ${gp.buttons?.length || 16} Buttons • Ready`,
         icon: '🎮',
@@ -460,7 +462,21 @@ export default function DynamicIsland({
 
   // ── Automatic smooth state morphing when Spotify starts/stops or Timer runs ────
   useEffect(() => {
-    if (activeState.startsWith('expanded-') || activeState === 'volume-osd' || activeState === 'notification') {
+    // BUGFIX: compact-screenrec (and compact-call) are transient overlay states
+    // that must not be reconciled by this effect. Previously only `expanded-*`,
+    // volume-osd and notification were excluded, so the instant the recorder
+    // minimized to the compact pill (setActiveState('compact-screenrec')),
+    // activeState changing re-ran this effect, saw a state it didn't recognize,
+    // and immediately forced it back to split/compact-music/compact-timer/idle -
+    // the pill snapping shut the moment recording started, even though the
+    // MediaRecorder kept running invisibly in the background.
+    if (
+      activeState.startsWith('expanded-') ||
+      activeState === 'volume-osd' ||
+      activeState === 'notification' ||
+      activeState === 'compact-screenrec' ||
+      activeState === 'compact-call'
+    ) {
       return;
     }
 
@@ -659,7 +675,7 @@ export default function DynamicIsland({
           if (data && data.state === 'open') {
             setIsDocked(false);
             setActiveState('expanded-screenrec');
-          } else {
+          } else if (data && data.state === 'close') {
             setActiveState((prev) => (prev === 'compact-screenrec' || prev === 'expanded-screenrec') ? resumeFromOverlay() : prev);
           }
         })
@@ -717,6 +733,11 @@ export default function DynamicIsland({
   }, [trackInfo.isPlaying]);
 
   // ── Window resize IPC ─────────────────────────────────────────────────────
+  // Tracks the last size sent to main so we can tell it whether this
+  // transition is growing or shrinking (see resize-window handler in
+  // electron.js) — shrinks are delayed there until the CSS elastic-overshoot
+  // transition finishes, so the real OS window never clips the bounce.
+  const prevWindowSizeRef = useRef({ w: 250, h: 44 });
   useEffect(() => {
     if (!window.electronAPI) return;
     const timerHeight = Math.max(82, timers.length * 56 + 26);
@@ -735,8 +756,8 @@ export default function DynamicIsland({
       'expanded-call':     [310, 240],
       'expanded-airdrop':  [380, 200],
       'expanded-recorder': [370, 205],
-      'expanded-screenrec':[400, 175],
-      'compact-screenrec': [260, 44],
+      'expanded-screenrec':[400, 214],
+      'compact-screenrec': [230, 36],
       'expanded-battery':  [340, 85],
       'volume-osd':        [360, 85],
       'notification':      [400, 110],
@@ -748,7 +769,10 @@ export default function DynamicIsland({
       'expanded-bluetooth': [376, 61],
     };
     const [w, h] = sizeMap[activeState] || [250, 44];
-    window.electronAPI.resizeWindow(w, h);
+    const prev = prevWindowSizeRef.current;
+    const growing = w > prev.w || h > prev.h;
+    prevWindowSizeRef.current = { w, h };
+    window.electronAPI.resizeWindow(w, h, growing);
   }, [activeState, timers.length, shelvedItems.length]);
 
   // ── State class map ───────────────────────────────────────────────────────
@@ -766,6 +790,7 @@ export default function DynamicIsland({
       'expanded-airdrop':  'state-expanded-airdrop',
       'expanded-recorder': 'state-expanded-recorder',
       'expanded-screenrec':'state-expanded-screenrec',
+      'compact-screenrec': 'state-compact-screenrec',
       'expanded-battery':  'state-expanded-battery',
       'volume-osd':        'state-volume-osd',
       'notification':      'state-notification',
@@ -783,11 +808,60 @@ export default function DynamicIsland({
   const pillBg = buildPillBg(accentColor, activeState === 'expanded-music', !!trackInfo.title, isLight);
 
   // ── Mouse Passthrough Management ──────────────────────────────────────────
+  // The renderer window is intentionally larger than the visible pill so it
+  // can animate into its expanded states.  Never leave that transparent area
+  // interactive: it would block clicks on the desktop/apps underneath.  When
+  // Electron is ignoring the window, forwarded mousemove events still arrive
+  // here, so use the actual pill bounds to opt back in before a click occurs.
   useEffect(() => {
-    if (window.electronAPI?.setIgnoreMouseEvents) {
-      window.electronAPI.setIgnoreMouseEvents(true);
-    }
-  }, []);
+    const setIgnore = window.electronAPI?.setIgnoreMouseEvents;
+    if (!setIgnore) return undefined;
+    const shouldCaptureExpandedSurface =
+      activeState.startsWith('expanded-') ||
+      activeState === 'volume-osd' ||
+      activeState === 'notification';
+
+    const isInside = (rect, x, y) => (
+      rect && x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+    );
+
+    let lastIgnoreState = null;
+
+    const syncMousePassthrough = (event) => {
+      const x = event.clientX;
+      const y = event.clientY;
+      const primary = capsuleRef.current?.getBoundingClientRect();
+      const secondary = secondaryCapsuleRef.current?.getBoundingClientRect();
+      const overPill = isInside(primary, x, y) || isInside(secondary, x, y);
+      const shouldIgnore = !overPill;
+      if (shouldIgnore !== lastIgnoreState) {
+        lastIgnoreState = shouldIgnore;
+        setIgnore(shouldIgnore);
+      }
+    };
+    const handleWindowLeave = () => {
+      if (lastIgnoreState !== true) {
+        lastIgnoreState = true;
+        setIgnore(true);
+      }
+    };
+
+    // Expanded widgets contain real controls, so hold the Electron window in
+    // interactive mode immediately.
+    const initialIgnore = !shouldCaptureExpandedSurface;
+    lastIgnoreState = initialIgnore;
+    setIgnore(initialIgnore);
+    window.addEventListener('mousemove', syncMousePassthrough, true);
+    document.addEventListener('mousemove', syncMousePassthrough, true);
+    window.addEventListener('mouseleave', handleWindowLeave, true);
+
+    return () => {
+      window.removeEventListener('mousemove', syncMousePassthrough, true);
+      document.removeEventListener('mousemove', syncMousePassthrough, true);
+      window.removeEventListener('mouseleave', handleWindowLeave, true);
+      setIgnore(true);
+    };
+  }, [activeState]);
 
   const handleMouseEnter = () => {
     setIsDocked(false);
@@ -934,7 +1008,7 @@ export default function DynamicIsland({
 
   const handleIslandClick = (e) => {
     if (e.defaultPrevented) return;
-    if (activeState === 'expanded-settings') return;
+    if (activeState === 'expanded-settings' || activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') return;
     if (e.target && (e.target.closest('button') || e.target.closest('input') || e.target.closest('svg') || e.target.closest('.interactive-child'))) {
       return;
     }
@@ -1061,7 +1135,7 @@ export default function DynamicIsland({
   }
 
   return (
-    <div className="island-anchor" onMouseEnter={(e) => { handleMouseEnter(e); setIsCapsuleHovered(true); }} onMouseLeave={() => setIsCapsuleHovered(false)}>
+    <div className="island-anchor" onMouseEnter={(e) => { handleMouseEnter(e); setIsCapsuleHovered(true); }} onMouseLeave={(e) => { setIsCapsuleHovered(false); handleMouseLeave(e); }}>
       {/* Invisible top edge hit trigger region to wake up auto-hidden island on mouse hover */}
       <div
         style={{
@@ -1105,7 +1179,7 @@ export default function DynamicIsland({
         <div
           className="liquid-aura-container"
           style={{
-            opacity: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo.title
+            opacity: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo?.title
               ? (trackInfo?.isPlaying ? 0.72 + beatPulse * 0.28 : 0.16)
               : 0,
             transform: `scale(${1 + beatPulse * 0.12})`,
@@ -1118,7 +1192,7 @@ export default function DynamicIsland({
           <div className="liquid-blob-3" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.2) 45%, transparent 100%)`, transition: 'background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)' }} />
         </div>
 
-        <div className="activity-fade-content" key={isMusicState ? 'music' : (activeState === 'compact-timer' || activeState === 'expanded-timer') ? 'timer' : activeState}>
+        <div className="activity-fade-content" key={(activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') ? 'screenrec' : (activeState === 'expanded-music' || activeState === 'compact-music' || activeState === 'expanded-lyrics') ? 'music' : (activeState === 'expanded-call' || activeState === 'compact-call') ? 'call' : activeState}>
 
           {activeState === 'idle' && <IdleWidget weatherConfig={weatherConfig} />}
 
@@ -1162,11 +1236,8 @@ export default function DynamicIsland({
           {activeState === 'expanded-recorder' && (
             <VoiceMemoWidget onStop={() => setActiveState('idle')} />
           )}
-          {activeState === 'expanded-screenrec' && (
-            <ScreenRecorderWidget onClose={() => setActiveState('idle')} />
-          )}
           {activeState === 'expanded-battery' && (
-            <BatteryWidget pct={battery.pct} charging={battery.charging} minsLeft={battery.minsLeft} />
+            <BatteryWidget pct={battery?.pct} charging={battery?.charging} minsLeft={battery?.minsLeft} />
           )}
           {activeState === 'volume-osd' && <VolumeOSDWidget volume={volume} />}
           {activeState === 'notification' && notification && (
@@ -1187,25 +1258,19 @@ export default function DynamicIsland({
           {activeState === 'expanded-launcher' && (
             <LauncherWidget onLaunchApp={handleLaunchApp} isDndActive={isDndActive} onClose={() => setActiveState('idle')} />
           )}
-          {activeState === 'expanded-settings' && (
-            <SettingsWidget onClose={() => {
-              setActiveState(trackInfo.title && isTimerActive ? 'split' : (trackInfo.title ? 'compact-music' : (isTimerActive ? 'compact-timer' : 'idle')));
-              if (window.electronAPI?.setIgnoreMouseEvents) window.electronAPI.setIgnoreMouseEvents(true);
-            }} />
-          )}
+          {/* Settings now opens in its own Electron window (see electron.js
+              createSettingsWindow / openSettingsWindow) - there is no
+              SettingsWidget component in this tree anymore. The old
+              'expanded-settings' render branch referenced an undefined
+              component and would have crashed if that state were ever set. */}
           {activeState === 'expanded-screenshot' && (
             <ScreenshotWidget imageSrc={screenshotData} onDismiss={() => setActiveState('idle')} />
           )}
-          {activeState === 'compact-screenrec' && (
+          {(activeState === 'compact-screenrec' || activeState === 'expanded-screenrec') && (
             <ScreenRecorderWidget
-              isCompact={true}
+              isCompact={activeState === 'compact-screenrec'}
               onExpand={() => setActiveState('expanded-screenrec')}
-              onStop={() => setActiveState('idle')}
-            />
-          )}
-          {activeState === 'expanded-screenrec' && (
-            <ScreenRecorderWidget
-              isCompact={false}
+              onMinimize={() => setActiveState('compact-screenrec')}
               onStop={() => setActiveState('idle')}
             />
           )}
@@ -1294,3 +1359,4 @@ export default function DynamicIsland({
     </div>
   );
 }
+

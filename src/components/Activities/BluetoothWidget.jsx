@@ -217,6 +217,7 @@ function MacBatteryIcon({ batteryPct = 100, color = '#30d158' }) {
 
 // Auto-detect device category for 3D animation morphing
 function getDeviceCategory(deviceName = '', typeStr = '') {
+  if (typeStr === 'phone') return 'phone';
   const str = (deviceName + ' ' + typeStr).toLowerCase();
 
   // 1. Check explicit headphone keywords first!
@@ -495,7 +496,6 @@ export default function BluetoothWidget({
             display: 'flex', alignItems: 'center', gap: 5,
             padding: '3px 10px', borderRadius: '12px',
             background: 'rgba(255, 69, 58, 0.14)',
-            border: '1px solid rgba(255, 69, 58, 0.28)',
             color: '#ff453a', fontSize: 11, fontWeight: 600,
             letterSpacing: '-0.2px', fontFamily: MAC_FONT,
             backdropFilter: 'blur(8px)',

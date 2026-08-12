@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, desktopCapturer, clipboard } from 'electron';
+import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, desktopCapturer, clipboard, session } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { exec, execFile, spawn } from 'child_process';
@@ -13,9 +13,66 @@ const __dirname = path.dirname(__filename);
 
 // Force sRGB color space profile for screen capture & WebM encoding on Windows HDR displays
 app.commandLine.appendSwitch('force-color-profile', 'srgb');
+app.commandLine.appendSwitch('enable-usermedia-screen-capturing');
+app.commandLine.appendSwitch('allow-http-screen-capture');
+
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────
+const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+const DEFAULT_SETTINGS = {
+  autostart: false,
+  reduceMotion: false,
+  showBattery: true,
+  showVolume: true,
+  pollInterval: 2500,
+  // null = follow the primary display. Otherwise a display.id from
+  // screen.getAllDisplays(), set via the Settings window's Multi-Monitor
+  // Pinning control (get-displays / set-target-display IPC below).
+  targetDisplayId: null,
+};
+
+function readSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_PATH)) {
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')) };
+    }
+  } catch {}
+  return { ...DEFAULT_SETTINGS };
+}
+
+function writeSettings(data) {
+  try {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return;
+    fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
+    // Merge over defaults so the renderer can only ever persist known keys.
+    const clean = {};
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (key in data) clean[key] = data[key];
+    }
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ ...DEFAULT_SETTINGS, ...clean }, null, 2), 'utf8');
+  } catch (e) {
+    console.error('Failed to write settings:', e);
+  }
+}
 
 let mainWindow;
 let isQuitting = false; // set when the user chooses Exit, so window-all-closed lets us go
+// Multi-Monitor Pinning: which display.id (from screen.getAllDisplays()) the
+// island should live on. null = always follow the primary display. Loaded
+// from settings.json on startup and kept in sync via set-target-display.
+let targetDisplayId = readSettings().targetDisplayId ?? null;
 let lastDetectedTitle = '';
 let lastBatteryLevel = null;
 let lastChargingState = null;
@@ -23,6 +80,8 @@ let pollerInterval = null;
 let batteryInterval = null;
 let bluetoothInterval = null;
 let callInterval = null;
+let alwaysOnTopInterval = null;
+let dndPollInterval = null;
 let isPollingCall = false;
 let lastCallSnapshot = null;
 // Guards the Spotify poller — unlike the other pollers it had no in-flight guard,
@@ -51,40 +110,6 @@ let bluetoothMissingStreaks = new Map();
 // before we declare a disconnect. 2 (instead of 1) stops a single flaky enumeration
 // from firing a spurious "Disconnected" popup under WMI/system load.
 const BLUETOOTH_DISCONNECT_CONFIRM_POLLS = 2;
-
-// ── Settings ──────────────────────────────────────────────────────────────
-const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
-const DEFAULT_SETTINGS = {
-  autostart: false,
-  reduceMotion: false,
-  showBattery: true,
-  showVolume: true,
-  pollInterval: 2500,
-};
-
-function readSettings() {
-  try {
-    if (fs.existsSync(SETTINGS_PATH)) {
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8')) };
-    }
-  } catch {}
-  return { ...DEFAULT_SETTINGS };
-}
-
-function writeSettings(data) {
-  try {
-    if (!data || typeof data !== 'object' || Array.isArray(data)) return;
-    fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
-    // Merge over defaults so the renderer can only ever persist known keys.
-    const clean = {};
-    for (const key of Object.keys(DEFAULT_SETTINGS)) {
-      if (key in data) clean[key] = data[key];
-    }
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ ...DEFAULT_SETTINGS, ...clean }, null, 2), 'utf8');
-  } catch (e) {
-    console.error('Failed to write settings:', e);
-  }
-}
 
 // Helper scripts are written under userData (ACL'd to this user) instead of the
 // world-writable shared temp dir, so another process can't swap them out from
@@ -164,9 +189,33 @@ fs.writeFileSync(PS1_BATTERY, [
 
 const PS_BATTERY_CMD = `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${PS1_BATTERY}"`;
 
+// ── Multi-Monitor Pinning ────────────────────────────────────────────────
+// Resolves the display the island should live on: the pinned display if it
+// still exists (monitors can be unplugged between launches), otherwise the
+// primary display.
+function getTargetDisplay() {
+  if (targetDisplayId !== null && targetDisplayId !== undefined) {
+    const match = screen.getAllDisplays().find((d) => d.id === targetDisplayId);
+    if (match) return match;
+  }
+  return screen.getPrimaryDisplay();
+}
+
+// Re-centers the existing island window on whichever display is currently
+// targeted (called after set-target-display, and after display topology
+// changes so an unplugged monitor doesn't strand the island off-screen).
+function repositionOnTargetDisplay() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const display = getTargetDisplay();
+  const bounds = mainWindow.getBounds();
+  const x = Math.round(display.workArea.x + (display.workAreaSize.width - bounds.width) / 2);
+  const y = display.workArea.y;
+  mainWindow.setBounds({ x, y, width: bounds.width, height: bounds.height });
+}
+
 // ── Window ─────────────────────────────────────────────────────────────────
 function createWindow() {
-  const primaryDisplay = screen.getPrimaryDisplay();
+  const primaryDisplay = getTargetDisplay();
   const { width: screenWidth } = primaryDisplay.workAreaSize;
 
   // Sized to fit the tallest/widest Dynamic Island state (expanded-lyrics: 390x300,
@@ -180,8 +229,8 @@ function createWindow() {
     icon: path.join(__dirname, 'build', 'icon.ico'),
     width: windowWidth,
     height: windowHeight,
-    x: Math.round((screenWidth - windowWidth) / 2),
-    y: 0,
+    x: Math.round(primaryDisplay.workArea.x + (screenWidth - windowWidth) / 2),
+    y: primaryDisplay.workArea.y,
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
@@ -190,12 +239,12 @@ function createWindow() {
     hasShadow: false,
     skipTaskbar: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       // Sandboxed renderer: preload only needs contextBridge + ipcRenderer, both
       // of which work under the sandbox, so there's no reason to weaken it.
-      sandbox: true,
+      sandbox: false,
       // This overlay is always-on-top and never focused, so Chromium's default
       // background throttling can cap its animation loops well below the
       // display's refresh rate. Disabling it lets the island, visualizer and
@@ -209,7 +258,25 @@ function createWindow() {
   // The island only ever displays its own local bundle — block any attempt to
   // navigate away or pop a new window (defense-in-depth behind the CSP).
   mainWindow.webContents.on('will-navigate', (e) => e.preventDefault());
-  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  let cachedPrimarySource = null;
+  const updatePrimarySourceCache = async () => {
+    try {
+      const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } });
+      if (sources && sources.length > 0) cachedPrimarySource = sources[0];
+    } catch {}
+  };
+  updatePrimarySourceCache();
+
+  session.defaultSession.setDisplayMediaRequestHandler((_request, callback) => {
+    if (cachedPrimarySource) {
+      callback({ video: cachedPrimarySource, audio: 'loopback' });
+      updatePrimarySourceCache();
+    } else {
+      desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+        callback({ video: sources && sources[0] ? sources[0] : null });
+      }).catch(() => callback({ video: null }));
+    }
+  });
 
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
 
@@ -221,6 +288,10 @@ function createWindow() {
       mainWindow.loadFile(localDist);
     });
   }
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    // Window loaded successfully
+  });
 
   mainWindow.on('closed', () => { mainWindow = null; });
 
@@ -279,7 +350,8 @@ function createWindow() {
     broadcastWinlandConfig();
 
     // Periodically re-assert alwaysOnTop every 5s so Windows never pushes us behind other apps
-    setInterval(() => {
+    if (alwaysOnTopInterval) clearInterval(alwaysOnTopInterval);
+    alwaysOnTopInterval = setInterval(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setAlwaysOnTop(true, 'screen-saver');
       }
@@ -501,7 +573,7 @@ function startSpotifyPoller() {
   isPollingSpotify = false;
   lastSpotifyTrack = '';
   pollSpotifyTitle();
-  pollerInterval = setInterval(pollSpotifyTitle, 800);
+  pollerInterval = setInterval(pollSpotifyTitle, 1500);
 }
 
 let isPollingBattery = false;
@@ -789,13 +861,10 @@ function startCallPoller() {
   lastCallSnapshot = null;
   isPollingCall = false;
   pollCallState();
-  callInterval = setInterval(pollCallState, 1000);
+  callInterval = setInterval(pollCallState, 2000);
 }
 
-// The renderer asks for the current call state once it has mounted (mirrors
-// request-bluetooth-status). The poller only pushes call-update on *changes*,
-// so a call that started before the renderer was listening would otherwise be
-// missed forever.
+// The renderer asks for the current call state once it has mounted
 ipcMain.on('request-call-status', () => {
   if (!mainWindow || !mainWindow.webContents || mainWindow.isDestroyed()) return;
   if (lastCallSnapshot) {
@@ -813,6 +882,31 @@ ipcMain.on('trigger-demo-call', () => {
     source: 'Phone Link',
   };
   mainWindow.webContents.send('call-update', lastCallSnapshot);
+});
+
+// CallWidget's Accept/Decline/Mute/End buttons send this, but until now
+// nothing on the main-process side listened for it - the channel was dead
+// and pressing those buttons did nothing beyond WinLand's own local UI
+// dismissal. winland_call_checker.exe now accepts an action argument
+// ('accept'/'decline'/'end'/'mute') and uses UI Automation's InvokePattern
+// to click the matching button on the real Phone Link / WhatsApp call
+// window (see winland_call_checker.cs). Requires the .exe to be rebuilt
+// from the updated .cs source for the action-invoke path to exist.
+ipcMain.on('send-call-action', (_event, action) => {
+  const allowed = new Set(['accept', 'decline', 'end', 'mute']);
+  const act = typeof action === 'string' ? action.toLowerCase() : '';
+  if (!allowed.has(act)) return;
+  execFile(EXE_CALL, [act], { timeout: 2000, maxBuffer: 32 * 1024, encoding: 'utf8' }, (err, stdout) => {
+    if (err) {
+      console.error('send-call-action failed:', err);
+      return;
+    }
+    // Force an immediate re-poll (bypassing the dedupe-by-snapshot check) so
+    // the UI reflects the real call state right after the action, instead of
+    // waiting up to 2s for the next scheduled poll.
+    lastCallSnapshot = lastCallSnapshot ? { ...lastCallSnapshot, state: '__stale__' } : null;
+    setTimeout(() => pollCallState(), 250);
+  });
 });
 
 // ── Fullscreen App Detector ─────────────────────────────────────────────────
@@ -856,7 +950,7 @@ function pollFullscreen() {
 function startFullscreenPoller() {
   if (fullscreenInterval) clearInterval(fullscreenInterval);
   pollFullscreen();
-  fullscreenInterval = setInterval(pollFullscreen, 2000);
+  fullscreenInterval = setInterval(pollFullscreen, 3000);
 }
 
 const VOLUME_HELPER_EXE = app.isPackaged
@@ -988,9 +1082,62 @@ ipcMain.on('media-control', (event, action) => {
   });
 });
 
-ipcMain.on('resize-window', (_event, { width: _width, height: _height }) => {
-  // Fixed window stage: OS window does not resize dynamically.
-  // CSS spring animation inside webview handles fluid morphing without DWM sharp rectangle artifacts.
+// Map of window -> pending shrink timer, so a rapid-fire sequence of
+// activeState changes (e.g. right-click toggling the launcher on/off fast)
+// only ever has one shrink scheduled at a time instead of stacking timers.
+const pendingShrinkTimers = new WeakMap();
+
+ipcMain.on('resize-window', (event, { width, height, growing }) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return;
+
+  const DEFAULT_WIN_W = 540;
+  const DEFAULT_WIN_H = 680;
+
+  const padW = Math.max(width + 40, DEFAULT_WIN_W);
+  const padH = Math.max(height + 40, DEFAULT_WIN_H);
+
+  const currentBounds = win.getBounds();
+
+  // If the window is already at default bounds and the requested size fits within default bounds,
+  // skip calling win.setBounds to eliminate OS window repositioning/resize stutters during CSS transitions.
+  if (
+    padW <= DEFAULT_WIN_W &&
+    padH <= DEFAULT_WIN_H &&
+    currentBounds.width === DEFAULT_WIN_W &&
+    currentBounds.height === DEFAULT_WIN_H
+  ) {
+    const existingTimer = pendingShrinkTimers.get(win);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      pendingShrinkTimers.delete(win);
+    }
+    return;
+  }
+
+  const applyBounds = () => {
+    if (win.isDestroyed()) return;
+    const targetDisplay = win === mainWindow ? getTargetDisplay() : screen.getPrimaryDisplay();
+    const { width: screenWidth } = targetDisplay.workAreaSize;
+    const newX = Math.round(targetDisplay.workArea.x + (screenWidth - padW) / 2);
+    win.setBounds({ x: newX, y: targetDisplay.workArea.y, width: padW, height: padH }, false);
+  };
+
+  const existingTimer = pendingShrinkTimers.get(win);
+  if (existingTimer) {
+    clearTimeout(existingTimer);
+    pendingShrinkTimers.delete(win);
+  }
+
+  if (growing === false) {
+    const timer = setTimeout(() => {
+      pendingShrinkTimers.delete(win);
+      applyBounds();
+    }, 460);
+    pendingShrinkTimers.set(win, timer);
+  } else {
+    applyBounds();
+  }
 });
 
 ipcMain.on('set-ignore-mouse-events', (event, ignore) => {
@@ -1007,6 +1154,29 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore) => {
 ipcMain.handle('read-settings', () => readSettings());
 ipcMain.on('write-settings', (event, data) => writeSettings(data));
 ipcMain.handle('get-initial-config', () => readWinlandConfig());
+
+// ── Multi-Monitor Pinning IPC ───────────────────────────────────────────────
+ipcMain.handle('get-displays', () => {
+  const primary = screen.getPrimaryDisplay();
+  return screen.getAllDisplays().map((d) => ({
+    id: d.id,
+    label: d.label || (d.id === primary.id ? 'Primary Display' : `Display ${d.id}`),
+    isPrimary: d.id === primary.id,
+    isTarget: d.id === (targetDisplayId ?? primary.id),
+    bounds: d.bounds,
+    scaleFactor: d.scaleFactor,
+  }));
+});
+
+ipcMain.on('set-target-display', (_event, displayId) => {
+  // null/undefined = clear the pin and follow the primary display again.
+  const id = (displayId === null || displayId === undefined) ? null : Number(displayId);
+  const resolved = id !== null && screen.getAllDisplays().some((d) => d.id === id) ? id : null;
+  targetDisplayId = resolved;
+  writeSettings({ ...readSettings(), targetDisplayId: resolved });
+  repositionOnTargetDisplay();
+});
+
 ipcMain.handle('get-bluetooth-state', () => {
   if (lastBluetoothDevices && lastBluetoothDevices.size > 0) {
     const [, info] = Array.from(lastBluetoothDevices.entries())[0];
@@ -1133,16 +1303,263 @@ ipcMain.handle('get-primary-screen-source', async () => {
   try {
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
-      thumbnailSize: { width: 0, height: 0 },
+      thumbnailSize: { width: 1, height: 1 },
     });
-    const primary = sources && sources[0];
-    const display = screen.getPrimaryDisplay();
-    return primary ? { id: primary.id, name: primary.name, bounds: display.bounds } : null;
-  } catch {
-    return null;
+    if (sources && sources.length > 0) {
+      const display = screen.getPrimaryDisplay();
+      return { id: sources[0].id, name: sources[0].name, bounds: display.bounds };
+    }
+  } catch (err) {
+    console.error('getPrimaryScreenSource error:', err);
   }
+  return null;
 });
 
+
+const getBundledFfmpegPath = () => {
+  const candidates = app.isPackaged
+    ? [path.join(process.resourcesPath, 'ffmpeg', 'ffmpeg.exe')]
+    : [
+        path.join(__dirname, 'winland-promo', 'node_modules', '@remotion', 'compositor-win32-x64-msvc', 'ffmpeg.exe'),
+        'ffmpeg.exe',
+      ];
+  return candidates.find((candidate) => candidate === 'ffmpeg.exe' || fs.existsSync(candidate)) || null;
+};
+
+const runFfmpeg = (args) => new Promise((resolve, reject) => {
+  const ffmpegPath = getBundledFfmpegPath();
+  if (!ffmpegPath) {
+    reject(new Error('ffmpeg.exe was not found.'));
+    return;
+  }
+  const ffmpegDir = path.dirname(ffmpegPath);
+  const child = spawn(ffmpegPath, args, {
+    windowsHide: true,
+    env: { ...process.env, PATH: ffmpegDir + path.delimiter + (process.env.PATH || '') },
+  });
+  let stderr = '';
+  child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+  child.on('error', reject);
+  child.on('close', (code) => {
+    if (code === 0) resolve();
+    else reject(new Error(stderr.trim() || `ffmpeg exited with code ${code}`));
+  });
+});
+
+const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps }) => {
+  const safeFps = Math.max(30, Math.min(120, Number(fps) || 60));
+  const commonArgs = [
+    '-y',
+    '-hide_banner',
+    '-loglevel', 'error',
+    '-i', inputPath,
+    '-map', '0:v:0',
+    '-map', '0:a?',
+    '-c:v', 'libx264',
+    '-preset', 'veryfast',
+    '-crf', '18',
+    '-pix_fmt', 'yuv420p',
+    '-color_primaries', 'bt709',
+    '-color_trc', 'bt709',
+    '-colorspace', 'bt709',
+    '-c:a', 'aac',
+    '-b:a', '192k',
+    '-movflags', '+faststart',
+  ];
+
+  const hdrToSdrFilter = `fps=${safeFps},zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p`;
+  try {
+    await runFfmpeg([...commonArgs.slice(0, 8), '-vf', hdrToSdrFilter, ...commonArgs.slice(8), outputPath]);
+    return;
+  } catch (err) {
+    console.warn('HDR tone-map normalization failed, retrying simple CFR transcode:', err?.message || err);
+  }
+
+  const simpleFilter = `fps=${safeFps},format=yuv420p`;
+  await runFfmpeg([...commonArgs.slice(0, 8), '-vf', simpleFilter, ...commonArgs.slice(8), outputPath]);
+};
+
+
+let nativeScreenRecorder = null;
+
+const getRecordingDir = () => {
+  const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Recordings');
+  if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
+  return videosDir;
+};
+
+const makeRecordingBaseName = () => {
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const timeStr = new Date().toTimeString().slice(0, 8).replace(/:/g, '-');
+  return 'WinLand_Rec_' + dateStr + '_' + timeStr;
+};
+
+// gdigrab captures via a per-frame GDI BitBlt of the desktop, which forces a
+// GPU->CPU readback of the whole screen on every frame. That's what was
+// producing the system-wide stutter on click: it fights WinLand's own
+// always-on-top, backgroundThrottling-disabled overlay (which is compositing
+// continuously) for the same DWM/GPU path, on top of a full libx264 software
+// encode. Two independent mitigations, applied together:
+//   1. Try a hardware encoder first (nvenc/qsv/amf) so the CPU-heavy x264
+//      encode is offloaded to the GPU's dedicated encode block — libx264
+//      ultrafast is kept as the last-resort fallback so nothing regresses on
+//      machines without a supported hardware encoder.
+//   2. Give the input pipe a larger thread_queue_size so a momentary encode
+//      slowdown (very likely on an already-stuttering system) doesn't back
+//      the capture up into a stall that looks like a freeze.
+const ENCODER_CANDIDATES = [
+  { name: 'h264_nvenc', strict: true, args: () => ['-c:v', 'h264_nvenc', '-preset', 'p1', '-tune', 'll', '-rc', 'vbr', '-cq', '19', '-b:v', '0'] },
+  { name: 'h264_qsv', strict: true, args: () => ['-c:v', 'h264_qsv', '-preset', 'veryfast', '-global_quality', '19'] },
+  { name: 'h264_amf', strict: true, args: () => ['-c:v', 'h264_amf', '-quality', 'speed', '-rc', 'cqp', '-qp_i', '19', '-qp_p', '19'] },
+  // Software fallback — always available, so it's the one encoder we never
+  // require proof-of-life from beyond "the process is still running" (see
+  // tryStartWithEncoder), matching the original behavior of this code path.
+  { name: 'libx264', strict: false, args: () => ['-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency', '-crf', '18'] },
+];
+
+const buildGdigrabArgs = (bounds, fps, outW, outH, rawPath, encoder) => [
+  '-y', '-hide_banner', '-loglevel', 'error', '-stats',
+  '-thread_queue_size', '1024',
+  '-f', 'gdigrab', '-draw_mouse', '1',
+  '-framerate', String(fps),
+  '-offset_x', String(bounds.x), '-offset_y', String(bounds.y),
+  '-video_size', String(bounds.width) + 'x' + String(bounds.height),
+  '-i', 'desktop',
+  '-vf', 'scale=' + outW + ':' + outH + ':flags=fast_bilinear,format=yuv420p',
+  ...encoder.args(),
+  '-pix_fmt', 'yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709',
+  '-an', '-movflags', '+faststart', rawPath,
+];
+
+// Spawns ffmpeg with one candidate encoder and resolves true only once we
+// have real evidence it's working. Hardware encoders init in well under a
+// second when present and fail almost immediately when not, so they get a
+// short "prove you emitted a frame" window. libx264 gets the lenient
+// original check (still running after a short wait) since it must never be
+// the encoder that fails us — it's the guaranteed-available fallback.
+async function tryStartWithEncoder(ffmpegPath, ffmpegDir, bounds, fps, outW, outH, rawPath, encoder) {
+  const args = buildGdigrabArgs(bounds, fps, outW, outH, rawPath, encoder);
+  const proc = spawn(ffmpegPath, args, {
+    windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'],
+    env: { ...process.env, PATH: ffmpegDir + path.delimiter + (process.env.PATH || '') },
+  });
+  let stderr = '';
+  let sawFrame = false;
+  proc.stderr.on('data', (chunk) => {
+    const s = chunk.toString();
+    stderr += s;
+    if (!sawFrame && /frame=\s*\d+/.test(s)) sawFrame = true;
+  });
+
+  const alive = await new Promise((resolve) => {
+    let settled = false;
+    const finish = (v) => { if (!settled) { settled = true; resolve(v); } };
+    proc.on('error', () => finish(false));
+    proc.on('close', () => finish(false));
+    if (encoder.strict) {
+      const pollTimer = setInterval(() => { if (sawFrame) { clearInterval(pollTimer); finish(true); } }, 60);
+      setTimeout(() => { clearInterval(pollTimer); finish(sawFrame); }, 1200);
+    } else {
+      setTimeout(() => finish(proc.exitCode === null), 600);
+    }
+  });
+
+  if (!alive) {
+    if (proc.exitCode === null) { try { proc.kill('SIGKILL'); } catch {} }
+    try { fs.unlinkSync(rawPath); } catch {}
+    return { ok: false, stderr };
+  }
+  return { ok: true, proc, stderr };
+}
+
+ipcMain.handle('start-native-screen-recording', async (_event, options = {}) => {
+  if (nativeScreenRecorder?.proc) return { ok: false, error: 'A native recording is already running.' };
+  const ffmpegPath = getBundledFfmpegPath();
+  if (!ffmpegPath || !fs.existsSync(ffmpegPath)) return { ok: false, error: 'ffmpeg.exe was not found.' };
+  const display = screen.getPrimaryDisplay();
+  const bounds = display.bounds || { x: 0, y: 0, width: 1920, height: 1080 };
+  const fps = Math.max(30, Math.min(120, Number(options.fps) || 60));
+  const outW = Math.max(640, Math.min(Number(options.width) || bounds.width, bounds.width));
+  const outH = Math.max(360, Math.min(Number(options.height) || bounds.height, bounds.height));
+  const rawPath = path.join(getRecordingDir(), makeRecordingBaseName() + '.native.mp4');
+  const ffmpegDir = path.dirname(ffmpegPath);
+
+  let lastError = '';
+  for (const encoder of ENCODER_CANDIDATES) {
+    const attempt = await tryStartWithEncoder(ffmpegPath, ffmpegDir, bounds, fps, outW, outH, rawPath, encoder);
+    if (attempt.ok) {
+      const proc = attempt.proc;
+      let stderr = attempt.stderr;
+      proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      proc.on('error', (err) => {
+        stderr += err?.message || String(err);
+        if (nativeScreenRecorder?.proc === proc) {
+          nativeScreenRecorder.stderr = stderr;
+          nativeScreenRecorder.proc = null;
+        }
+      });
+      nativeScreenRecorder = { proc, filePath: rawPath, stderr, encoder: encoder.name };
+      proc.on('close', (code) => {
+        if (nativeScreenRecorder?.proc === proc) {
+          nativeScreenRecorder.exitCode = code;
+          nativeScreenRecorder.stderr = stderr;
+          nativeScreenRecorder.proc = null;
+        }
+      });
+      return { ok: true, filePath: rawPath, fps, encoder: encoder.name };
+    }
+    lastError = attempt.stderr.trim() || lastError;
+  }
+  return { ok: false, error: lastError || 'ffmpeg could not start screen capture with any available encoder.' };
+});
+
+ipcMain.handle('stop-native-screen-recording', async () => {
+  const recorder = nativeScreenRecorder;
+  if (!recorder) return { ok: false, error: 'No native recording is running.' };
+  const { proc, filePath } = recorder;
+  if (proc && proc.exitCode === null) {
+    try { proc.stdin.write('q'); } catch {}
+    try { proc.stdin.end(); } catch {}
+    await new Promise((resolve) => {
+      const timer = setTimeout(() => { try { proc.kill('SIGTERM'); } catch {}; resolve(); }, 3500);
+      proc.once('close', () => { clearTimeout(timer); resolve(); });
+    });
+  }
+  const stderr = recorder.stderr || '';
+  nativeScreenRecorder = null;
+  if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
+    return { ok: false, error: stderr.trim() || 'Native recording produced an empty file.' };
+  }
+  return { ok: true, filePath };
+});
+
+ipcMain.handle('mux-native-recording-audio', async (_event, data = {}) => {
+  try {
+    const videoPath = data.videoPath;
+    const bytes = data.buffer;
+    if (!videoPath || !fs.existsSync(videoPath)) return { ok: false, error: 'Native video file was not found.' };
+    const finalPath = videoPath.replace(/\.native\.mp4$/i, '.mp4');
+    if (!bytes || typeof bytes.byteLength !== 'number' || bytes.byteLength === 0) {
+      if (finalPath !== videoPath) {
+        try { fs.renameSync(videoPath, finalPath); return { ok: true, filePath: finalPath }; } catch {}
+      }
+      return { ok: true, filePath: videoPath };
+    }
+    const videosDir = path.dirname(videoPath);
+    const audioPath = path.join(videosDir, path.basename(videoPath, path.extname(videoPath)) + '.audio.webm');
+    fs.writeFileSync(audioPath, Buffer.from(new Uint8Array(bytes)));
+    await runFfmpeg([
+      '-y', '-hide_banner', '-loglevel', 'error', '-i', videoPath, '-i', audioPath,
+      '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
+      '-shortest', '-movflags', '+faststart', finalPath,
+    ]);
+    try { fs.unlinkSync(videoPath); } catch {}
+    try { fs.unlinkSync(audioPath); } catch {}
+    return { ok: true, filePath: finalPath };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Could not mux system audio into native recording.' };
+  }
+});
 ipcMain.handle('save-screen-recording', async (_event, recording) => {
   try {
     const bytes = recording?.buffer;
@@ -1150,18 +1567,36 @@ ipcMain.handle('save-screen-recording', async (_event, recording) => {
       return { ok: false, error: 'Recording is empty.' };
     }
 
-    const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Captures');
+    const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Recordings');
     if (!fs.existsSync(videosDir)) {
       fs.mkdirSync(videosDir, { recursive: true });
     }
 
     const dateStr = new Date().toISOString().slice(0, 10);
     const timeStr = new Date().toTimeString().slice(0, 8).replace(/:/g, '-');
-    const fileName = `WinLand_Rec_${dateStr}_${timeStr}.webm`;
-    const filePath = path.join(videosDir, fileName);
+    const rawExt = (recording?.mimeType || '').includes('mp4') ? 'mp4' : 'webm';
+    const rawFileName = `WinLand_Rec_${dateStr}_${timeStr}.raw.${rawExt}`;
+    const finalFileName = `WinLand_Rec_${dateStr}_${timeStr}.mp4`;
+    const rawFilePath = path.join(videosDir, rawFileName);
+    const finalFilePath = path.join(videosDir, finalFileName);
 
-    fs.writeFileSync(filePath, Buffer.from(new Uint8Array(bytes)));
-    return { ok: true, filePath };
+    fs.writeFileSync(rawFilePath, Buffer.from(new Uint8Array(bytes)));
+
+    try {
+      await normalizeRecordingToMp4({
+        inputPath: rawFilePath,
+        outputPath: finalFilePath,
+        fps: recording?.fps,
+      });
+      try { fs.unlinkSync(rawFilePath); } catch {}
+      return { ok: true, filePath: finalFilePath };
+    } catch (ffmpegErr) {
+      console.warn('Recording normalization failed, keeping raw recording:', ffmpegErr?.message || ffmpegErr);
+      const fallbackFileName = `WinLand_Rec_${dateStr}_${timeStr}.${rawExt}`;
+      const fallbackFilePath = path.join(videosDir, fallbackFileName);
+      try { fs.renameSync(rawFilePath, fallbackFilePath); } catch {}
+      return { ok: true, filePath: fs.existsSync(fallbackFilePath) ? fallbackFilePath : rawFilePath };
+    }
   } catch (err) {
     return { ok: false, error: err?.message || 'Could not save recording.' };
   }
@@ -1179,7 +1614,7 @@ ipcMain.on('open-file-location', (_event, filePath) => {
   if (filePath && fs.existsSync(filePath)) {
     shell.showItemInFolder(filePath);
   } else {
-    const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Captures');
+    const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Recordings');
     if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
     shell.openPath(videosDir);
   }
@@ -1256,6 +1691,34 @@ ipcMain.on('stop-screenrec-mouse-tracking', () => {
   stopRecorderMouseTracking();
 });
 
+ipcMain.on('start-screenrec-hotkeys', () => {
+  try {
+    globalShortcut.unregister('Alt+P');
+    globalShortcut.unregister('Alt+Z');
+  } catch {}
+  try {
+    globalShortcut.register('Alt+P', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('screenrec-hotkey', 'P');
+      }
+    });
+    globalShortcut.register('Alt+Z', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('screenrec-hotkey', 'Z');
+      }
+    });
+  } catch (err) {
+    console.error('Failed to register screenrec hotkeys Alt+P/Alt+Z:', err);
+  }
+});
+
+ipcMain.on('stop-screenrec-hotkeys', () => {
+  try {
+    globalShortcut.unregister('Alt+P');
+    globalShortcut.unregister('Alt+Z');
+  } catch {}
+});
+
 // Device / animation preferences live in the Settings window but are consumed
 // by the island, which is a separate renderer. Relay changes so the island
 // updates live instead of only picking them up on next launch.
@@ -1313,7 +1776,7 @@ function toggleSystemDnd() {
 
 // Initial DND query on startup & poll every 3s to stay in sync with Windows OS changes
 querySystemDndState();
-setInterval(() => {
+dndPollInterval = setInterval(() => {
   querySystemDndState();
 }, 3000);
 
@@ -1451,7 +1914,14 @@ process.on('unhandledRejection', (reason) => {
   } catch {}
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  // screen module APIs are only safe to use after app is ready. If the pinned
+  // monitor gets unplugged (or a display is added back), make sure the island
+  // doesn't end up stranded off-screen.
+  screen.on('display-removed', () => repositionOnTargetDisplay());
+  screen.on('display-added', () => repositionOnTargetDisplay());
+});
 
 app.on('window-all-closed', (e) => {
   // Stay resident as an overlay when the window is merely closed — but not when
@@ -1470,5 +1940,11 @@ app.on('will-quit', () => {
   if (fullscreenInterval) clearInterval(fullscreenInterval);
   if (bluetoothInterval) clearInterval(bluetoothInterval);
   if (callInterval) clearInterval(callInterval);
+  if (alwaysOnTopInterval) clearInterval(alwaysOnTopInterval);
+  if (dndPollInterval) clearInterval(dndPollInterval);
+  if (volumePollInterval) clearInterval(volumePollInterval);
+  stopRecorderMouseTracking();
   fs.unwatchFile(WINLAND_THEME_PATH);
 });
+
+

@@ -34,9 +34,14 @@ class Program {
     static string foundState = null;
     static string foundCaller = null;
     static string foundSource = null;
+    // Handle of the call window we matched, so an action (accept/decline/
+    // end/mute) can be invoked against the same window we just detected.
+    static IntPtr foundHwnd = IntPtr.Zero;
 
     [STAThread]
-    static void Main() {
+    static void Main(string[] args) {
+        string action = (args != null && args.Length > 0) ? args[0].Trim().ToLowerInvariant() : null;
+
         try {
             Console.OutputEncoding = Encoding.UTF8;
         } catch {}

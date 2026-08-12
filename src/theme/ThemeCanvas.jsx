@@ -21,6 +21,24 @@ export default function ThemeCanvas({
   });
   const mousePosRef = useRef({ x: undefined, y: undefined });
 
+  // PERF FIX: the render loop below used to depend directly on
+  // isHovered/isPressed/isDragging/accentColor/themeState. accentColor in
+  // particular is fed a color string that DynamicIsland eases every single
+  // animation frame (60fps), so that dependency made this effect tear down
+  // (cancelAnimationFrame) and rebuild (requestAnimationFrame) the whole loop
+  // every frame, for every visible capsule (2x in split mode). The loop now
+  // mounts once and reads the latest values through these refs each tick.
+  const isHoveredRef = useRef(isHovered);
+  const isPressedRef = useRef(isPressed);
+  const isDraggingRef = useRef(isDragging);
+  const accentColorRef = useRef(accentColor);
+  const themeStateRef = useRef(themeState);
+  useEffect(() => { isHoveredRef.current = isHovered; }, [isHovered]);
+  useEffect(() => { isPressedRef.current = isPressed; }, [isPressed]);
+  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+  useEffect(() => { accentColorRef.current = accentColor; }, [accentColor]);
+  useEffect(() => { themeStateRef.current = themeState; }, [themeState]);
+
   useEffect(() => {
     const unsubscribe = themeManager.subscribe((mode, options) => {
       setThemeState({ mode, options });
@@ -93,8 +111,8 @@ export default function ThemeCanvas({
 
       const renderer = themeManager.getRenderer();
       const options = {
-        ...themeState.options,
-        accentColor,
+        ...themeStateRef.current.options,
+        accentColor: accentColorRef.current,
       };
 
       const computedRadius = Math.min(height / 2, 28);
@@ -106,10 +124,12 @@ export default function ThemeCanvas({
         radius: computedRadius,
       };
 
+      const hovered = isHoveredRef.current;
+      const pressed = isPressedRef.current;
       const state = {
-        isHovered,
-        isPressed,
-        isDragging,
+        isHovered: hovered,
+        isPressed: pressed,
+        isDragging: isDraggingRef.current,
         mouseX: mousePosRef.current.x,
         mouseY: mousePosRef.current.y,
       };
@@ -120,8 +140,8 @@ export default function ThemeCanvas({
       renderer.DrawReflection(ctx, bounds, state, options);
       renderer.DrawBorder(ctx, bounds, state, options);
       renderer.DrawGlow(ctx, bounds, state, options);
-      if (isHovered) renderer.DrawHover(ctx, bounds, state, options);
-      if (isPressed) renderer.DrawPressed(ctx, bounds, state, options);
+      if (hovered) renderer.DrawHover(ctx, bounds, state, options);
+      if (pressed) renderer.DrawPressed(ctx, bounds, state, options);
 
       ctx.restore();
 
@@ -130,7 +150,10 @@ export default function ThemeCanvas({
 
     animId = requestAnimationFrame(renderFrame);
     return () => cancelAnimationFrame(animId);
-  }, [containerRef, isHovered, isPressed, isDragging, accentColor, themeState]);
+    // Mount-once: volatile values are read through refs above instead of deps,
+    // so this loop is created once per container and never restarts mid-flight.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerRef]);
 
   return (
     <canvas

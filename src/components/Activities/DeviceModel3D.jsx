@@ -517,7 +517,12 @@ export default function DeviceModel3D({
     };
   }, [modelId, category, styleCategory, animStyle, size, isDisconnected, loop, fit]);
 
-  if (failed) return null;
+  if (failed) {
+    if (category === 'phone') {
+      return <Phone3D size={size} isAnimated={true} isDisconnected={isDisconnected} />;
+    }
+    return null;
+  }
 
   return (
     <div

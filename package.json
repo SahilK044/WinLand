@@ -28,33 +28,40 @@
       "shared/**/*",
       "build/**/*",
       "public/**/*",
-      "scripts/**/*",
       "electron.js",
+      "preload.cjs",
       "preload.js",
       "package.json"
-    ],
-    "asarUnpack": [
-      "scripts/**/*"
     ],
     "extraResources": [
       {
         "from": "scripts",
         "to": "scripts"
+      },
+      {
+        "from": "winland-promo/node_modules/@remotion/compositor-win32-x64-msvc",
+        "to": "ffmpeg"
       }
     ],
     "win": {
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "portable",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "dir",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "build/icon.ico"
@@ -91,5 +98,3 @@
     "vite": "^8.1.1"
   }
 }
-
-

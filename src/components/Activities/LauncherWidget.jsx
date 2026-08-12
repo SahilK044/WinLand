@@ -132,20 +132,26 @@ const PINNED_APPS = [
   },
 ];
 
-function LauncherButton({ app, onLaunch }) {
+const LauncherButton = React.memo(function LauncherButton({ app, onLaunch }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
 
   return (
     <button
+      type="button"
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        window.electronAPI?.setIgnoreMouseEvents?.(false);
+        setIsPressed(true);
+      }}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
         onLaunch?.(app.cmd);
       }}
       style={{
-        background: isHovered ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-        border: isHovered ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid transparent',
+        background: isHovered ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
+        border: isHovered ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid transparent',
         borderRadius: 12,
         display: 'flex',
         flexDirection: 'column',
@@ -160,20 +166,24 @@ function LauncherButton({ app, onLaunch }) {
           : isHovered
           ? 'translateZ(0) translateY(-2px) scale(1.06)'
           : 'translateZ(0) scale(1.0)',
-        transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, border 0.2s ease',
+        transition: 'transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.15s ease, border 0.15s ease',
         WebkitAppearance: 'none',
         WebkitFontSmoothing: 'antialiased',
         outline: 'none',
-        backdropFilter: isHovered ? 'blur(12px)' : 'none',
-        WebkitBackdropFilter: isHovered ? 'blur(12px)' : 'none',
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
         setIsPressed(false);
       }}
-      onMouseDown={() => setIsPressed(true)}
-      onMouseUp={() => setIsPressed(false)}
+      onMouseDown={(e) => {
+        e.stopPropagation();
+        setIsPressed(true);
+      }}
+      onMouseUp={(e) => {
+        e.stopPropagation();
+        setIsPressed(false);
+      }}
     >
       {/* Animated Icon */}
       <div
@@ -194,19 +204,18 @@ function LauncherButton({ app, onLaunch }) {
           fontWeight: 600,
           color: isHovered ? '#ffffff' : 'rgba(255, 255, 255, 0.82)',
           letterSpacing: '0.2px',
-          transition: 'color 0.18s ease',
-          textShadow: isHovered ? '0 1px 4px rgba(0, 0, 0, 0.8)' : 'none',
+          transition: 'color 0.15s ease',
         }}
       >
         {app.name}
       </span>
     </button>
   );
-}
+});
 
-export default function LauncherWidget({ onLaunchApp }) {
+const LauncherWidget = React.memo(function LauncherWidget({ onLaunchApp }) {
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 12px', boxSizing: 'border-box' }}>
+    <div style={{ width: '100%', minWidth: 366, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 12px', boxSizing: 'border-box', overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, width: '100%' }}>
         {PINNED_APPS.map((app) => (
           <LauncherButton key={app.cmd} app={app} onLaunch={onLaunchApp} />
@@ -214,4 +223,7 @@ export default function LauncherWidget({ onLaunchApp }) {
       </div>
     </div>
   );
-}
+});
+
+export default LauncherWidget;
+

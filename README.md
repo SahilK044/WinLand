@@ -53,6 +53,13 @@
 - **3D Folder Badges**: Custom SVG golden-amber gradient folder icons for directory items.
 - **One-Click Launch**: Click any shelved item to instantly open it; clear all items with a single button.
 
+### 🎥 Screen Studio — Screen Recording Suite
+- **Custom Resolution & Framerates**: Record desktop activity in crisp 1080p, 1440p, or native 4K at up to 120 FPS.
+- **High-Fidelity 48kHz Stereo System Audio**: Captures crystal-clear desktop audio loopback without WebRTC echo cancellation ducking, mono downmixing, or metallic noise-suppression artifacts.
+- **Auto Zoom & Cinematic Camera**: Optional cursor-following zoom with hotkey controls (`P` for full view, `Z` for zoom in) for creating polished product demos.
+- **Compact Island Controls**: Live timer, pause/resume toggle, and stop controls embedded directly in the compact notch pill with auto-dismissal on save.
+- **Automatic Export**: Directly saves recordings to `Videos\WinLand Recordings`.
+
 ### 🌤️ Weather, Battery & System Monitoring
 - **Live Weather Sync**: Real-time local temperature and weather status synced automatically via IP geolocation & Open-Meteo API.
 - **Battery & Volume OSDs**: Real-time battery status with charging indicator and clean macOS Tahoe typography.
