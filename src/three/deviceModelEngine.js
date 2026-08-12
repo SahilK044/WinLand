@@ -105,14 +105,14 @@ export const MODEL_CONFIGS = {
   iphone16:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
   iphone15:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
   iphone12:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
-  pixel6pro:      { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
-  pixel7pro:      { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
-  pixel8pro:      { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
-  s21ultra:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  pixel6pro:      { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
+  pixel7pro:      { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
+  pixel8pro:      { baseRotY: Math.PI / 2,    baseRotX: 0, scaleFactor: 1.22 },
+  s21ultra:       { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
   s22ultra:       { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
   note20ultra:    { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
-  zflip3:         { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
-  zfold2:         { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
+  zflip3:         { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
+  zfold2:         { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
   // The Razer GLB is authored front-on (thinnest axis Z), so it needs no turn
   // to face the viewer; the Sony GLB is authored side-on (thinnest axis X) and
   // needs a turn to match. Both end up presenting the same front view.
@@ -259,10 +259,10 @@ export function removeGhostBudMeshes(root, leftBud, rightBud) {
   return doomed.length;
 }
 
-// â”€â”€ Shared model cache â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ——— Shared model cache ———————————————————————————————————————————————————————
 // Each asset is fetched and parsed at most once per session; callers take a
 // lightweight clone. Clones share geometry and materials with the cached
-// master, so consumers must NOT dispose those on teardown â€” doing so would
+// master, so consumers must NOT dispose those on teardown — doing so would
 // leave the cache pointing at freed GPU buffers.
 const MODEL_CACHE = new Map();
 
@@ -270,43 +270,45 @@ export function loadSharedModel(modelId) {
   const url = GLB_MODEL_MAP[modelId];
   if (!url) return Promise.reject(new Error(`unknown model: ${modelId}`));
   if (!MODEL_CACHE.has(modelId)) {
-    const loader = new GLTFLoader();
-    loader.setMeshoptDecoder(MeshoptDecoder);
-    const loadPromise = modelId === 'galaxybuds'
-      ? Promise.all([
-          loader.loadAsync(galaxyCaseBaseGlb),
-          loader.loadAsync(galaxyCaseLidGlb),
-          loader.loadAsync(galaxyBudLeftGlb),
-          loader.loadAsync(galaxyBudRightGlb),
-        ]).then(([base, lid, leftBud, rightBud]) => {
-          const scene = new THREE.Group();
-          scene.name = 'GalaxyBudsSplitRig';
+    const loadPromise = Promise.resolve(MeshoptDecoder.ready).then(() => {
+      const loader = new GLTFLoader();
+      loader.setMeshoptDecoder(MeshoptDecoder);
+      return modelId === 'galaxybuds'
+        ? Promise.all([
+            loader.loadAsync(galaxyCaseBaseGlb),
+            loader.loadAsync(galaxyCaseLidGlb),
+            loader.loadAsync(galaxyBudLeftGlb),
+            loader.loadAsync(galaxyBudRightGlb),
+          ]).then(([base, lid, leftBud, rightBud]) => {
+            const scene = new THREE.Group();
+            scene.name = 'GalaxyBudsSplitRig';
 
-          const baseGroup = new THREE.Group();
-          baseGroup.name = 'Case_Base';
-          baseGroup.add(base.scene);
+            const baseGroup = new THREE.Group();
+            baseGroup.name = 'Case_Base';
+            baseGroup.add(base.scene);
 
-          const lidPivot = new THREE.Group();
-          lidPivot.name = 'Case_Lid_Pivot';
-          lidPivot.position.copy(GALAXY_HINGE);
-          lid.scene.name = 'Case_Lid';
-          lid.scene.position.copy(GALAXY_HINGE).multiplyScalar(-1);
-          lidPivot.add(lid.scene);
+            const lidPivot = new THREE.Group();
+            lidPivot.name = 'Case_Lid_Pivot';
+            lidPivot.position.copy(GALAXY_HINGE);
+            lid.scene.name = 'Case_Lid';
+            lid.scene.position.copy(GALAXY_HINGE).multiplyScalar(-1);
+            lidPivot.add(lid.scene);
 
-          const leftGroup = new THREE.Group();
-          leftGroup.name = 'Earbud_Left';
-          leftGroup.position.copy(GALAXY_LEFT_REST);
-          leftGroup.add(leftBud.scene);
+            const leftGroup = new THREE.Group();
+            leftGroup.name = 'Earbud_Left';
+            leftGroup.position.copy(GALAXY_LEFT_REST);
+            leftGroup.add(leftBud.scene);
 
-          const rightGroup = new THREE.Group();
-          rightGroup.name = 'Earbud_Right';
-          rightGroup.position.copy(GALAXY_RIGHT_REST);
-          rightGroup.add(rightBud.scene);
+            const rightGroup = new THREE.Group();
+            rightGroup.name = 'Earbud_Right';
+            rightGroup.position.copy(GALAXY_RIGHT_REST);
+            rightGroup.add(rightBud.scene);
 
-          scene.add(baseGroup, lidPivot, leftGroup, rightGroup);
-          return { scene };
-        })
-      : loader.loadAsync(url);
+            scene.add(baseGroup, lidPivot, leftGroup, rightGroup);
+            return { scene };
+          })
+        : loader.loadAsync(url);
+    });
 
     MODEL_CACHE.set(modelId, loadPromise.catch((err) => {
       MODEL_CACHE.delete(modelId);
