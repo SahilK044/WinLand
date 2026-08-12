@@ -478,37 +478,50 @@ const MarqueeText = ({ children, style = {}, className = '' }) => {
   const containerRef = useRef(null);
   const textRef = useRef(null);
   const [shouldScroll, setShouldScroll] = useState(false);
-  const [scrollDistance, setScrollDistance] = useState(0);
-  const [duration, setDuration] = useState(8);
 
   useEffect(() => {
+    const container = containerRef.current;
+    const text = textRef.current;
+    if (!container || !text) return;
+
+    let timer;
     let animFrame;
-    const checkOverflow = () => {
-      if (containerRef.current && textRef.current) {
-        const cWidth = containerRef.current.offsetWidth;
-        const tWidth = textRef.current.scrollWidth;
-        if (tWidth > cWidth + 2) {
-          const dist = tWidth - cWidth + 18;
-          setShouldScroll(true);
-          setScrollDistance(dist);
-          setDuration(Math.max(6, Math.min(14, dist / 18 + 4)));
-        } else {
-          setShouldScroll(false);
-        }
+
+    const measure = () => {
+      if (!containerRef.current || !textRef.current) return;
+      const cWidth = containerRef.current.clientWidth || containerRef.current.offsetWidth;
+      const tWidth = textRef.current.scrollWidth;
+
+      if (tWidth > cWidth + 2 && cWidth > 0) {
+        const dist = tWidth - cWidth + 14;
+        const dur = Math.max(5, Math.min(16, dist / 20 + 3.5));
+        textRef.current.style.setProperty('--scroll-dist', `-${dist}px`);
+        textRef.current.style.setProperty('--scroll-duration', `${dur}s`);
+        setShouldScroll(true);
+      } else {
+        setShouldScroll(false);
       }
     };
 
-    animFrame = requestAnimationFrame(checkOverflow);
-    window.addEventListener('resize', checkOverflow);
+    measure();
+    animFrame = requestAnimationFrame(measure);
+    timer = setTimeout(measure, 100);
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(container);
+    observer.observe(text);
+
     return () => {
       cancelAnimationFrame(animFrame);
-      window.removeEventListener('resize', checkOverflow);
+      clearTimeout(timer);
+      observer.disconnect();
     };
   }, [children]);
 
   return (
     <div
       ref={containerRef}
+      className={className}
       style={{
         overflow: 'hidden',
         whiteSpace: 'nowrap',
@@ -518,7 +531,6 @@ const MarqueeText = ({ children, style = {}, className = '' }) => {
         WebkitMaskImage: shouldScroll ? 'linear-gradient(90deg, #000 82%, transparent 98%)' : 'none',
         ...style,
       }}
-      className={className}
     >
       <div
         ref={textRef}
@@ -526,8 +538,6 @@ const MarqueeText = ({ children, style = {}, className = '' }) => {
         style={{
           display: 'inline-block',
           whiteSpace: 'nowrap',
-          '--scroll-dist': `-${scrollDistance}px`,
-          '--scroll-duration': `${duration}s`,
         }}
       >
         {children}
