@@ -150,11 +150,13 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
       return a.includes(b) || b.includes(a);
     };
 
+    const controller = new AbortController();
+    const { signal } = controller;
     const attemptFetch = async () => {
       // Strategy 1: LRCLIB Direct Match (Title + Artist)
       try {
         if (cleanArtist) {
-          const res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`);
+          const res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`, { signal });
           if (isStale()) return;
           if (res.ok) {
             const data = await res.json();
@@ -169,7 +171,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
       // Strategy 2: LRCLIB Search (Title + Artist)
       try {
         const q = `${cleanTitle} ${cleanArtist}`.trim();
-        const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`, { signal });
         if (isStale()) return;
         if (res.ok) {
           const results = await res.json();
@@ -189,7 +191,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
       // Strategy 3: LRCLIB Search (Title Only - ONLY accept if artist matches)
       try {
         if (cleanArtist) {
-          const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`);
+          const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`, { signal });
           if (isStale()) return;
           if (res.ok) {
             const results = await res.json();
@@ -211,7 +213,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
       // Strategy 4: Lyrics.ovh API Fallback
       try {
         if (cleanArtist) {
-          const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`);
+          const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`, { signal });
           if (isStale()) return;
           if (res.ok) {
             const data = await res.json();
@@ -228,7 +230,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
 
       // Strategy 5: NetEase Synced LRC API
       try {
-        const searchRes = await fetch(`https://music.163.com/api/search/get/web?csrf_token=&u=1&s=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}&type=1&offset=0&total=true&limit=5`);
+        const searchRes = await fetch(`https://music.163.com/api/search/get/web?csrf_token=&u=1&s=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}&type=1&offset=0&total=true&limit=5`, { signal });
         if (isStale()) return;
         if (searchRes.ok) {
           const searchData = await searchRes.json();
@@ -236,7 +238,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
           const matchedSong = songs.find((s) => s.artists?.some((a) => isArtistMatch(a.name, cleanArtist))) || songs[0];
           const songId = matchedSong?.id;
           if (songId) {
-            const lrcRes = await fetch(`https://music.163.com/api/song/lyric?os=pc&id=${songId}&lv=-1&kv=-1&tv=-1`);
+            const lrcRes = await fetch(`https://music.163.com/api/song/lyric?os=pc&id=${songId}&lv=-1&kv=-1&tv=-1`, { signal });
             if (isStale()) return;
             if (lrcRes.ok) {
               const lrcData = await lrcRes.json();
@@ -259,6 +261,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
     };
 
     attemptFetch();
+    return () => controller.abort();
   }, [title, artist]);
 
   const [userOffsetMs, setUserOffsetMs] = useState(() => {
@@ -847,10 +850,15 @@ export default function MusicWidget({
   useEffect(() => {
     if (!isPlaying || durationMs <= 0) return;
     let rafId;
+    let lastUpdate = performance.now();
     const updateLoop = () => {
-      const delta = performance.now() - syncRef.current.baseTime;
-      const current = syncRef.current.baseMs + delta;
-      setRealtimeMs(Math.min(current, durationMs));
+      const now = performance.now();
+      if (now - lastUpdate > 100) {
+        const delta = now - syncRef.current.baseTime;
+        const current = syncRef.current.baseMs + delta;
+        setRealtimeMs(Math.min(current, durationMs));
+        lastUpdate = now;
+      }
       rafId = requestAnimationFrame(updateLoop);
     };
     rafId = requestAnimationFrame(updateLoop);
@@ -886,14 +894,14 @@ export default function MusicWidget({
   const activeDisplayMs = isDragging ? dragProgressMs : realtimeMs;
   const pct = durationMs > 0 ? Math.min(100, Math.max(0, (activeDisplayMs / durationMs) * 100)) : 0;
 
-  const calcMsFromEvent = (e) => {
+  const calcMsFromEvent = React.useCallback((e) => {
     if (!scrubberRef.current || !durationMs) return 0;
     const rect = scrubberRef.current.getBoundingClientRect();
     const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const ratio = clickX / rect.width;
     setDragPosX(clickX);
     return Math.round(ratio * durationMs);
-  };
+  }, [durationMs]);
 
   const handleMouseDown = (e) => {
     e.stopPropagation();
@@ -902,20 +910,25 @@ export default function MusicWidget({
     setDragProgressMs(targetMs);
   };
 
-  const handleMouseMove = (e) => {
+  useEffect(() => {
     if (!isDragging) return;
-    e.stopPropagation();
-    const targetMs = calcMsFromEvent(e);
-    setDragProgressMs(targetMs);
-  };
-
-  const handleMouseUp = (e) => {
-    if (!isDragging) return;
-    e.stopPropagation();
-    setIsDragging(false);
-    const targetMs = calcMsFromEvent(e);
-    onSeek?.(targetMs);
-  };
+    const onMove = (e) => {
+      e.preventDefault();
+      const targetMs = calcMsFromEvent(e);
+      setDragProgressMs(targetMs);
+    };
+    const onUp = (e) => {
+      setIsDragging(false);
+      const targetMs = calcMsFromEvent(e);
+      onSeek?.(targetMs);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [isDragging, calcMsFromEvent, onSeek]);
 
 
   const hours = time.getHours();
@@ -1055,9 +1068,6 @@ export default function MusicWidget({
         <div
           ref={scrubberRef}
           onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={() => setIsDragging(false)}
           style={{ width: '100%', height: 6, background: 'rgba(255, 255, 255, 0.14)', borderRadius: 4, cursor: 'pointer', position: 'relative', overflow: 'visible' }}
         >
           {/* Filled Progress Bar — strict overflow: hidden so shimmer is 100% contained */}
@@ -1090,7 +1100,7 @@ export default function MusicWidget({
             <div
               style={{
                 position: 'absolute',
-                left: `${pct}%`,
+                left: `calc(${pct}% + ${(0.5 - pct / 100) * 8}px)`,
                 top: '50%',
                 transform: 'translate(-50%, -50%)',
                 width: 8,

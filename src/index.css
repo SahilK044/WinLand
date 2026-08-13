@@ -304,10 +304,10 @@ button svg {
   color: #000000 !important;
 }
 
-.island-capsule.theme-light span,
+.island-capsule.theme-light span:not([class*="badge"]):not([class*="status"]):not([class*="indicator"]),
 .island-capsule.theme-light p,
-.island-capsule.theme-light div,
-.island-capsule.theme-light button {
+.island-capsule.theme-light div:not([class*="badge"]):not([class*="status"]):not([class*="indicator"]),
+.island-capsule.theme-light button:not([class*="badge"]):not([class*="status"]):not([class*="indicator"]) {
   color: #000000 !important;
 }
 

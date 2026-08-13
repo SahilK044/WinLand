@@ -100,7 +100,10 @@ export default function SettingsWindow() {
     }
     return initial;
   });
-  const animStyle = animStyles.phone;
+  const currentCategory = ['phones', 'headphones', 'earbuds', 'controllers', 'speakers'].includes(activeTab)
+    ? (activeTab === 'phones' ? 'phone' : activeTab)
+    : 'phone';
+  const animStyle = animStyles[currentCategory] || animStyles.phone;
 
   const [appearanceMode, setAppearanceMode] = useState(() => localStorage.getItem('winland_theme_mode') || themeManager.getMode() || 'dark');
   const [appearanceOptions] = useState(() => themeManager.getOptions());
@@ -127,6 +130,12 @@ export default function SettingsWindow() {
   const [motionCat, setMotionCat]           = useState('phone');
   const [isDndActive, setIsDndActive]       = useState(false);
 
+  const handleTabChange = (id) => {
+    setActiveTab(id);
+    setHoveredCardId(null);
+    setActiveEarbudId(null);
+  };
+
   useEffect(() => {
     if (window.electronAPI?.getDisplays) {
       window.electronAPI.getDisplays().then((list) => {
@@ -140,7 +149,7 @@ export default function SettingsWindow() {
     const unsub = window.electronAPI.onDndStateUpdate(({ isDnd }) => {
       setIsDndActive(!!isDnd);
     });
-    return () => unsub();
+    return () => { if (typeof unsub === 'function') unsub(); };
   }, []);
 
   const [xboxVariant, setXboxVariant] = useState(() => localStorage.getItem('winland_xbox_variant') || 'xbox_white');
@@ -271,33 +280,60 @@ export default function SettingsWindow() {
             />
           </div>
 
-          {SIDEBAR_GROUPS.map((group) => {
-            const filteredTabs = group.tabs.filter(t => t.label.toLowerCase().includes(searchQuery.toLowerCase()));
-            if (searchQuery && filteredTabs.length === 0) return null;
+          {(() => {
+            let hasResults = false;
+            const lowerQuery = searchQuery.toLowerCase();
+            const groups = SIDEBAR_GROUPS.map((group) => {
+              const filteredTabs = group.tabs.filter(t => {
+                if (t.label.toLowerCase().includes(lowerQuery)) return true;
+                if (t.id === 'phones') return DEVICE_CATALOG.phones?.some(d => d.name.toLowerCase().includes(lowerQuery));
+                if (t.id === 'headphones') return DEVICE_CATALOG.headphones?.some(d => d.name.toLowerCase().includes(lowerQuery));
+                if (t.id === 'earbuds') return DEVICE_CATALOG.earbuds?.some(d => d.name.toLowerCase().includes(lowerQuery));
+                if (t.id === 'speakers') return DEVICE_CATALOG.speakers?.some(d => d.name.toLowerCase().includes(lowerQuery));
+                if (t.id === 'controllers') return 'playstation 5 dualsense xbox wireless controller gamepad'.includes(lowerQuery);
+                if (t.id === 'system') return 'auto-hide focus mode do not disturb timer display placement smart docking fullscreen'.includes(lowerQuery);
+                if (t.id === 'style') return 'motion finish physics color variant'.includes(lowerQuery);
+                if (t.id === 'appearance') return 'dark light theme mode'.includes(lowerQuery);
+                return false;
+              });
+              if (filteredTabs.length > 0) hasResults = true;
+              return { ...group, filteredTabs };
+            });
 
-            return (
-              <React.Fragment key={group.label}>
-                <div className="wl-side-group">{group.label}</div>
-                {filteredTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      className="wl-tab"
-                      aria-current={activeTab === tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                    >
-                      <div className="wl-tab-badge" style={{ background: tab.bg }}>
-                        <Icon size={13} color="#fff" />
-                      </div>
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </React.Fragment>
-            );
-          })}
+            if (searchQuery && !hasResults) {
+              return (
+                <div style={{ padding: '20px 10px', textAlign: 'center', color: 'var(--label-2)', fontSize: 12 }}>
+                  No matching settings
+                </div>
+              );
+            }
+
+            return groups.map((group) => {
+              if (searchQuery && group.filteredTabs.length === 0) return null;
+              return (
+                <React.Fragment key={group.label}>
+                  <div className="wl-side-group">{group.label}</div>
+                  {group.filteredTabs.map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        className="wl-tab"
+                        aria-current={activeTab === tab.id}
+                        onClick={() => handleTabChange(tab.id)}
+                      >
+                        <div className="wl-tab-badge" style={{ background: tab.bg }}>
+                          <Icon size={13} color="#fff" />
+                        </div>
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </React.Fragment>
+              );
+            });
+          })()}
         </nav>
 
         {/* ── Main Content Area ── */}
@@ -610,9 +646,9 @@ export default function SettingsWindow() {
                       color: 'var(--label)', fontSize: 13, outline: 'none', cursor: 'pointer',
                     }}
                   >
-                    <option value="" style={{ background: '#222', color: '#fff' }}>Default (Primary Monitor)</option>
+                    <option value="">Default (Primary Monitor)</option>
                     {displays.map((d) => (
-                      <option key={d.id} value={d.id} style={{ background: '#222', color: '#fff' }}>
+                      <option key={d.id} value={d.id}>
                         {d.label}
                       </option>
                     ))}
@@ -658,12 +694,12 @@ export default function SettingsWindow() {
                         fontWeight: 600, minWidth: 140,
                       }}
                     >
-                      <option value={3} style={{ background: '#222', color: '#fff' }}>3 Seconds (Fast)</option>
-                      <option value={5} style={{ background: '#222', color: '#fff' }}>5 Seconds</option>
-                      <option value={10} style={{ background: '#222', color: '#fff' }}>10 Seconds (Default)</option>
-                      <option value={15} style={{ background: '#222', color: '#fff' }}>15 Seconds</option>
-                      <option value={30} style={{ background: '#222', color: '#fff' }}>30 Seconds</option>
-                      <option value={60} style={{ background: '#222', color: '#fff' }}>1 Minute</option>
+                      <option value={3}>3 Seconds (Fast)</option>
+                      <option value={5}>5 Seconds</option>
+                      <option value={10}>10 Seconds (Default)</option>
+                      <option value={15}>15 Seconds</option>
+                      <option value={30}>30 Seconds</option>
+                      <option value={60}>1 Minute</option>
                     </select>
                   </div>
                 )}

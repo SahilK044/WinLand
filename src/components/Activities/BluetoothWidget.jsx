@@ -218,10 +218,11 @@ function MacBatteryIcon({ batteryPct = 100, color = '#30d158' }) {
 // Auto-detect device category for 3D animation morphing
 function getDeviceCategory(deviceName = '', typeStr = '') {
   if (typeStr === 'phone') return 'phone';
-  const str = (deviceName + ' ' + typeStr).toLowerCase();
+  const str = ((deviceName || '') + ' ' + (typeStr || '')).toLowerCase();
 
   // 1. Check explicit headphone keywords first!
   if (str.includes('barracuda') ||
+      str.includes('airpods max') ||
       str.includes('headphone') ||
       str.includes('headset') ||
       str.includes('kraken') ||
@@ -238,12 +239,14 @@ function getDeviceCategory(deviceName = '', typeStr = '') {
 
   // 2. Check Earbuds / AirPods / In-Ear TWS
   if (str.includes('buds') ||
-      str.includes('airpod') ||
+      (str.includes('airpod') && !str.includes('airpods max')) ||
       str.includes('freebuds') ||
       str.includes('smokin') ||
       str.includes('in-ear') ||
       str.includes('inear') ||
       str.includes('tws') ||
+      str.includes('wf-1000') ||
+      str.includes('wf1000') ||
       str.includes('earbud')) {
     return 'earbuds';
   }
@@ -264,7 +267,8 @@ function getDeviceCategory(deviceName = '', typeStr = '') {
   }
 
   // 6. Phone
-  if (str.includes('phone') ||
+  if (!str.includes('watch') && !str.includes('tab') && !str.includes('mouse') && !str.includes('sandisk') && !str.includes('disk') && (
+      str.includes('phone') ||
       str.includes('s24') ||
       str.includes('s25') ||
       str.includes('s26') ||
@@ -278,7 +282,7 @@ function getDeviceCategory(deviceName = '', typeStr = '') {
       str.includes('oneplus') ||
       str.includes('xiaomi') ||
       str.includes('android') ||
-      str.includes('mobile')) {
+      str.includes('mobile'))) {
     return 'phone';
   }
 
@@ -352,7 +356,7 @@ export default function BluetoothWidget({
     if (prefCategory && chosenModelId) {
       return (
         <DeviceModel3D
-          key={`3d-${chosenModelId}-${chosenStyle}-${deviceName}-${connectionState}`}
+          key={`3d-${chosenModelId}-${chosenStyle}`}
           modelId={chosenModelId}
           category={engineCategoryFor(prefCategory)}
           styleCategory={prefCategory}

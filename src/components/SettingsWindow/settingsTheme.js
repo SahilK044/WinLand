@@ -60,10 +60,15 @@ export const SETTINGS_CSS = `
   --stroke-strong: rgba(0, 0, 0, 0.12);
   --label: #1d1d1f;
   --label-2: rgba(60, 60, 67, 0.70);
-  --label-3: rgba(60, 60, 67, 0.40);
+  --label-3: rgba(60, 60, 67, 0.65);
   --accent: #007aff;
   --accent-glow: rgba(0, 122, 255, 0.25);
   --focus: rgba(0, 122, 255, 0.85);
+}
+
+.wl-root.theme-light .wl-stage {
+  background: linear-gradient(135deg, #f5f5f7 0%, #e5e5ea 100%);
+  border-color: rgba(0, 0, 0, 0.08);
 }
 
 /* ── Titlebar ─────────────────────────────────────────────────────────── */
@@ -237,6 +242,10 @@ export const SETTINGS_CSS = `
   background: var(--surface-active);
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
+}
+.wl-card[aria-pressed="true"]:hover {
+  background: var(--surface-active);
+  border-color: var(--accent);
 }
 .wl-card-name {
   font-size: 12px; font-weight: 600; color: var(--label);

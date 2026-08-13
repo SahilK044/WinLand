@@ -23,7 +23,7 @@ const getStableCaptureFps = (requestedFps) => {
 
 const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompact, onStop, onExpand, onMinimize }) {
   const [seconds, setSeconds] = useState(0);
-  const [status, setStatus] = useState('ready'); // 'ready' | 'recording' | 'paused' | 'saving' | 'saved'
+  const [status, setStatus] = useState('ready'); // 'ready' | 'starting' | 'recording' | 'paused' | 'saving' | 'error'
   const [resolutionId, setResolutionId] = useState('1080p');
   const [selectedFps, setSelectedFps] = useState(60);
   const [enableZoom, setEnableZoom] = useState(false);
@@ -52,6 +52,9 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
   // always reads the latest value without needing to be recreated.
   const enableZoomRef = useRef(enableZoom);
   useEffect(() => { enableZoomRef.current = enableZoom; }, [enableZoom]);
+
+  const errorTimerRef = useRef(null);
+  const savedTimerRef = useRef(null);
 
   const statusRef = useRef(status);
   useEffect(() => { statusRef.current = status; }, [status]);
@@ -121,6 +124,8 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
       window.electronAPI?.stopScreenRecMouseTracking?.();
       window.electronAPI?.stopScreenRecHotkeys?.();
       stopDrawLoop();
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     };
   }, []);
 
@@ -353,8 +358,6 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
 
       const zoom = zoomRef.current;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       ctx.save();
       if (zoom > 1.001) {
         const halfW = (canvas.width / 2) / zoom;
@@ -385,7 +388,10 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
     requestCanvasFrame();
 
     const drawAndRequestFrame = () => {
-      if (statusRef.current === 'paused' || statusRef.current === 'saving' || statusRef.current === 'saved') return;
+      if (statusRef.current === 'paused') {
+        return;
+      }
+      if (statusRef.current === 'saving' || statusRef.current === 'saved') return;
       draw();
       requestCanvasFrame();
     };
@@ -400,7 +406,10 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
       let lastDrawAt = 0;
       const pacedTick = (now) => {
         if (!canvasRef.current) return;
-        if (statusRef.current === 'paused' || statusRef.current === 'saving' || statusRef.current === 'saved') {
+        if (statusRef.current === 'paused') {
+          return;
+        }
+        if (statusRef.current === 'saving' || statusRef.current === 'saved') {
           return;
         }
         if (!lastDrawAt || now - lastDrawAt >= frameMs * 0.85) {
@@ -421,6 +430,7 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
     e?.stopPropagation();
     dbg('[REC_DEBUG] handleStartRecording clicked');
     
+    statusRef.current = 'starting';
     setStatus('starting');
 
     try {
@@ -462,6 +472,7 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
 
       if (!screenStream || screenStream.getVideoTracks().length === 0) {
         dbgErr('[REC_DEBUG] Captured screen stream has no video tracks! Aborting.');
+        if (screenStream) screenStream.getTracks().forEach(t => t.stop());
         setStatus('ready');
         return;
       }
@@ -497,6 +508,12 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
           }
         } catch (zoomErr) {
           dbgWarn('[REC_DEBUG] createComposedStream failed, falling back to direct screenStream:', zoomErr);
+          if (videoRef.current) {
+            videoRef.current.srcObject = null;
+            videoRef.current.pause();
+            videoRef.current = null;
+          }
+          stopDrawLoop();
           recordingStream = screenStream;
         }
       } else {
@@ -563,6 +580,7 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         }
         stopDrawLoop();
 
+        let saveError = false;
         if (blob.size > 0 && window.electronAPI?.saveScreenRecording) {
           const buffer = await blob.arrayBuffer();
           const res = await window.electronAPI.saveScreenRecording({ buffer, mimeType: blob.type, fps: getStableCaptureFps(selectedFps) });
@@ -570,13 +588,22 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
             window.electronAPI?.openFileLocation?.(res.filePath);
           } else {
             console.error('Screen recording save failed:', res?.error);
+            saveError = true;
           }
         } else {
-          if (blob.size === 0) console.error('Screen recording produced an empty file.');
+          if (blob.size === 0) {
+            console.error('Screen recording produced an empty file.');
+            saveError = true;
+          }
         }
-        // Auto-dismiss the pill after saving
-        setStatus('ready');
-        onStop?.();
+        // Show brief error indicator then auto-dismiss, or dismiss immediately on success
+        if (saveError) {
+          setStatus('error');
+          errorTimerRef.current = setTimeout(() => { setStatus('ready'); onStop?.(); }, 3000);
+        } else {
+          setStatus('ready');
+          onStop?.();
+        }
       };
 
       recorder.start(250);
@@ -588,14 +615,19 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
       onMinimize?.();
     } catch (err) {
       dbgErr('[REC_DEBUG] FATAL handleStartRecording ERROR:', err);
-      setStatus('ready');
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      composedStreamRef.current?.getTracks().forEach(t => t.stop());
+      stopDrawLoop();
+      setStatus('error');
+      errorTimerRef.current = setTimeout(() => setStatus('ready'), 3000);
     }
   };
 
   // INSTANT Hard Stop Action
   const handleStopRecording = async (e) => {
     e?.stopPropagation();
-    if (status === 'saving' || status === 'saved') return;
+    if (statusRef.current === 'saving') return;
+    statusRef.current = 'saving';
 
     setStatus('saving');
 
@@ -745,18 +777,18 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         <div>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#fff', letterSpacing: '-0.3px' }}>
             {status === 'ready' ? 'Screen Studio'
+              : status === 'starting' ? 'Starting…'
               : status === 'saving' ? 'Saving…'
               : status === 'paused' ? 'Paused'
+              : status === 'error' ? 'Recording Failed'
               : 'Recording'}
           </div>
           <div style={{ fontSize: 9.5, color: 'rgba(255,255,255,0.38)', marginTop: 1.5, fontWeight: 500 }}>
-            {status === 'ready'
-              ? `${currentPreset.label} · ${selectedFps} FPS · ${enableZoom ? 'Auto Zoom' : 'Steady'}`
-              : `${currentPreset.label} · ${selectedFps} FPS · ${enableZoom ? 'Auto Zoom' : 'Steady'}`}
+            {`${currentPreset.label} · ${selectedFps} FPS · ${enableZoom ? 'Auto Zoom' : 'Steady'}`}
           </div>
         </div>
 
-        {status !== 'ready' && (
+        {(status === 'recording' || status === 'paused' || status === 'saving') && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <span style={{
               fontSize: 20, fontWeight: 800, letterSpacing: '-0.8px',
@@ -866,6 +898,24 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
             <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff', opacity: 0.9 }} />
             Start Recording
           </button>
+        ) : status === 'starting' ? (
+          <div style={{
+            flex: 1, height: 34, borderRadius: 9,
+            background: 'rgba(255,255,255,0.04)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: 600,
+          }}>
+            Starting…
+          </div>
+        ) : status === 'error' ? (
+          <div style={{
+            flex: 1, height: 34, borderRadius: 9,
+            background: 'rgba(255,69,58,0.08)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: '#ff453a', fontSize: 11, fontWeight: 600,
+          }}>
+            Recording failed
+          </div>
         ) : status === 'saving' ? (
           <div style={{
             flex: 1, height: 34, borderRadius: 9,

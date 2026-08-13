@@ -67,6 +67,12 @@ function writeSettings(data) {
   }
 }
 
+
+function sendToWindow(win, channel, ...args) {
+  if (win && !win.isDestroyed() && win.webContents && !win.webContents.isDestroyed()) {
+    win.webContents.send(channel, ...args);
+  }
+}
 let mainWindow;
 let isQuitting = false; // set when the user chooses Exit, so window-all-closed lets us go
 // Multi-Monitor Pinning: which display.id (from screen.getAllDisplays()) the
@@ -135,8 +141,8 @@ function readWinlandConfig() {
 function broadcastWinlandConfig() {
   const data = readWinlandConfig();
   if (!data || !mainWindow || !mainWindow.webContents) return;
-  mainWindow.webContents.send('config-update', data);
-  if (data.theme) mainWindow.webContents.send('theme-update', { theme: data.theme });
+  sendToWindow(mainWindow, 'config-update', data);
+  if (data.theme) sendToWindow(mainWindow, 'theme-update', { theme: data.theme });
 }
 
 function watchWinlandConfig() {
@@ -375,8 +381,8 @@ function createSettingsWindow() {
     icon: path.join(__dirname, 'build', 'icon.ico'),
     width: w,
     height: h,
-    x: Math.round((screenWidth - w) / 2),
-    y: Math.round((screenHeight - h) / 2),
+    x: Math.round(primaryDisplay.workArea.x + (screenWidth - w) / 2),
+    y: Math.round(primaryDisplay.workArea.y + (screenHeight - h) / 2),
     frame: false,
     transparent: true,
     backgroundColor: '#00000000',
@@ -385,7 +391,7 @@ function createSettingsWindow() {
     hasShadow: true,
     show: true,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -525,7 +531,7 @@ function pollSpotifyTitle() {
             const trackChanged = trackKey !== lastSpotifyTrack;
             lastSpotifyTrack = trackKey;
             if (trackChanged) lastDetectedTitle = `${gTitle} - ${gArtist}`;
-            mainWindow.webContents.send('system-media-update', {
+            sendToWindow(mainWindow, 'system-media-update', {
               title: gTitle,
               artist: gArtist,
               posMs: Math.round(posMs),
@@ -555,12 +561,12 @@ function fallbackSpotifyPoll(onDone) {
     if (isPlaying) {
       if (title !== lastDetectedTitle) {
         lastDetectedTitle = title;
-        mainWindow.webContents.send('system-media-update', title);
+        sendToWindow(mainWindow, 'system-media-update', title);
       }
     } else {
       if (lastDetectedTitle !== '__NO_MEDIA__') {
         lastDetectedTitle = '__NO_MEDIA__';
-        mainWindow.webContents.send('system-media-update', '__NO_MEDIA__');
+        sendToWindow(mainWindow, 'system-media-update', '__NO_MEDIA__');
       }
     }
   });
@@ -598,7 +604,7 @@ function pollBattery() {
     lastBatteryLevel = pct;
     lastChargingState = charging;
 
-    mainWindow.webContents.send('battery-update', { pct, charging, minsLeft, changed, isInitial });
+    sendToWindow(mainWindow, 'battery-update', { pct, charging, minsLeft, changed, isInitial });
   });
 }
 
@@ -669,7 +675,7 @@ function pollBluetooth() {
   if (!mainWindow || !mainWindow.webContents || isPollingBluetooth) return;
   isPollingBluetooth = true;
 
-  exec(PS_BLUETOOTH_CMD, { timeout: 6000, maxBuffer: 1024 * 512 }, (err, stdout) => {
+  execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', PS1_BLUETOOTH], { timeout: 6000, maxBuffer: 1024 * 512 }, (err, stdout) => {
     isPollingBluetooth = false;
     if (!mainWindow || !mainWindow.webContents) return;
     if (err) return;
@@ -681,7 +687,7 @@ function pollBluetooth() {
       if (raw.size > 0) {
         // Prioritize phone device if present
         let devToNotify = Array.from(raw.values()).find(d => d.typeStr === 'phone') || Array.from(raw.values())[0];
-        mainWindow.webContents.send('bluetooth-update', {
+        sendToWindow(mainWindow, 'bluetooth-update', {
           deviceName: devToNotify.name,
           batteryPct: devToNotify.battery,
           isCharging: false,
@@ -705,7 +711,7 @@ function pollBluetooth() {
       if (!confirmed.has(id)) {
         confirmed.set(id, info);
         lastBluetoothDevices = confirmed;
-        mainWindow.webContents.send('bluetooth-update', {
+        sendToWindow(mainWindow, 'bluetooth-update', {
           deviceName: info.name,
           batteryPct: info.battery,
           isCharging: false,
@@ -735,7 +741,7 @@ function pollBluetooth() {
       bluetoothMissingStreaks.delete(id);
       confirmed.delete(id);
       lastBluetoothDevices = confirmed;
-      mainWindow.webContents.send('bluetooth-update', {
+      sendToWindow(mainWindow, 'bluetooth-update', {
         deviceName: info.name,
         batteryPct: null,
         isCharging: false,
@@ -759,7 +765,7 @@ ipcMain.on('request-bluetooth-status', (_event, options) => {
   const forceShow = typeof options === 'boolean' ? options : (options && options.forceShow);
   if (lastBluetoothDevices && lastBluetoothDevices.size > 0) {
     let dev = Array.from(lastBluetoothDevices.values()).find(d => d.typeStr === 'phone') || Array.from(lastBluetoothDevices.values())[0];
-    mainWindow.webContents.send('bluetooth-update', {
+    sendToWindow(mainWindow, 'bluetooth-update', {
       deviceName: dev.name,
       batteryPct: dev.battery,
       isCharging: false,
@@ -788,7 +794,7 @@ ipcMain.on('trigger-phone-notification', () => {
       }
     }
   }
-  mainWindow.webContents.send('bluetooth-update', {
+  sendToWindow(mainWindow, 'bluetooth-update', {
     deviceName: phoneName,
     batteryPct: 88,
     isCharging: false,
@@ -850,7 +856,7 @@ function pollCallState() {
       mainWindow.setAlwaysOnTop(true, 'screen-saver');
     }
 
-    mainWindow.webContents.send('call-update', next || { state: 'ended' });
+    sendToWindow(mainWindow, 'call-update', next || { state: 'ended' });
   });
 }
 
@@ -866,7 +872,7 @@ function startCallPoller() {
 ipcMain.on('request-call-status', () => {
   if (!mainWindow || !mainWindow.webContents || mainWindow.isDestroyed()) return;
   if (lastCallSnapshot) {
-    mainWindow.webContents.send('call-update', lastCallSnapshot);
+    sendToWindow(mainWindow, 'call-update', lastCallSnapshot);
   }
 });
 
@@ -879,7 +885,7 @@ ipcMain.on('trigger-demo-call', () => {
     callerName: 'Alex Morgan',
     source: 'Phone Link',
   };
-  mainWindow.webContents.send('call-update', lastCallSnapshot);
+  sendToWindow(mainWindow, 'call-update', lastCallSnapshot);
 });
 
 // CallWidget's Accept/Decline/Mute/End buttons send this, but until now
@@ -930,7 +936,7 @@ function pollFullscreen() {
     if (isFullscreen !== lastFullscreenState) {
       lastFullscreenState = isFullscreen;
       if (isFullscreen) {
-        mainWindow.webContents.send('fullscreen-state', true);
+        sendToWindow(mainWindow, 'fullscreen-state', true);
         setTimeout(() => {
           if (mainWindow && !mainWindow.isDestroyed() && lastFullscreenState) {
             mainWindow.hide();
@@ -939,7 +945,7 @@ function pollFullscreen() {
       } else {
         mainWindow.showInactive();
         mainWindow.setAlwaysOnTop(true, 'screen-saver');
-        mainWindow.webContents.send('fullscreen-state', false);
+        sendToWindow(mainWindow, 'fullscreen-state', false);
       }
     }
   });
@@ -964,7 +970,7 @@ function emitVolumeUpdate(vol, isUserAction = false) {
   lastVolumeValue = vol;
 
   if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
-    mainWindow.webContents.send('volume-update', {
+    sendToWindow(mainWindow, 'volume-update', {
       vol,
       changed,
       isInitial,
@@ -1038,7 +1044,7 @@ function registerVolumeKeys() {
   try {
     globalShortcut.register('Escape', () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('escape-pressed');
+        sendToWindow(mainWindow, 'escape-pressed');
       }
     });
   } catch {}
@@ -1056,7 +1062,6 @@ function forceRefreshMediaInfo() {
   const delays = [150, 400, 800, 1400, 2200];
   delays.forEach((delay) => {
     setTimeout(() => {
-      isPollingSpotify = false;
       pollSpotifyTitle();
     }, delay);
   });
@@ -1199,10 +1204,10 @@ ipcMain.on('open-path', async (event, filePath) => {
     try {
       const err = await shell.openPath(filePath);
       if (err) {
-        execFile('explorer.exe', [filePath]);
+        execFile('explorer.exe', [filePath], (err) => { if (err) console.error('Explorer error:', err); });
       }
     } catch {
-      execFile('explorer.exe', [filePath]);
+      execFile('explorer.exe', [filePath], (err) => { if (err) console.error('Explorer error:', err); });
     }
   }
 });
@@ -1292,7 +1297,7 @@ ipcMain.handle('take-screenshot', async () => {
       if (nativeImg && !nativeImg.isEmpty()) {
         try { clipboard.writeImage(nativeImg); } catch {}
         const dataUrl = nativeImg.toDataURL();
-        mainWindow.webContents.send('screenshot-captured', dataUrl);
+        sendToWindow(mainWindow, 'screenshot-captured', dataUrl);
         return dataUrl;
       }
     }
@@ -1308,7 +1313,8 @@ ipcMain.handle('get-primary-screen-source', async () => {
     });
     if (sources && sources.length > 0) {
       const display = screen.getPrimaryDisplay();
-      return { id: sources[0].id, name: sources[0].name, bounds: display.bounds };
+      const primarySource = sources.find(s => s.display_id === display.id.toString()) || sources[0];
+      return { id: primarySource.id, name: primarySource.name, bounds: display.bounds };
     }
   } catch (err) {
     console.error('getPrimaryScreenSource error:', err);
@@ -1328,9 +1334,13 @@ const getBundledFfmpegPath = () => {
 };
 
 const runFfmpeg = (args) => new Promise((resolve, reject) => {
+  let settled = false;
+  const safeResolve = (val) => { if (!settled) { settled = true; resolve(val); } };
+  const safeReject = (err) => { if (!settled) { settled = true; reject(err); } };
+
   const ffmpegPath = getBundledFfmpegPath();
   if (!ffmpegPath) {
-    reject(new Error('ffmpeg.exe was not found.'));
+    safeReject(new Error('ffmpeg.exe was not found.'));
     return;
   }
   const ffmpegDir = path.dirname(ffmpegPath);
@@ -1340,10 +1350,10 @@ const runFfmpeg = (args) => new Promise((resolve, reject) => {
   });
   let stderr = '';
   child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
-  child.on('error', reject);
+  child.on('error', safeReject);
   child.on('close', (code) => {
-    if (code === 0) resolve();
-    else reject(new Error(stderr.trim() || `ffmpeg exited with code ${code}`));
+    if (code === 0) safeResolve();
+    else safeReject(new Error(stderr.trim() || `ffmpeg exited with code ${code}`));
   });
 });
 
@@ -1377,7 +1387,11 @@ const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps }) => {
   }
 
   const simpleFilter = `fps=${safeFps},format=yuv420p`;
-  await runFfmpeg([...commonArgs.slice(0, 8), '-vf', simpleFilter, ...commonArgs.slice(8), outputPath]);
+  try {
+    await runFfmpeg([...commonArgs.slice(0, 8), '-vf', simpleFilter, ...commonArgs.slice(8), outputPath]);
+  } catch (err) {
+    console.error('Simple CFR transcode failed:', err?.message || err);
+  }
 };
 
 
@@ -1418,19 +1432,27 @@ const ENCODER_CANDIDATES = [
   { name: 'libx264', strict: false, args: () => ['-c:v', 'libx264', '-preset', 'ultrafast', '-tune', 'zerolatency', '-crf', '18'] },
 ];
 
-const buildGdigrabArgs = (bounds, fps, outW, outH, rawPath, encoder) => [
-  '-y', '-hide_banner', '-loglevel', 'error', '-stats',
-  '-thread_queue_size', '1024',
-  '-f', 'gdigrab', '-draw_mouse', '1',
-  '-framerate', String(fps),
-  '-offset_x', String(bounds.x), '-offset_y', String(bounds.y),
-  '-video_size', String(bounds.width) + 'x' + String(bounds.height),
-  '-i', 'desktop',
-  '-vf', 'scale=' + outW + ':' + outH + ':flags=fast_bilinear,format=yuv420p',
-  ...encoder.args(),
-  '-pix_fmt', 'yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709',
-  '-an', '-movflags', '+faststart', rawPath,
-];
+const buildGdigrabArgs = (bounds, fps, outW, outH, rawPath, encoder) => {
+  const display = screen.getDisplayMatching(bounds);
+  const physicalWidth = Math.round(bounds.width * (display.scaleFactor || 1));
+  const physicalHeight = Math.round(bounds.height * (display.scaleFactor || 1));
+  const physicalX = Math.round(bounds.x * (display.scaleFactor || 1));
+  const physicalY = Math.round(bounds.y * (display.scaleFactor || 1));
+
+  return [
+    '-y', '-hide_banner', '-loglevel', 'error', '-stats',
+    '-thread_queue_size', '1024',
+    '-f', 'gdigrab', '-draw_mouse', '1',
+    '-framerate', String(fps),
+    '-offset_x', String(physicalX), '-offset_y', String(physicalY),
+    '-video_size', physicalWidth + 'x' + physicalHeight,
+    '-i', 'desktop',
+    '-vf', 'scale=' + outW + ':' + outH + ':flags=fast_bilinear,format=yuv420p',
+    ...encoder.args(),
+    '-pix_fmt', 'yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709',
+    '-an', '-movflags', '+faststart', rawPath,
+  ];
+};
 
 // Spawns ffmpeg with one candidate encoder and resolves true only once we
 // have real evidence it's working. Hardware encoders init in well under a
@@ -1491,7 +1513,7 @@ ipcMain.handle('start-native-screen-recording', async (_event, options = {}) => 
     if (attempt.ok) {
       const proc = attempt.proc;
       let stderr = attempt.stderr;
-      proc.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+      proc.stderr.on('data', (chunk) => { stderr = (stderr + chunk.toString()).slice(-4096); });
       proc.on('error', (err) => {
         stderr += err?.message || String(err);
         if (nativeScreenRecorder?.proc === proc) {
@@ -1605,7 +1627,7 @@ ipcMain.handle('save-screen-recording', async (_event, recording) => {
 
 ipcMain.on('toggle-screenrec', () => {
   if (!mainWindow || !mainWindow.webContents) return;
-  mainWindow.webContents.send('screenrec-update', {
+  sendToWindow(mainWindow, 'screenrec-update', {
     state: 'open',
     startTime: Date.now(),
   });
@@ -1632,7 +1654,7 @@ let lastMouseButtons = 0;
 function emitRecorderMouseUpdate(extra = {}) {
   if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
   const point = screen.getCursorScreenPoint();
-  mainWindow.webContents.send('screenrec-mouse-update', {
+  sendToWindow(mainWindow, 'screenrec-mouse-update', {
     x: point.x,
     y: point.y,
     buttons: lastMouseButtons,
@@ -1647,6 +1669,7 @@ function stopRecorderMouseTracking() {
     mouseTrackerInterval = null;
   }
   if (mouseTrackerProc) {
+    if (mouseTrackerProc.stdout) mouseTrackerProc.stdout.removeAllListeners();
     try { mouseTrackerProc.kill(); } catch {}
     mouseTrackerProc = null;
   }
@@ -1700,12 +1723,12 @@ ipcMain.on('start-screenrec-hotkeys', () => {
   try {
     globalShortcut.register('Alt+P', () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('screenrec-hotkey', 'P');
+        sendToWindow(mainWindow, 'screenrec-hotkey', 'P');
       }
     });
     globalShortcut.register('Alt+Z', () => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('screenrec-hotkey', 'Z');
+        sendToWindow(mainWindow, 'screenrec-hotkey', 'Z');
       }
     });
   } catch (err) {
@@ -1726,7 +1749,7 @@ ipcMain.on('stop-screenrec-hotkeys', () => {
 ipcMain.on('device-prefs-changed', (event, prefs) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.webContents !== event.sender && !win.isDestroyed()) {
-      win.webContents.send('device-prefs-update', prefs);
+      sendToWindow(win, 'device-prefs-update', prefs);
     }
   }
 });
@@ -1757,7 +1780,7 @@ function querySystemDndState(callback) {
 function broadcastDndState(isDnd) {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win && !win.isDestroyed()) {
-      win.webContents.send('dnd-state-update', { isDnd });
+      sendToWindow(win, 'dnd-state-update', { isDnd });
     }
   }
 }
@@ -1792,7 +1815,7 @@ ipcMain.handle('get-dnd-state', () => {
 ipcMain.on('appearance-prefs-changed', (event, prefs) => {
   for (const win of BrowserWindow.getAllWindows()) {
     if (win.webContents !== event.sender && !win.isDestroyed()) {
-      win.webContents.send('appearance-prefs-update', prefs);
+      sendToWindow(win, 'appearance-prefs-update', prefs);
     }
   }
 });
@@ -1894,6 +1917,10 @@ app.on('activate', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  if (mouseTrackerProc) { try { mouseTrackerProc.kill(); } catch (e) {} mouseTrackerProc = null; }
+  if (nativeScreenRecorder && nativeScreenRecorder.proc) { try { nativeScreenRecorder.proc.kill(); } catch (e) {} }
+  if (mouseTrackerProc) { try { mouseTrackerProc.kill(); } catch (e) {} mouseTrackerProc = null; }
+  if (nativeScreenRecorder && nativeScreenRecorder.proc) { try { nativeScreenRecorder.proc.kill(); } catch (e) {} }
   if (pollerInterval) clearInterval(pollerInterval);
   if (batteryInterval) clearInterval(batteryInterval);
   if (fullscreenInterval) clearInterval(fullscreenInterval);

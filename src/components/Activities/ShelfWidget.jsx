@@ -26,7 +26,7 @@ const ShelfTileItem = ({ item, idx, onOpenItem, onRemoveItem }) => {
 
   useEffect(() => {
     let isMounted = true;
-    if (item.type !== 'folder' && !item.type?.includes('folder') && item.path && window.electronAPI?.getFileIcon) {
+    if (!item.iconUrl && item.type !== 'folder' && !item.type?.includes('folder') && item.path && window.electronAPI?.getFileIcon) {
       window.electronAPI.getFileIcon(item.path).then((url) => {
         if (isMounted && url) {
           setLiveIcon(url);
@@ -34,7 +34,7 @@ const ShelfTileItem = ({ item, idx, onOpenItem, onRemoveItem }) => {
       }).catch(() => {});
     }
     return () => { isMounted = false; };
-  }, [item.path, item.type]);
+  }, [item.path, item.type, item.iconUrl]);
 
   const renderVisual = () => {
     if (item.type === 'folder' || item.type?.includes('folder')) {
@@ -211,7 +211,7 @@ export default function ShelfWidget({ isCompact, shelvedItems = [], onRemoveItem
           overflowY: 'auto',
           margin: '4px 0',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(96px, 1fr))',
+          gridTemplateColumns: 'repeat(3, 1fr)',
           gap: 10,
           padding: '2px 0',
           scrollbarWidth: 'none',

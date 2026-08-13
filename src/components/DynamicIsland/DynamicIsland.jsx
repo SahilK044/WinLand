@@ -397,14 +397,18 @@ export default function DynamicIsland({
     return () => window.removeEventListener('gamepadconnected', handleGamepadConnected);
   }, []);
 
+  const currentArtUrlRef = useRef(null);
   // ── Accent color extraction when album art changes ────────────────────────
   useEffect(() => {
     const url = trackInfo.coverUrl;
     if (!url || url === prevCoverRef.current) return;
     prevCoverRef.current = url;
+    currentArtUrlRef.current = url;
 
     extractVibrantColor(url).then((color) => {
-      setAccentColor(color);
+      if (currentArtUrlRef.current === url) {
+        setAccentColor(color);
+      }
     });
   }, [trackInfo.coverUrl]);
 
@@ -697,11 +701,13 @@ export default function DynamicIsland({
       window.electronAPI.requestTimerStatus();
     }
 
-    return () => { cleanSpotify(); cleanTimer(); cleanBattery(); cleanVolume(); cleanBT(); cleanCall(); cleanScreenshot(); cleanScreenRec(); clearTimeout(batteryDismiss.current); clearTimeout(bluetoothDismiss.current); clearTimeout(screenshotDismiss.current); };
+    return () => { cleanSpotify?.(); cleanTimer?.(); cleanBattery?.(); cleanVolume?.(); cleanBT?.(); cleanCall?.(); cleanScreenshot?.(); cleanScreenRec?.(); clearTimeout(batteryDismiss.current); clearTimeout(bluetoothDismiss.current); clearTimeout(screenshotDismiss.current); if (volumeDismiss.current) clearTimeout(volumeDismiss.current); };
   }, []);
 
   const gainRef = useRef(0);
   const eqSettledRef = useRef(true);
+  const barHeightsRef = useRef([3, 3, 3, 3, 3]);
+  const frameCountRef = useRef(0);
 
   // ── 60fps Equalizer rAF loop (Smooth Gain Decay/Spring) ───────────────────
   // PERF FIX: this used to call requestAnimationFrame(loop) unconditionally
@@ -721,6 +727,7 @@ export default function DynamicIsland({
       if (gainRef.current < 0.01 && !trackInfo.isPlaying) {
         if (!eqSettledRef.current) {
           eqSettledRef.current = true;
+          barHeightsRef.current = [3, 3, 3, 3, 3];
           setBarHeights([3, 3, 3, 3, 3]);
         }
         rafRef.current = null;
@@ -729,7 +736,12 @@ export default function DynamicIsland({
 
       eqSettledRef.current = false;
       tRef.current += 0.04;
-      setBarHeights(computeBarHeightsWithGain(tRef.current, gainRef.current));
+      const newHeights = computeBarHeightsWithGain(tRef.current, gainRef.current);
+      barHeightsRef.current = newHeights;
+      frameCountRef.current++;
+      if (frameCountRef.current % 4 === 0) {
+        setBarHeights(newHeights);
+      }
       rafRef.current = requestAnimationFrame(loop);
     };
     rafRef.current = requestAnimationFrame(loop);
@@ -945,8 +957,9 @@ export default function DynamicIsland({
             iconUrl = await window.electronAPI.getFileIcon(resolvedPath);
           } catch {}
         }
-        const nameLower = f.name.toLowerCase();
-        const ext = nameLower.includes('.') ? nameLower.split('.').pop() : '';
+        const filename = f.name;
+        const hasDot = filename.includes('.') && !filename.startsWith('.');
+        const ext = hasDot ? filename.split('.').pop().toLowerCase() : '';
         const isShortcutOrFile = ext === 'lnk' || ext === 'url' || ext === 'exe' || (ext.length > 0 && ext.length <= 5);
         const isFolder = !isShortcutOrFile && (f.type?.includes('folder') || f.type === 'directory' || !ext);
         const displayName = f.name.replace(/\.lnk$/i, '').replace(/\.exe$/i, '').replace(/\.url$/i, '');
@@ -963,7 +976,7 @@ export default function DynamicIsland({
       items.push({ name: textData.slice(0, 35), text: textData, type: 'text/plain', iconUrl: null });
     }
     if (items.length > 0) {
-      setShelvedItems((prev) => [...prev, ...items]);
+      setShelvedItems((prev) => [...prev, ...items].slice(0, 12));
     }
   };
 
@@ -1015,6 +1028,11 @@ export default function DynamicIsland({
       return;
     }
     e.stopPropagation();
+    clearTimeout(bluetoothDismiss.current);
+    clearTimeout(batteryDismiss.current);
+    clearTimeout(screenshotDismiss.current);
+    clearTimeout(volumeDismiss.current);
+
     if (activeState.startsWith('expanded-') || activeState === 'volume-osd') {
       if (activeState === 'expanded-call') {
         setActiveState('compact-call');
@@ -1303,7 +1321,7 @@ export default function DynamicIsland({
               style={{
                 position: 'absolute',
                 top: activeState.startsWith('expanded-') ? 14 : 9,
-                right: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') ? 46 : (activeState.startsWith('expanded-') ? 16 : 14),
+                right: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') ? 85 : (activeState.startsWith('expanded-') ? 16 : 14),
                 background: 'rgba(94, 92, 230, 0.24)',
                 border: '1px solid rgba(135, 133, 255, 0.38)',
                 borderRadius: 14,
