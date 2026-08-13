@@ -51,6 +51,8 @@ function extractVibrantColor(imageUrl) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, SIZE, SIZE);
         const { data } = ctx.getImageData(0, 0, SIZE, SIZE);
+        canvas.width = 0;
+        canvas.height = 0;
 
         let bestColor = null;
         let maxVibrancyScore = -1;
@@ -339,6 +341,7 @@ export default function DynamicIsland({
   const rafRef                = useRef(null);
   const tRef                  = useRef(0);
   const volumeDismiss         = useRef(null);
+  const batteryDismiss        = useRef(null);
   const bluetoothDismiss      = useRef(null);
   const screenshotDismiss     = useRef(null);
   // Remembers what the island was showing (e.g. expanded-lyrics) right before a
@@ -589,7 +592,8 @@ export default function DynamicIsland({
           if (!isOverlayState(prev)) preOverlayStateRef.current = prev;
           return 'expanded-battery';
         });
-        setTimeout(() => setActiveState((prev) => prev === 'expanded-battery' ? resumeFromOverlay() : prev), 5000);
+        clearTimeout(batteryDismiss.current);
+        batteryDismiss.current = setTimeout(() => setActiveState((prev) => prev === 'expanded-battery' ? resumeFromOverlay() : prev), 5000);
       }
     });
 
@@ -693,7 +697,7 @@ export default function DynamicIsland({
       window.electronAPI.requestTimerStatus();
     }
 
-    return () => { cleanSpotify(); cleanTimer(); cleanBattery(); cleanVolume(); cleanBT(); cleanCall(); cleanScreenshot(); cleanScreenRec(); clearTimeout(bluetoothDismiss.current); clearTimeout(screenshotDismiss.current); };
+    return () => { cleanSpotify(); cleanTimer(); cleanBattery(); cleanVolume(); cleanBT(); cleanCall(); cleanScreenshot(); cleanScreenRec(); clearTimeout(batteryDismiss.current); clearTimeout(bluetoothDismiss.current); clearTimeout(screenshotDismiss.current); };
   }, []);
 
   const gainRef = useRef(0);
@@ -1271,7 +1275,7 @@ export default function DynamicIsland({
           )}
           {activeState === 'expanded-bluetooth' && (
             <BluetoothWidget
-              key={`${bluetoothData.deviceName}-${bluetoothData.connectionState}-${bluetoothData.timestamp || 0}`}
+              key={`${bluetoothData.deviceName}-${bluetoothData.connectionState}`}
               deviceName={bluetoothData.deviceName}
               batteryPct={bluetoothData.batteryPct}
               isCharging={bluetoothData.isCharging}

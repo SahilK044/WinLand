@@ -144,6 +144,7 @@ function watchWinlandConfig() {
   // exist yet; watchFile's polling is slower but predictable, and WinDock only
   // rewrites this file every ~15 min (or on demand for settings changes), so a
   // 3s poll is plenty responsive without adding real overhead.
+  fs.unwatchFile(WINLAND_THEME_PATH);
   fs.watchFile(WINLAND_THEME_PATH, { interval: 3000 }, (curr, prev) => {
     if (curr.mtimeMs !== prev.mtimeMs) broadcastWinlandConfig();
   });
@@ -191,7 +192,7 @@ fs.writeFileSync(PS1_BATTERY, [
 // primary display.
 function getTargetDisplay() {
   if (targetDisplayId !== null && targetDisplayId !== undefined) {
-    const match = screen.getAllDisplays().find((d) => d.id === targetDisplayId);
+    const match = screen.getAllDisplays().find((d) => String(d.id) === String(targetDisplayId));
     if (match) return match;
   }
   return screen.getPrimaryDisplay();
@@ -1023,6 +1024,9 @@ function registerVolumeKeys() {
 
   Object.entries(keyMap).forEach(([key, charCode]) => {
     try {
+      if (globalShortcut.isRegistered(key)) {
+        globalShortcut.unregister(key);
+      }
       globalShortcut.register(key, () => {
         exec(`cscript //nologo "${VBS_MEDIA}" ${charCode}`, { timeout: 2000 }, () => {
           setTimeout(() => pollVolume(true), 120);
@@ -1159,7 +1163,7 @@ ipcMain.handle('get-displays', () => {
     id: d.id,
     label: d.label || (d.id === primary.id ? 'Primary Display' : `Display ${d.id}`),
     isPrimary: d.id === primary.id,
-    isTarget: d.id === (targetDisplayId ?? primary.id),
+    isTarget: String(d.id) === String(targetDisplayId ?? primary.id),
     bounds: d.bounds,
     scaleFactor: d.scaleFactor,
   }));
@@ -1167,8 +1171,8 @@ ipcMain.handle('get-displays', () => {
 
 ipcMain.on('set-target-display', (_event, displayId) => {
   // null/undefined = clear the pin and follow the primary display again.
-  const id = (displayId === null || displayId === undefined) ? null : Number(displayId);
-  const resolved = id !== null && screen.getAllDisplays().some((d) => d.id === id) ? id : null;
+  const id = (displayId === null || displayId === undefined) ? null : String(displayId);
+  const resolved = id !== null && screen.getAllDisplays().some((d) => String(d.id) === id) ? id : null;
   targetDisplayId = resolved;
   writeSettings({ ...readSettings(), targetDisplayId: resolved });
   repositionOnTargetDisplay();

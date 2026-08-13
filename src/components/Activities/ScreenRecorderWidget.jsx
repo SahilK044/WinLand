@@ -274,7 +274,7 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
     canvasRef.current = canvas;
 
     const ctx = canvas.getContext('2d', { alpha: false });
-    if (!ctx) { reject(new Error('Canvas 2D context not available')); return; }
+    if (!ctx) { throw new Error('Canvas 2D context not available'); }
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'medium';
 
@@ -400,11 +400,12 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
       let lastDrawAt = 0;
       const pacedTick = (now) => {
         if (!canvasRef.current) return;
-        if (statusRef.current !== 'paused' && statusRef.current !== 'saving' && statusRef.current !== 'saved') {
-          if (!lastDrawAt || now - lastDrawAt >= frameMs * 0.85) {
-            drawAndRequestFrame();
-            lastDrawAt = now;
-          }
+        if (statusRef.current === 'paused' || statusRef.current === 'saving' || statusRef.current === 'saved') {
+          return;
+        }
+        if (!lastDrawAt || now - lastDrawAt >= frameMs * 0.85) {
+          drawAndRequestFrame();
+          lastDrawAt = now;
         }
         const nextId = requestAnimationFrame(pacedTick);
         drawIntervalRef.current = { type: 'raf', id: nextId };

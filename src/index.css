@@ -61,9 +61,9 @@ button svg {
   text-rendering: geometricPrecision;
 }
 
-button:active {
-  transform: scale(0.92) !important;
-  transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+.island-capsule button:active {
+  transform: scale(0.92);
+  transition: transform 0.1s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Master Overlay Stage - 100% Transparent Background */
@@ -137,54 +137,43 @@ button:active {
 
 @keyframes floatBlob1 {
   0% {
-    top: -20%;
-    left: -15%;
+    transform: translate3d(-15%, -20%, 0);
   }
   33% {
-    top: 35%;
-    left: 55%;
+    transform: translate3d(55%, 35%, 0);
   }
   66% {
-    top: -10%;
-    left: 75%;
+    transform: translate3d(75%, -10%, 0);
   }
   100% {
-    top: -20%;
-    left: -15%;
+    transform: translate3d(-15%, -20%, 0);
   }
 }
 
 @keyframes floatBlob2 {
   0% {
-    bottom: -25%;
-    right: -15%;
+    transform: translate3d(15%, 25%, 0);
   }
   40% {
-    bottom: 45%;
-    right: 45%;
+    transform: translate3d(-45%, -45%, 0);
   }
   75% {
-    bottom: 10%;
-    right: 65%;
+    transform: translate3d(-65%, -10%, 0);
   }
   100% {
-    bottom: -25%;
-    right: -15%;
+    transform: translate3d(15%, 25%, 0);
   }
 }
 
 @keyframes floatBlob3 {
   0% {
-    top: 45%;
-    left: 25%;
+    transform: translate3d(25%, 45%, 0);
   }
   50% {
-    top: -15%;
-    left: 35%;
+    transform: translate3d(35%, -15%, 0);
   }
   100% {
-    top: 45%;
-    left: 25%;
+    transform: translate3d(25%, 45%, 0);
   }
 }
 
@@ -205,37 +194,39 @@ button:active {
 
 .liquid-blob-1 {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 230px;
   height: 230px;
   border-radius: 50%;
   animation: floatBlob1 13s ease-in-out infinite;
-  will-change: top, left;
+  will-change: transform;
 }
 
 .liquid-blob-2 {
   position: absolute;
+  bottom: 0;
+  right: 0;
   width: 210px;
   height: 210px;
   border-radius: 50%;
   animation: floatBlob2 9s ease-in-out infinite;
-  will-change: bottom, right;
+  will-change: transform;
 }
 
 .liquid-blob-3 {
   position: absolute;
+  top: 0;
+  left: 0;
   width: 190px;
   height: 190px;
   border-radius: 50%;
   animation: floatBlob3 15s ease-in-out infinite;
-  will-change: top, left;
+  will-change: transform;
 }
 
 
-@keyframes islandMorphPop {
-  0%   { opacity: 0; transform: scale(0.82); }
-  55%  { opacity: 1; transform: scale(1.035); }
-  100% { opacity: 1; transform: scale(1); }
-}
+
 
 
 
@@ -760,12 +751,7 @@ button:active {
   }
 }
 
-/* Apple Pulse Glow effect */
-@keyframes applePulse {
-  0% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.08); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.8; }
-}
+
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Synced Lyrics â€” karaoke word-wipe + focus/blur line system
@@ -801,7 +787,7 @@ button:active {
   padding: 8px 6px;
   cursor: pointer;
   transform-origin: left center;
-  will-change: transform, filter, opacity;
+  will-change: transform, opacity;
   transition:
     transform 0.75s cubic-bezier(0.25, 1, 0.5, 1),
     filter 0.75s cubic-bezier(0.25, 1, 0.5, 1),

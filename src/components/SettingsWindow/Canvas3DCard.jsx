@@ -63,7 +63,7 @@ export default function Canvas3DCard({
 
     // â”€â”€ 1. WebGL Scene & Camera â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const scene  = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(36, 1, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(36, 110 / 120, 0.1, 100);
     camera.position.set(0, 0, 3.8);
 
     const renderer = new THREE.WebGLRenderer({
@@ -73,7 +73,7 @@ export default function Canvas3DCard({
       precision: 'highp',
     });
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(dpr);
     renderer.setSize(110, 120, true);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -172,6 +172,9 @@ export default function Canvas3DCard({
     let openProgress = 0;
     let hasRenderedLoadedModel = false;
 
+    const DEG25 = THREE.MathUtils.degToRad(25);
+    const DEG15 = THREE.MathUtils.degToRad(15);
+
     const needsMoreFrames = () => {
       if (!loadedModel) return !loadFailed;
       if (!hasRenderedLoadedModel) return true;
@@ -191,6 +194,7 @@ export default function Canvas3DCard({
 
     const renderLoop = () => {
       animId = null;
+      if (isDisposed) return;
       const dt = clock.getDelta();
       const isHov = hoverRef.current;
       const isActive = activateRef.current;
@@ -283,7 +287,7 @@ export default function Canvas3DCard({
             budLeftNode.position.x = budLeftInitialX - openProgress * 3;
             budLeftNode.position.y = budLeftInitialY + openProgress * 4;
             budLeftNode.position.z = budLeftInitialZ + openProgress * 18;
-            budLeftNode.rotation.set(openProgress * THREE.MathUtils.degToRad(25), -openProgress * THREE.MathUtils.degToRad(15), 0);
+            budLeftNode.rotation.set(openProgress * DEG25, -openProgress * DEG15, 0);
           }
         }
         if (budRightNode) {
@@ -298,7 +302,7 @@ export default function Canvas3DCard({
             budRightNode.position.x = budRightInitialX + openProgress * 3;
             budRightNode.position.y = budRightInitialY + openProgress * 4;
             budRightNode.position.z = budRightInitialZ + openProgress * 18;
-            budRightNode.rotation.set(openProgress * THREE.MathUtils.degToRad(25), openProgress * THREE.MathUtils.degToRad(15), 0);
+            budRightNode.rotation.set(openProgress * DEG25, openProgress * DEG15, 0);
           }
         }
 
@@ -360,7 +364,7 @@ export default function Canvas3DCard({
       renderer.dispose();
       if (canvas.parentNode === container) container.removeChild(canvas);
     };
-  }, [modelId, category, formFactor, brand, colorHex, isVisible]);
+  }, [modelId, category, colorHex, isVisible]);
 
   return (
     <div

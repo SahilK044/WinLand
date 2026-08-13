@@ -230,7 +230,7 @@ export default function DeviceModel3D({
     const renderer = new THREE.WebGLRenderer({
       alpha: true, antialias: true, powerPreference: 'high-performance',
     });
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(dpr);
     renderer.setSize(size, size, true);
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -270,7 +270,7 @@ export default function DeviceModel3D({
         elapsed = 0;
         openProgress = isDisconnected ? 1 : 0;
       },
-      (err) => { console.warn('island model failed:', modelId, err); setFailed(true); }
+      (err) => { if (disposed) return; console.warn('island model failed:', modelId, err); setFailed(true); }
     );
 
     const ENTRY_SECONDS = 0.85;
@@ -278,7 +278,6 @@ export default function DeviceModel3D({
     const CYCLE = ENTRY_SECONDS + HOLD_SECONDS;
 
     const animateLoop = () => {
-      animId = requestAnimationFrame(animateLoop);
       const dt = Math.min(clock.getDelta(), 0.05); // ignore frame-hitch spikes
       elapsed += dt;
       // Only loop previews if explicit loop prop is passed (e.g. settings card hover)
@@ -500,8 +499,13 @@ export default function DeviceModel3D({
         }
       }
       renderer.render(scene, camera);
+
+      // Stop loop once disconnection animation is done; otherwise keep running.
+      if (!(isDisconnected && elapsed >= 3.8)) {
+        animId = requestAnimationFrame(animateLoop);
+      }
     };
-    animateLoop();
+    animId = requestAnimationFrame(animateLoop);
 
     return () => {
       disposed = true;

@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Settings, Smartphone, Headphones, Disc, Palette, Monitor, Info,
-  Check, X, Sparkles, Gamepad, Speaker, Search, Moon, Sun, Shield, Layers,
+  Check, X, Sparkles, Gamepad, Speaker, Search, Moon, Sun,
 } from 'lucide-react';
 import { DEVICE_CATALOG, DEVICE_COLOR_VARIANTS, ANIMATION_STYLES } from '../../data/deviceCatalog';
-import { STYLE_KEYS, DEFAULT_STYLES, readDevicePrefs } from '../../data/devicePrefs';
+import { STYLE_KEYS, DEFAULT_STYLES } from '../../data/devicePrefs';
 import Canvas3DCard from './Canvas3DCard';
 import MotionPreviewStage from './MotionPreviewStage';
 import { SETTINGS_CSS } from './settingsTheme';
@@ -103,7 +103,7 @@ export default function SettingsWindow() {
   const animStyle = animStyles.phone;
 
   const [appearanceMode, setAppearanceMode] = useState(() => localStorage.getItem('winland_theme_mode') || themeManager.getMode() || 'dark');
-  const [appearanceOptions, setAppearanceOptions] = useState(() => themeManager.getOptions());
+  const [appearanceOptions] = useState(() => themeManager.getOptions());
 
   const handleUpdateAppearanceMode = (mode) => {
     setAppearanceMode(mode);
@@ -145,6 +145,13 @@ export default function SettingsWindow() {
 
   const [xboxVariant, setXboxVariant] = useState(() => localStorage.getItem('winland_xbox_variant') || 'xbox_white');
   const [xboxFading, setXboxFading]   = useState(false);
+  const xboxTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (xboxTimeoutRef.current) clearTimeout(xboxTimeoutRef.current);
+    };
+  }, []);
 
   const currentColorHex = DEVICE_COLOR_VARIANTS[selectedColor]?.hex || '#3a3a3c';
 
@@ -197,7 +204,8 @@ export default function SettingsWindow() {
   const switchXboxVariant = (next) => {
     if (next === xboxVariant) return;
     setXboxFading(true);
-    setTimeout(() => { setXboxVariant(next); setXboxFading(false); }, 260);
+    if (xboxTimeoutRef.current) clearTimeout(xboxTimeoutRef.current);
+    xboxTimeoutRef.current = setTimeout(() => { setXboxVariant(next); setXboxFading(false); }, 260);
   };
 
   const handleHover = useCallback((id) => setHoveredCardId(id), []);

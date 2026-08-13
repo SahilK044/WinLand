@@ -114,6 +114,10 @@ export const MODEL_CONFIGS = {
   note20ultra:    { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
   zflip3:         { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.35 },
   zfold2:         { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.40 },
+  zfold5:         { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.22 },
+  zflip5:         { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.22 },
+  zflip2:         { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.35 },
+  zfold3:         { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.40 },
   // The Razer GLB is authored front-on (thinnest axis Z), so it needs no turn
   // to face the viewer; the Sony GLB is authored side-on (thinnest axis X) and
   // needs a turn to match. Both end up presenting the same front view.
@@ -146,6 +150,7 @@ export const SPIN_MODELS = new Set([
   's24ultra', 's25ultra', 's26ultra', 'zfold6', 'zflip6',
   'iphone17pro', 'iphone17air', 'iphone16pro', 'iphone15pro', 'iphone16', 'iphone15', 'iphone12',
   'pixel6pro', 'pixel7pro', 'pixel8pro', 's21ultra', 's22ultra', 'note20ultra', 'zflip3', 'zfold2',
+  'zfold5', 'zflip5', 'zflip2', 'zfold3',
 ]);
 
 // Tilt applied to the whole group while an earbud case is open. Shared so the
@@ -442,7 +447,6 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
   const postBox = new THREE.Box3().setFromObject(root);
   const postCenter = postBox.getCenter(new THREE.Vector3());
   root.position.sub(postCenter);
-  let initialYPos = 0;
 
   let budRise = 1;
   let lidClosedAngle = 0; // hinge angle that shuts a case authored open
@@ -529,7 +533,7 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
   }
 
   return {
-    root, config, initialYPos, budRise, targetWorldRise,
+    root, config, initialYPos: 0, budRise, targetWorldRise,
     lidNode, budLeftNode, budRightNode,
     budLeftInitialX, budLeftInitialY, budLeftInitialZ,
     budRightInitialX, budRightInitialY, budRightInitialZ,
