@@ -41,8 +41,6 @@ export default function App() {
   const isSettingsRoute = window.location.search.includes('settings') ||
                           window.location.hash.includes('settings') ||
                           window.location.href.includes('settings');
-  const [activeState, setActiveState] = useState('idle');
-  const [notification, setNotification] = useState(null);
 
   if (isSettingsRoute) {
     return (
@@ -51,6 +49,9 @@ export default function App() {
       </ErrorBoundary>
     );
   }
+
+  const [activeState, setActiveState] = useState('idle');
+  const [notification, setNotification] = useState(null);
 
   return (
     <ErrorBoundary>
