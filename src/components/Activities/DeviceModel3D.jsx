@@ -230,7 +230,7 @@ export default function DeviceModel3D({
     const renderer = new THREE.WebGLRenderer({
       alpha: true, antialias: true, powerPreference: 'high-performance',
     });
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.max(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(dpr);
     renderer.setSize(size, size, true);
     renderer.outputColorSpace = THREE.SRGBColorSpace;

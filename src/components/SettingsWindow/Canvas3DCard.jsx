@@ -8,6 +8,26 @@ import {
 // Re-exported for existing importers; the registry itself lives in the engine.
 export { GLB_MODEL_MAP };
 
+let sharedRenderer = null;
+function getSharedRenderer() {
+  if (!sharedRenderer) {
+    sharedRenderer = new THREE.WebGLRenderer({
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance',
+      precision: 'highp',
+      preserveDrawingBuffer: true,
+    });
+    const dpr = Math.max(window.devicePixelRatio || 1, 2);
+    sharedRenderer.setPixelRatio(dpr);
+    sharedRenderer.setSize(110, 120, false);
+    sharedRenderer.outputColorSpace = THREE.SRGBColorSpace;
+    sharedRenderer.toneMapping = THREE.ACESFilmicToneMapping;
+    sharedRenderer.toneMappingExposure = 1.8;
+  }
+  return sharedRenderer;
+}
+
 /**
  * High-DPI Three.js 3D WebGL Renderer for WinLand Cards
  */
@@ -66,23 +86,10 @@ export default function Canvas3DCard({
     const camera = new THREE.PerspectiveCamera(36, 110 / 120, 0.1, 100);
     camera.position.set(0, 0, 3.8);
 
-    const renderer = new THREE.WebGLRenderer({
-      alpha: true,
-      antialias: true,
-      powerPreference: 'high-performance',
-      precision: 'highp',
-    });
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    renderer.setPixelRatio(dpr);
-    renderer.setSize(110, 120, true);
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.8;
-
-    const canvas = renderer.domElement;
-    canvas.style.display = 'block';
-    container.appendChild(canvas);
+    const renderer = getSharedRenderer();
+    const canvas2d = container.querySelector('canvas');
+    if (!canvas2d) return;
+    const ctx = canvas2d.getContext('2d', { alpha: true });
 
     // â”€â”€ 2. Natural Studio Lighting Rig â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const disposeEnv = addStudioLights(scene, renderer);
@@ -344,6 +351,10 @@ export default function Canvas3DCard({
       }
 
       renderer.render(scene, camera);
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas2d.width, canvas2d.height);
+        ctx.drawImage(renderer.domElement, 0, 0, canvas2d.width, canvas2d.height);
+      }
       if (loadedModel) hasRenderedLoadedModel = true;
       if (needsMoreFrames()) requestRender();
     };
@@ -361,8 +372,7 @@ export default function Canvas3DCard({
         }
       });
       disposeEnv();
-      renderer.dispose();
-      if (canvas.parentNode === container) container.removeChild(canvas);
+      // Shared renderer is not disposed
     };
   }, [modelId, category, colorHex, isVisible]);
 
@@ -377,7 +387,13 @@ export default function Canvas3DCard({
         justifyContent: 'center',
         pointerEvents: 'none',
       }}
-    />
+    >
+      <canvas
+        width={110 * Math.max(window.devicePixelRatio || 1, 2)}
+        height={120 * Math.max(window.devicePixelRatio || 1, 2)}
+        style={{ width: 110, height: 120, display: 'block' }}
+      />
+    </div>
   );
 }
 
