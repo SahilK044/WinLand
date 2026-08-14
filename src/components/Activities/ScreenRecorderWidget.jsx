@@ -228,7 +228,7 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
   };
 
 
-  const createComposedStream = async (screenStream, source, preset, targetFps, mode) => {
+  const createComposedStream = async (screenStream, source, preset, targetFps, _mode) => {
     const video = document.createElement('video');
     video.muted = true;
     video.playsInline = true;

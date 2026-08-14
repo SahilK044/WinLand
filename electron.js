@@ -1375,7 +1375,7 @@ ipcMain.handle('take-screenshot', async () => {
         return dataUrl;
       }
     }
-  } catch (err) {}
+  } catch {}
   return null;
 });
 

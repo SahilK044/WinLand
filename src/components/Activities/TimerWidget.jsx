@@ -18,9 +18,9 @@ function formatTimeMs(ms) {
 }
 
 export default function TimerWidget({
-  isCompact,
+  isCompact: _isCompact,
   isSplit,
-  isExpanded,
+  isExpanded: _isExpanded,
   onExpand,
 }) {
   const [timers, setTimers] = useState([]);

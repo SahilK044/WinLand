@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Zap, AlertTriangle } from 'lucide-react';
 import Headset3D from './Headset3D';
 import Earbuds3D from './Earbuds3D';
-import Speaker3D from './Speaker3D';
 import Phone3D from './Phone3D';
 import DeviceModel3D from './DeviceModel3D';
 import { readDevicePrefs, prefCategoryFor, engineCategoryFor } from '../../data/devicePrefs';

@@ -85,7 +85,7 @@ export default function VoiceMemoWidget({ isCompact, onStop }) {
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 800 }}>Voice Memo</div>
-            <div style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.65)' }}>MacBook Pro Mic</div>
+            <div style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.65)' }}>Studio Microphone</div>
           </div>
         </div>
 

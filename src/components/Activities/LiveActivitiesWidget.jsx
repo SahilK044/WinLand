@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Flame, ChevronRight, Activity, Clock, Zap } from 'lucide-react';
+import { Activity, Zap } from 'lucide-react';
 
 const MAC_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif';
 
@@ -42,7 +42,7 @@ export default function LiveActivitiesWidget({
   onExpand,
 }) {
   const [activeGameIdx, setActiveGameIdx] = useState(0);
-  const [gameData, setGameData] = useState(DEFAULT_GAMES);
+  const [gameData] = useState(DEFAULT_GAMES);
   const [pulseScore, setPulseScore] = useState(false);
 
   const currentGame = gameData[activeGameIdx] || gameData[0];

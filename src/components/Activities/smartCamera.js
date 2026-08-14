@@ -243,11 +243,11 @@ export function createSmartCamera(config = {}) {
   /**
    * No-op backwards compatibility methods
    */
-  function updateCursor(cursorPos, now) {
+  function updateCursor(_cursorPos, _now) {
     // No-op for backwards compatibility
   }
   
-  function registerClick(now) {
+  function registerClick(_now) {
     // No-op for backwards compatibility
   }
 

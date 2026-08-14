@@ -67,7 +67,7 @@ export class WallpaperSampler {
         this.brightness = (0.2126 * avgR + 0.7152 * avgG + 0.0722 * avgB) / 255;
         this.isCaptured = true;
       }
-    } catch (e) {
+    } catch {
       // Fallback if cross-origin or canvas read fails
       this.dominantColor = { r: 220, g: 225, b: 235 };
       this.brightness = 0.5;

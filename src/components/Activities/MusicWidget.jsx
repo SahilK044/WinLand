@@ -112,7 +112,7 @@ function smoothScrollTo(container, targetTop, duration = 300) {
 }
 
 
-const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = false, onSeek, onClose, eqColor, eqGlow }) => {
+const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = false, onSeek, onClose: _onClose, eqColor, eqGlow }) => {
   const [lyrics, setLyrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [plainLyrics, setPlainLyrics] = useState('');
@@ -185,8 +185,8 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
     const attemptFetch = async () => {
       // Strategy 1: LRCLIB Direct Match (Title + Artist)
       try {
-        if (cleanArtist) {
-          const res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}`, { signal });
+        if (durationMs > 0 && cleanArtist) {
+          const res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}&duration=${Math.round(durationMs / 1000)}`, { signal });
           if (isStale()) return;
           if (res.ok) {
             const data = await res.json();
@@ -195,7 +195,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
             if (data.plainLyrics) { setPlainLyrics(data.plainLyrics); setLoading(false); return; }
           }
         }
-      } catch (e) {}
+      } catch {}
       if (isStale()) return;
 
       // Strategy 2: LRCLIB Search (Title + Artist)
@@ -215,7 +215,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
             if (plain) { setPlainLyrics(plain.plainLyrics); setLoading(false); return; }
           }
         }
-      } catch (e) {}
+      } catch {}
       if (isStale()) return;
 
       // Strategy 3: LRCLIB Search (Title Only - ONLY accept if artist matches)
@@ -237,7 +237,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
             }
           }
         }
-      } catch (e) {}
+      } catch {}
       if (isStale()) return;
 
       // Strategy 4: Lyrics.ovh API Fallback
@@ -255,7 +255,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
             }
           }
         }
-      } catch (e) {}
+      } catch {}
       if (isStale()) return;
 
       // Strategy 5: NetEase Synced LRC API
@@ -284,7 +284,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
             }
           }
         }
-      } catch (e) {}
+      } catch {}
       if (isStale()) return;
 
       setLoading(false);
@@ -763,7 +763,7 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
 };
 
 // System-wide Windows Master Volume Control (Lower Left Side - Zero Overlap / Zero Popups)
-const SystemVolumeControl = ({ eqColor, eqGlow }) => {
+const SystemVolumeControl = () => {
   const [volume, setVolume] = useState(50);
   const [isMuted, setIsMuted] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
@@ -933,10 +933,10 @@ const EqBars = ({ h = 14, visualizerOpacity, barHeights, eqColor, eqGlow }) => (
 
 export default function MusicWidget({
   isCompact,
-  isExpanded,
+  isExpanded: _isExpanded,
   isSplit,
   isLyricsView,
-  isDndActive = false,
+  isDndActive: _isDndActive = false,
   isDndVisible,
   onToggleLyrics,
   trackInfo = {},

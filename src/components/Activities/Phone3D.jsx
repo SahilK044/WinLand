@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { parseDeviceArchetype, DEVICE_COLOR_VARIANTS } from '../../data/deviceCatalog';
+import { DEVICE_COLOR_VARIANTS } from '../../data/deviceCatalog';
 
 /**
  * Phone3D Component - Dynamic Device & Form Factor 3D Renderer
@@ -26,8 +26,6 @@ export default function Phone3D({
     const container = containerRef.current;
     if (!container) return;
 
-    // ── 1. Parse Archetype & Form Factor ────────────────────────────────────
-    const archetype = parseDeviceArchetype(deviceName);
     const colorInfo = DEVICE_COLOR_VARIANTS[colorVariant] || DEVICE_COLOR_VARIANTS['space-grey'];
 
     const nameLower = (deviceName || '').toLowerCase();

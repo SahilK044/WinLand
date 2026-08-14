@@ -34,8 +34,8 @@ function getSharedRenderer() {
 export default function Canvas3DCard({
   modelId,
   category = 'phone',
-  formFactor,
-  brand,
+  formFactor: _formFactor,
+  brand: _brand,
   colorHex = '#3a3a3c',
   isSelected,
   isHovered,

@@ -5,7 +5,7 @@ import { IThemeRenderer } from '../IThemeRenderer.js';
  * Theme renderer implementing translucent frosted white glass styling for Light Mode.
  */
 export class LightRenderer extends IThemeRenderer {
-  DrawBackground(ctx, bounds, state, options = {}) {
+  DrawBackground(ctx, bounds, _state, options = {}) {
     const { width, height, radius = 24 } = bounds;
     ctx.save();
     
@@ -18,7 +18,7 @@ export class LightRenderer extends IThemeRenderer {
     ctx.restore();
   }
 
-  DrawBorder(ctx, bounds, state, options = {}) {
+  DrawBorder(ctx, bounds) {
     const { width, height, radius = 24 } = bounds;
     ctx.save();
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
@@ -29,15 +29,16 @@ export class LightRenderer extends IThemeRenderer {
     ctx.restore();
   }
 
-  DrawShadow(ctx, bounds, state, options = {}) {
+  DrawShadow() {
     // Shadow is cleanly handled by CSS box-shadow on .island-capsule.theme-light::before
   }
 
   DrawHighlight() {}
   DrawReflection() {}
   DrawGlow() {}
+
   DrawPressed(ctx, bounds, state) {
-    if (!state.isPressed) return;
+    if (!state?.isPressed) return;
     const { width, height, radius = 24 } = bounds;
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
@@ -46,7 +47,9 @@ export class LightRenderer extends IThemeRenderer {
     ctx.fill();
     ctx.restore();
   }
+
   DrawHover() {}
+
   DrawDisabled(ctx, bounds, state, options) {
     this.DrawBackground(ctx, bounds, state, options);
     this.DrawBorder(ctx, bounds, state, options);

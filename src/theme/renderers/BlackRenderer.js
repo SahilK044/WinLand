@@ -5,7 +5,7 @@ import { IThemeRenderer } from '../IThemeRenderer.js';
  * Reference theme renderer implementing pure matte deep black pill styling.
  */
 export class BlackRenderer extends IThemeRenderer {
-  DrawBackground(ctx, bounds, state, options = {}) {
+  DrawBackground(ctx, bounds, _state, options = {}) {
     const { width, height, radius = 24 } = bounds;
     ctx.save();
     
@@ -18,28 +18,28 @@ export class BlackRenderer extends IThemeRenderer {
     ctx.restore();
   }
 
-  DrawBorder(ctx, bounds, state, options = {}) {
+  DrawBorder() {
     // No visible border — pure borderless matte black pill
   }
 
-  DrawShadow(ctx, bounds, state, options = {}) {
+  DrawShadow() {
     // Shadow is cleanly handled by CSS box-shadow on .island-capsule::before
   }
 
-  DrawHighlight(ctx, bounds, state, options = {}) {
+  DrawHighlight() {
     // Pure matte black - no specular highlight gradients
   }
 
-  DrawReflection(ctx, bounds, state, options = {}) {
+  DrawReflection() {
     // Pure matte black - no reflection sheen sweeps
   }
 
-  DrawGlow(ctx, bounds, state, options = {}) {
+  DrawGlow() {
     // No visible border glow stroke — keeps the pill clean and borderless
   }
 
-  DrawPressed(ctx, bounds, state, options = {}) {
-    if (!state.isPressed) return;
+  DrawPressed(ctx, bounds, state) {
+    if (!state?.isPressed) return;
     const { width, height, radius = 24 } = bounds;
     ctx.save();
     ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
@@ -49,7 +49,7 @@ export class BlackRenderer extends IThemeRenderer {
     ctx.restore();
   }
 
-  DrawHover(ctx, bounds, state, options = {}) {
+  DrawHover() {
     // Pure matte black - no hover gradient
   }
 
