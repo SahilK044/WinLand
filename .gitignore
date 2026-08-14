@@ -25,6 +25,10 @@ winland-promo/out
 
 # Temp & Local files
 scratch/
+_archive/
+installer/
+release_dist/
+.claude/
 *.local
 .env
 .env.*

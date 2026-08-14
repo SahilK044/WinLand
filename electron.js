@@ -1369,6 +1369,7 @@ const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps }) => {
     '-c:v', 'libx264',
     '-preset', 'veryfast',
     '-crf', '18',
+    '-r:v', String(safeFps),
     '-pix_fmt', 'yuv420p',
     '-color_primaries', 'bt709',
     '-color_trc', 'bt709',
@@ -1378,19 +1379,17 @@ const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps }) => {
     '-movflags', '+faststart',
   ];
 
-  const hdrToSdrFilter = `fps=${safeFps},zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p`;
+  const hdrToSdrFilter = `zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p`;
   try {
     await runFfmpeg([...commonArgs.slice(0, 8), '-vf', hdrToSdrFilter, ...commonArgs.slice(8), outputPath]);
-    return;
+    if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) return;
   } catch (err) {
-    console.warn('HDR tone-map normalization failed, retrying simple CFR transcode:', err?.message || err);
+    console.warn('HDR tone-map normalization failed, retrying simple transcode:', err?.message || err);
   }
 
-  const simpleFilter = `fps=${safeFps},format=yuv420p`;
-  try {
-    await runFfmpeg([...commonArgs.slice(0, 8), '-vf', simpleFilter, ...commonArgs.slice(8), outputPath]);
-  } catch (err) {
-    console.error('Simple CFR transcode failed:', err?.message || err);
+  await runFfmpeg([...commonArgs, outputPath]);
+  if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
+    throw new Error('FFmpeg normalization produced an empty output file.');
   }
 };
 
@@ -1611,15 +1610,26 @@ ipcMain.handle('save-screen-recording', async (_event, recording) => {
         outputPath: finalFilePath,
         fps: recording?.fps,
       });
-      try { fs.unlinkSync(rawFilePath); } catch {}
-      return { ok: true, filePath: finalFilePath };
+      if (fs.existsSync(finalFilePath) && fs.statSync(finalFilePath).size > 0) {
+        try { fs.unlinkSync(rawFilePath); } catch {}
+        return { ok: true, filePath: finalFilePath };
+      }
     } catch (ffmpegErr) {
       console.warn('Recording normalization failed, keeping raw recording:', ffmpegErr?.message || ffmpegErr);
-      const fallbackFileName = `WinLand_Rec_${dateStr}_${timeStr}.${rawExt}`;
-      const fallbackFilePath = path.join(videosDir, fallbackFileName);
-      try { fs.renameSync(rawFilePath, fallbackFilePath); } catch {}
-      return { ok: true, filePath: fs.existsSync(fallbackFilePath) ? fallbackFilePath : rawFilePath };
     }
+
+    const fallbackFileName = `WinLand_Rec_${dateStr}_${timeStr}.${rawExt}`;
+    const fallbackFilePath = path.join(videosDir, fallbackFileName);
+    try {
+      if (fs.existsSync(rawFilePath)) {
+        fs.renameSync(rawFilePath, fallbackFilePath);
+      }
+    } catch {}
+    const savedPath = fs.existsSync(fallbackFilePath) ? fallbackFilePath : (fs.existsSync(rawFilePath) ? rawFilePath : null);
+    if (savedPath && fs.existsSync(savedPath) && fs.statSync(savedPath).size > 0) {
+      return { ok: true, filePath: savedPath };
+    }
+    return { ok: false, error: 'Failed to write recording to disk.' };
   } catch (err) {
     return { ok: false, error: err?.message || 'Could not save recording.' };
   }
@@ -1679,7 +1689,13 @@ function stopRecorderMouseTracking() {
 ipcMain.on('start-screenrec-mouse-tracking', () => {
   stopRecorderMouseTracking();
   emitRecorderMouseUpdate();
-  mouseTrackerInterval = setInterval(() => emitRecorderMouseUpdate(), 33);
+  // Sampled at ~120Hz (was 33ms/30Hz). Smart Focus derives velocity and
+  // look-ahead from consecutive samples, so coarse polling here directly
+  // shows up as choppy/segmented camera panning no matter how good the
+  // easing math is downstream. This runs on the main process (cheap IPC
+  // send), not the renderer doing the recording work, so it doesn't
+  // compete with capture/encode for CPU.
+  mouseTrackerInterval = setInterval(() => emitRecorderMouseUpdate(), 8);
 
   if (!fs.existsSync(MOUSE_TRACKER_EXE)) return;
   try {
