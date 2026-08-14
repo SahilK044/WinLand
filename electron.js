@@ -1068,6 +1068,12 @@ ipcMain.on('media-control', (event, action) => {
   if (typeof action === 'object' && action.action === 'seek') {
     const exePath = getSpotifyExePath();
     const posMs = action.posMs || 0;
+    posTracker = {
+      rawPos: posMs,
+      wallClockAtCapture: Date.now(),
+      isPlaying: posTracker.isPlaying,
+      trackKey: posTracker.trackKey,
+    };
     if (fs.existsSync(exePath)) {
       exec(`"${exePath}" seek ${Math.round(posMs)}`, { timeout: 8000 }, () => {
         forceRefreshMediaInfo();
@@ -1077,8 +1083,14 @@ ipcMain.on('media-control', (event, action) => {
   }
 
   let charCode = 179; // Play/Pause
-  if (action === 'next') charCode = 176;
-  if (action === 'previous') charCode = 177;
+  if (action === 'next') {
+    charCode = 176;
+    posTracker = { rawPos: 0, wallClockAtCapture: Date.now(), isPlaying: true, trackKey: '' };
+  }
+  if (action === 'previous') {
+    charCode = 177;
+    posTracker = { rawPos: 0, wallClockAtCapture: Date.now(), isPlaying: true, trackKey: '' };
+  }
 
   exec(`cscript //nologo "${VBS_MEDIA}" ${charCode}`, { timeout: 2000 }, () => {
     forceRefreshMediaInfo();

@@ -1157,8 +1157,14 @@ export default function DynamicIsland({
     setTrackInfo((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
   };
 
-  const handleNext = () => { if (window.electronAPI) window.electronAPI.sendMediaControl('next'); };
-  const handlePrev = () => { if (window.electronAPI) window.electronAPI.sendMediaControl('previous'); };
+  const handleNext = () => {
+    userToggleLockRef.current = Date.now();
+    if (window.electronAPI) window.electronAPI.sendMediaControl('next');
+  };
+  const handlePrev = () => {
+    userToggleLockRef.current = Date.now();
+    if (window.electronAPI) window.electronAPI.sendMediaControl('previous');
+  };
 
   const handleSeek = (newProgressMs) => {
     setTrackInfo((prev) => ({ ...prev, progressMs: newProgressMs }));
