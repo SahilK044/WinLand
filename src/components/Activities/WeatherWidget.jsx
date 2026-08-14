@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { conditionIcon, weatherTempString } from './IdleWidget';
+import { conditionIcon, weatherTempString } from '../../utils/weatherUtils';
 
 export default function WeatherWidget({ isCompact, weatherConfig }) {
   const [now, setNow] = useState(() => new Date());

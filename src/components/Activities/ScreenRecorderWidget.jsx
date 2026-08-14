@@ -43,7 +43,6 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
   const smartFocusRef = useRef(null);
 
   const errorTimerRef = useRef(null);
-  const savedTimerRef = useRef(null);
 
   const statusRef = useRef(status);
   useEffect(() => { statusRef.current = status; }, [status]);
@@ -107,8 +106,6 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         smartFocusRef.current.destroy();
         smartFocusRef.current = null;
       }
-      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
-      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     };
   }, []);
 

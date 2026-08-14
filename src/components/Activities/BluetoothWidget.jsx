@@ -386,8 +386,25 @@ export default function BluetoothWidget({
             animationStyle={prefs?.styles?.phone || 'amoled'}
           />
         );
-      case 'speaker':
-        return <Speaker3D key={`speaker-${deviceName}-${connectionState}`} size={44} isAnimated={true} isDisconnected={isDisconnected} />;
+      case 'speaker': {
+        const speakerModelId = (deviceName && deviceName.toLowerCase().includes('sonos'))
+          ? 'sonos_soundbar'
+          : (localStorage.getItem('winland_speaker_id') || 'sonos_soundbar');
+        return (
+          <DeviceModel3D
+            key={`speaker-${deviceName}-${connectionState}`}
+            modelId={speakerModelId}
+            category="speaker"
+            size={44}
+            isAnimated={true}
+            isDisconnected={isDisconnected}
+            deviceName={deviceName}
+            colorVariant={localStorage.getItem('winland_color_variant') || 'black'}
+            pulseColorHex={localStorage.getItem('winland_pulse_color') || '#30d158'}
+            animationStyle={prefs?.styles?.speaker || 'smooth'}
+          />
+        );
+      }
       case 'earbuds':
         return <Earbuds3D key={`earbuds-${deviceName}-${connectionState}`} size={44} isAnimated={true} isDisconnected={isDisconnected} />;
       case 'headphones':

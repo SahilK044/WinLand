@@ -1,5 +1,5 @@
-import { BlackRenderer } from './renderers/BlackRenderer';
-import { LightRenderer } from './renderers/LightRenderer';
+import { BlackRenderer } from './renderers/BlackRenderer.js';
+import { LightRenderer } from './renderers/LightRenderer.js';
 
 /**
  * WinLand - ThemeManager.js

@@ -29,7 +29,7 @@ export const DEFAULT_DEVICES = {
   headphones: 'razerbarracuda',
   earbuds: 'airpodspro',
   controller: 'ps5_controller',
-  speaker: 'soundbar',
+  speaker: 'sonos_soundbar',
 };
 
 export const DEFAULT_STYLES = {

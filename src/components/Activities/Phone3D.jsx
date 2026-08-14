@@ -49,6 +49,7 @@ export default function Phone3D({
       alpha: true,
       antialias: true,
       powerPreference: 'high-performance',
+      precision: 'highp',
     });
 
     const dpr = Math.max(window.devicePixelRatio || 1, 2);

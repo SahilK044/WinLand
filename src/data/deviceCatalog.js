@@ -38,6 +38,7 @@ export const DEVICE_CATALOG = {
     { id: 'galaxybuds', name: 'Galaxy Buds 3 Pro', brand: 'Samsung', defaultColor: 'white' },
   ],
   speakers: [
+    { id: 'sonos_soundbar', name: 'Sonos Arc Premium Soundbar', brand: 'Sonos', defaultColor: 'black' },
     { id: 'soundbar', name: 'Samsung Soundbar & Subwoofer', brand: 'Samsung', defaultColor: 'space-grey' },
   ],
   controllers: [

@@ -331,8 +331,6 @@ class Program {
 
         string lower = name.ToLowerInvariant();
 
-        if (lower.Contains("sahil") || lower.Contains("khusro")) return false;
-
         if (lower == "minimize" || lower == "maximize" || lower == "restore" || lower == "close" ||
             lower == "system menu bar" || lower == "system menu" || lower == "app title" || 
             lower == "title bar" || lower == "navigation" || lower == "back" || lower == "forward" ||

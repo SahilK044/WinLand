@@ -37,36 +37,34 @@ class ErrorBoundary extends Component {
   }
 }
 
+function IslandView() {
+  const [activeState, setActiveState] = useState('idle');
+  const [notification, setNotification] = useState(null);
+
+  return (
+    <div className="island-overlay-stage">
+      <DynamicIsland
+        activeState={activeState}
+        setActiveState={setActiveState}
+        notification={notification}
+        setNotification={setNotification}
+        onClearNotification={() => {
+          setNotification(null);
+          setActiveState('idle');
+        }}
+      />
+    </div>
+  );
+}
+
 export default function App() {
   const isSettingsRoute = window.location.search.includes('settings') ||
                           window.location.hash.includes('settings') ||
                           window.location.href.includes('settings');
 
-  if (isSettingsRoute) {
-    return (
-      <ErrorBoundary>
-        <SettingsWindow />
-      </ErrorBoundary>
-    );
-  }
-
-  const [activeState, setActiveState] = useState('idle');
-  const [notification, setNotification] = useState(null);
-
   return (
     <ErrorBoundary>
-      <div className="island-overlay-stage">
-        <DynamicIsland
-          activeState={activeState}
-          setActiveState={setActiveState}
-          notification={notification}
-          setNotification={setNotification}
-          onClearNotification={() => {
-            setNotification(null);
-            setActiveState('idle');
-          }}
-        />
-      </div>
+      {isSettingsRoute ? <SettingsWindow /> : <IslandView />}
     </ErrorBoundary>
   );
 }

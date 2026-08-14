@@ -1,70 +1,67 @@
 # WinLand — Ultra-Fluid Dynamic Island for Windows 🏝️
 
-**WinLand** is a state-of-the-art, interactive Dynamic Island desktop experience for Windows, built with React 19, Three.js (WebGL), Vite, and Electron. It seamlessly integrates with **WinDock** (.NET) to bring fluid macOS Tahoe-inspired widgets, live 3D hardware device connection popups, system telemetry, media controls, phone call notifications, system-wide Do Not Disturb integration, and weather forecasts directly to your desktop.
+**WinLand** is a high-performance, interactive Dynamic Island desktop experience for Windows, built with React 19, Three.js (WebGL), Vite, and Electron. It brings fluid macOS-inspired live activities, hardware connection notifications with real-time 3D device models, system telemetry, ambient media controls, phone call notifications, system-wide Do Not Disturb integration, smart screen recording, and live weather directly to your desktop.
 
 ---
 
-## 💾 Downloads & Quick Installation
+## 💾 Downloads & Installation
 
 | Package | Format | Direct Download |
 | :--- | :--- | :--- |
 | **WinLand Setup 1.0.0** | Windows Setup Installer Wizard | 🚀 **[Download WinLand Setup 1.0.0.exe](https://github.com/SahilK044/WinLand/raw/main/release/WinLand%20Setup%201.0.0.exe)** |
+| **WinLand Portable 1.0.0** | Single Standalone Executable | 📦 **[Download WinLand 1.0.0.exe](https://github.com/SahilK044/WinLand/raw/main/release/WinLand%201.0.0.exe)** |
 
 ---
 
 ## 🌟 Key Features
 
+### 🎧 3D WebGL Device Connection Popups & Hardware Adaptation
+- **Real-Time Bluetooth & 2.4GHz Detection**: Instantaneous connection and disconnection pop-up notifications for wireless headsets, earbuds, speakers, controllers, and smartphones.
+- **39 Integrated 3D Hardware Models**:
+  - **Audio & Speakers**: Sonos Soundbar, Razer Barracuda Headset, Sony WH-1000XM5, Apple AirPods Max, Apple AirPods Pro, Samsung Galaxy Buds Pro (with individual left/right earbud levitation and animated flip case).
+  - **Gaming Peripherals**: PlayStation 5 DualSense Wireless Controller, Xbox Series X/S Wireless Controllers (Carbon Black & Robot White).
+  - **Smartphones & Foldables**: 20+ flagship smartphones with authentic geometries and camera arrays:
+    - **Samsung Galaxy S & Note Series**: S26 Ultra, S25 Ultra, S24 Ultra, S22 Ultra, S21 Ultra, Note 20 Ultra.
+    - **Samsung Galaxy Foldables**: Z Fold 6, Z Fold 2, Z Flip 6, Z Flip 3.
+    - **Google Pixel Series**: Pixel 8 Pro, Pixel 7 Pro, Pixel 6 Pro.
+    - **Apple iPhone Series**: iPhone 17 Pro, iPhone 17 Air, iPhone 16 Pro, iPhone 16, iPhone 15 Pro, iPhone 15, iPhone 12.
+
+### 🎵 Ambient Music Player & Synced Lyrics
+- **Full-Bleed Soft-Feather Artwork**: Left-anchored album artwork with an 8-stop smooth horizontal gradient mask that blends naturally into the deep pitch-black capsule.
+- **60/120 FPS Continuous Progress Bar**: Sub-pixel smooth scrubber engine powered by native display `requestAnimationFrame` interpolation.
+- **Dual-Layer Track Crossfades**: Exiting songs dissolve smoothly over 650ms while incoming artwork fades in with a micro-zoom ease.
+- **Adaptive Contrast Controls**: Automatically analyzes cover art luminance to ensure transport buttons and scrubber controls maintain high contrast.
+- **Multi-Provider Synced Lyrics**: 5-stage karaoke word-wipe lyrics engine with LRCLIB, Lyrics.ovh, and NetEase Cloud fallback.
+- **System Master Volume Control**: Integrated inline volume slider with mousewheel support and quick mute toggle.
+
 ### 📞 Phone Link & WhatsApp Call Integration
 - **Real-Time Call Detection**: Instantaneous detection of incoming and active phone calls from Windows Phone Link (`PhoneExperienceHost`) and WhatsApp.
-- **Incoming Call Banner Notification**: Expands into an interactive call card with caller avatar, contact name, duration timer, and green Accept (📞) / red Decline (🚫) controls.
-- **Direct Window UIA Contact Extraction**: Uses C# UI Automation to extract exact contact names and caller numbers directly from UWP XAML elements.
-- **Full UTF-8 Unicode & Emoji Support**: Renders caller names with full-color native Unicode emojis and emoji-aware initials formatting.
-- **Clean Post-Call Dismissal**: Filters out hidden system background handles so the island immediately closes the call card and resumes idle/music view when calls end.
+- **Interactive Call Card**: Full caller avatar, contact name, duration timer, and green Accept (📞) / red Decline (🚫) controls.
+- **Direct Window UIA Contact Extraction**: Native C# UI Automation extracts contact names and numbers directly from UWP XAML elements.
+- **Unicode & Emoji Support**: Renders caller names with full-color native Unicode emojis and initials formatting.
 
 ### 🌙 System-Wide Windows 11 Do Not Disturb (DND) Integration
-- **Native Action Center Sync**: Directly toggles Windows Action Center Focus Assist via Windows Registry.
-- **Real-Time OS Polling**: Background polling keeps the island state perfectly in sync whenever DND is toggled from Windows Settings or Action Center.
-- **Apple Focus Badge & Spring Animations**: Features dark glassmorphism, lavender moon badge, and smooth Apple spring transitions.
+- **Native Focus Assist Sync**: Directly toggles Windows Action Center Focus Assist via Windows Registry.
+- **Spring Animations**: Lavender moon badge and smooth spring expand/collapse transitions.
 
 ### ⏱️ Interactive Timer & Alarm Widget
 - **Countdown & Progress Ring**: Live remaining time countdown with an animated SVG progress ring and quick-add (+1 min, +5 min) controls.
 - **Synthesized Alarm**: Web Audio API synthesized completion chime played upon timer expiry with smooth auto-dismissal.
 
-### 🎧 3D WebGL Device Connection Popups & Hardware Adaptation
-- **Real-Time Bluetooth & 2.4GHz Detection**: Instantaneous connection and disconnection pop-up notifications for wireless headsets, earbuds, speakers, and smartphones.
-- **Flagship 3D Hardware Models**:
-  - **3D Wireless Earbuds**: Ceramic white charging case with backwards flip lid, open-air levitation, and magnetic slot docking.
-  - **3D Soundbar**: Anodized space-gray aluminum body with perforated acoustic front grille, metallic chrome trims, and front center LED equalizer lightstrip.
-  - **3D Headphones**: 360° showcase spin with physical earcups, metallic headband, and acoustic inner mesh.
-  - **Dynamic Smartphone Adaptation**: Automatically detects and renders 20 flagship 3D smartphone models:
-    - **Samsung Galaxy Series**: S24 Ultra, S25 Ultra, S26 Ultra, S22 Ultra, S21 Ultra, Note 20 Ultra.
-    - **Samsung Foldables**: Z Fold 6, Z Fold 2, Z Flip 6, Z Flip 3.
-    - **Google Pixel Series**: Pixel 8 Pro, Pixel 7 Pro, Pixel 6 Pro.
-    - **Apple iPhone Series**: iPhone 17 Pro, iPhone 17 Air, iPhone 16 Pro, iPhone 16, iPhone 15 Pro, iPhone 15, iPhone 12.
-
-### 🎵 System Now-Playing, Live Lyrics & Liquid Color Aura
-- **Media Controls**: Live track metadata, album artwork, progress bar, play/pause/skip controls via Windows System Media Transport Controls (GSMTC) & Spotify API.
-- **Dynamic Accent Glow**: Real-time canvas color sampler extracts dominant colors from current album art to illuminate a smooth glassmorphic gradient background.
-- **Liquid Color Aura**: Smooth 0.75s spring fade-in on play and dissolve-out on pause with vibrant album-extracted colors.
-- **Multi-Provider Synced Lyrics**: 5-stage lyrics engine with LRCLIB, Lyrics.ovh, and NetEase Cloud fallback providers for maximum coverage.
-
 ### 📂 Desktop Shelf — Drag & Drop App Launcher
-- **Drag & Drop to Hold**: Drag desktop shortcuts, files, or folders onto the island to temporarily shelve them in a sleek expandable tile grid.
+- **Drag & Drop to Hold**: Drag desktop shortcuts, files, or folders onto the island to temporarily shelve them in an expandable tile grid.
 - **Native App Icon Extraction**: Dereferences Windows `.lnk` and `.url` shortcuts to extract authentic high-definition application icons from target executables.
-- **Tile Grid Layout**: Responsive grid with auto-expanding pill height for multi-row layouts and continuous Apple squircle curved borders.
-- **3D Folder Badges**: Custom SVG golden-amber gradient folder icons for directory items.
-- **One-Click Launch**: Click any shelved item to instantly open it; clear all items with a single button.
+- **One-Click Launch**: Click any shelved item to instantly open it; clear all items with a single click.
 
 ### 🎥 Screen Studio — Screen Recording Suite
 - **Custom Resolution & Framerates**: Record desktop activity in crisp 1080p, 1440p, or native 4K at up to 120 FPS.
-- **High-Fidelity 48kHz Stereo System Audio**: Captures crystal-clear desktop audio loopback without WebRTC echo cancellation ducking, mono downmixing, or metallic noise-suppression artifacts.
-- **Auto Zoom & Cinematic Camera**: Optional cursor-following zoom with hotkey controls (`P` for full view, `Z` for zoom in) for creating polished product demos.
-- **Compact Island Controls**: Live timer, pause/resume toggle, and stop controls embedded directly in the compact notch pill with auto-dismissal on save.
-- **Automatic Export**: Directly saves recordings to `Videos\WinLand Recordings`.
+- **High-Fidelity 48kHz Stereo System Audio**: Captures desktop audio loopback without WebRTC echo cancellation ducking or mono downmixing.
+- **Smart Focus & Cinematic Camera**: Cursor-following zoom with hotkey overrides (`P` for pan-out, `Z` for zoom-in).
+- **Compact Island Controls**: Live timer, pause/resume toggle, and stop controls embedded directly in the notch pill.
 
 ### 🌤️ Weather, Battery & System Monitoring
 - **Live Weather Sync**: Real-time local temperature and weather status synced automatically via IP geolocation & Open-Meteo API.
-- **Battery & Volume OSDs**: Real-time battery status with charging indicator and clean macOS Tahoe typography.
+- **Battery & Volume OSDs**: Real-time battery status with charging indicator and clean typography.
 - **Fullscreen Auto-Hide**: Detects fullscreen games and media playback to automatically hide the island so it never obstructs your screen.
 
 ---

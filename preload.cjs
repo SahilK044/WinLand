@@ -3,6 +3,27 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   getPathForFile: (file) => (webUtils ? webUtils.getPathForFile(file) : (file?.path || '')),
   getFileIcon: (filePath) => ipcRenderer.invoke('get-file-icon', filePath),
+
+  // USB Connect / Eject Hub
+  onUsbConnected: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('usb-connected', handler);
+    return () => ipcRenderer.removeListener('usb-connected', handler);
+  },
+  onUsbEjected: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('usb-ejected', handler);
+    return () => ipcRenderer.removeListener('usb-ejected', handler);
+  },
+  ejectUsb: (deviceId) => ipcRenderer.send('eject-usb', deviceId),
+
+  // Discord Voice Call Integration
+  onDiscordVoiceUpdate: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('discord-voice-update', handler);
+    return () => ipcRenderer.removeListener('discord-voice-update', handler);
+  },
+
   // Spotify now-playing updates
   onSystemMediaUpdate: (callback) => {
     const handler = (_event, value) => callback(value);

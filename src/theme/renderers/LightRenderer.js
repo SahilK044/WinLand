@@ -1,4 +1,4 @@
-import { IThemeRenderer } from '../IThemeRenderer';
+import { IThemeRenderer } from '../IThemeRenderer.js';
 
 /**
  * WinLand - LightRenderer.js

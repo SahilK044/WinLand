@@ -1,8 +1,9 @@
 import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, desktopCapturer, clipboard, session } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { exec, execFile, spawn } from 'child_process';
 import fs from 'fs';
+import { exec, execFile, spawn } from 'child_process';
+import DiscordRPC from 'discord-rpc';
 import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -221,10 +222,8 @@ function createWindow() {
   const primaryDisplay = getTargetDisplay();
   const { width: screenWidth } = primaryDisplay.workAreaSize;
 
-  // Sized to fit the tallest/widest Dynamic Island state (expanded-lyrics: 390x300,
-  // state-notification/expanded-call: 400 wide) plus margin so no state's rounded
-  // corners get hard-clipped by the OS window bounds.
-  const windowWidth = 540;
+  // Set to full screen width to allow Rubber-Band Flinging physics
+  const windowWidth = screenWidth;
   const windowHeight = 680;
 
   mainWindow = new BrowserWindow({
@@ -649,8 +648,6 @@ fs.writeFileSync(PS1_BLUETOOTH, [
   '}',
 ].join('\n'), 'utf8');
 
-const PS_BLUETOOTH_CMD = `powershell -NoProfile -ExecutionPolicy Bypass -File "${PS1_BLUETOOTH}"`;
-
 function parseBluetoothOutput(stdout) {
   const devices = new Map();
   const lines = (stdout || '').split('\n');
@@ -774,7 +771,7 @@ ipcMain.on('request-bluetooth-status', (_event, options) => {
       typeStr: dev.typeStr || 'phone',
       connectionState: 'connected',
       isInitial: false,
-      forceShow: true,
+      forceShow: forceShow ?? true,
       timestamp: Date.now(),
     });
   } else {
@@ -785,7 +782,7 @@ ipcMain.on('request-bluetooth-status', (_event, options) => {
 
 ipcMain.on('trigger-phone-notification', () => {
   if (!mainWindow || !mainWindow.webContents) return;
-  let phoneName = "Sahil's S24 Ultra";
+  let phoneName = "Galaxy S24 Ultra";
   if (lastBluetoothDevices && lastBluetoothDevices.size > 0) {
     for (const [, info] of lastBluetoothDevices) {
       if (info.typeStr === 'phone' || (info.name && info.name.match(/Galaxy|S24|S25|S26|iPhone|Pixel|Phone|Ultra/i))) {
@@ -900,7 +897,7 @@ ipcMain.on('send-call-action', (_event, action) => {
   const allowed = new Set(['accept', 'decline', 'end', 'mute']);
   const act = typeof action === 'string' ? action.toLowerCase() : '';
   if (!allowed.has(act)) return;
-  execFile(EXE_CALL, [act], { timeout: 2000, maxBuffer: 32 * 1024, encoding: 'utf8' }, (err, stdout) => {
+  execFile(EXE_CALL, [act], { timeout: 2000, maxBuffer: 32 * 1024, encoding: 'utf8' }, (err) => {
     if (err) {
       console.error('send-call-action failed:', err);
       return;
@@ -1097,10 +1094,12 @@ ipcMain.on('resize-window', (event, { width, height, growing }) => {
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || win.isDestroyed()) return;
 
-  const DEFAULT_WIN_W = 540;
-  const DEFAULT_WIN_H = 680;
+  const targetDisplay = win === mainWindow ? getTargetDisplay() : screen.getPrimaryDisplay();
+  const { width: screenWidth } = targetDisplay.workAreaSize;
 
-  const padW = Math.max(width + 40, DEFAULT_WIN_W);
+  // The main island window spans full screen width to allow seamless horizontal rubber-band fling physics without boundary clipping
+  const DEFAULT_WIN_H = 680;
+  const padW = win === mainWindow ? screenWidth : Math.max(width + 40, 540);
   const padH = Math.max(height + 40, DEFAULT_WIN_H);
 
   const currentBounds = win.getBounds();
@@ -1108,10 +1107,10 @@ ipcMain.on('resize-window', (event, { width, height, growing }) => {
   // If the window is already at default bounds and the requested size fits within default bounds,
   // skip calling win.setBounds to eliminate OS window repositioning/resize stutters during CSS transitions.
   if (
-    padW <= DEFAULT_WIN_W &&
-    padH <= DEFAULT_WIN_H &&
-    currentBounds.width === DEFAULT_WIN_W &&
-    currentBounds.height === DEFAULT_WIN_H
+    currentBounds.width === padW &&
+    currentBounds.height === padH &&
+    currentBounds.x === (win === mainWindow ? targetDisplay.workArea.x : Math.round(targetDisplay.workArea.x + (screenWidth - padW) / 2)) &&
+    currentBounds.y === targetDisplay.workArea.y
   ) {
     const existingTimer = pendingShrinkTimers.get(win);
     if (existingTimer) {
@@ -1123,9 +1122,7 @@ ipcMain.on('resize-window', (event, { width, height, growing }) => {
 
   const applyBounds = () => {
     if (win.isDestroyed()) return;
-    const targetDisplay = win === mainWindow ? getTargetDisplay() : screen.getPrimaryDisplay();
-    const { width: screenWidth } = targetDisplay.workAreaSize;
-    const newX = Math.round(targetDisplay.workArea.x + (screenWidth - padW) / 2);
+    const newX = win === mainWindow ? targetDisplay.workArea.x : Math.round(targetDisplay.workArea.x + (screenWidth - padW) / 2);
     win.setBounds({ x: newX, y: targetDisplay.workArea.y, width: padW, height: padH }, false);
   };
 
@@ -1160,6 +1157,67 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore) => {
 ipcMain.handle('read-settings', () => readSettings());
 ipcMain.on('write-settings', (event, data) => writeSettings(data));
 ipcMain.handle('get-initial-config', () => readWinlandConfig());
+
+// ── USB Hub / Eject Logic ───────────────────────────────────────────────
+let knownUsbDrives = new Set();
+let usbPollInterval = setInterval(() => {
+  exec('powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object DriveType -eq 2 | Select-Object -Property DeviceID, VolumeName, Size, FreeSpace, FileSystem | ConvertTo-Json"', (err, stdout) => {
+    if (err || !stdout || !stdout.trim()) {
+      knownUsbDrives.clear();
+      return;
+    }
+    try {
+      let drives = JSON.parse(stdout);
+      if (!Array.isArray(drives)) drives = [drives];
+      
+      const currentDrives = new Set(drives.map(d => d.DeviceID));
+      
+      drives.forEach(drive => {
+        if (!knownUsbDrives.has(drive.DeviceID)) {
+          if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+            mainWindow.webContents.send('usb-connected', {
+              deviceId: drive.DeviceID,
+              volumeName: drive.VolumeName || '',
+              size: drive.Size || 0,
+              freeSpace: drive.FreeSpace || 0,
+              fileSystem: drive.FileSystem || 'FAT32',
+            });
+          }
+        }
+      });
+      knownUsbDrives = currentDrives;
+    } catch {}
+  });
+}, 2500);
+
+ipcMain.on('eject-usb', (_event, deviceId) => {
+  if (!deviceId || typeof deviceId !== 'string') return;
+  const safeId = deviceId.replace(/[^a-zA-Z0-9:]/g, '');
+  const script = `$driveEject = New-Object -comObject Shell.Application; $driveEject.Namespace(17).ParseName("${safeId}").InvokeVerb("Eject")`;
+  exec(`powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "${script}"`, (err) => {
+    if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+      mainWindow.webContents.send('usb-ejected', { deviceId: safeId, success: !err });
+    }
+  });
+});
+
+// ── Discord RPC Logic ───────────────────────────────────────────────
+let rpcClient = null;
+try {
+  rpcClient = new DiscordRPC.Client({ transport: 'ipc' });
+  rpcClient.on('ready', () => {
+    const notifyVoice = (speaking, user_id) => {
+      if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
+        mainWindow.webContents.send('discord-voice-update', { speaking, user_id });
+      }
+    };
+
+    rpcClient.subscribe('SPEAKING_START', (args) => notifyVoice(true, args?.user_id)).catch(() => {});
+    rpcClient.subscribe('SPEAKING_STOP', (args) => notifyVoice(false, args?.user_id)).catch(() => {});
+  });
+  rpcClient.on('error', () => {});
+  rpcClient.login({ clientId: '1046187747875962911' }).catch(() => {});
+} catch {}
 
 // ── Multi-Monitor Pinning IPC ───────────────────────────────────────────────
 ipcMain.handle('get-displays', () => {
@@ -1933,10 +1991,8 @@ app.on('activate', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
-  if (mouseTrackerProc) { try { mouseTrackerProc.kill(); } catch (e) {} mouseTrackerProc = null; }
-  if (nativeScreenRecorder && nativeScreenRecorder.proc) { try { nativeScreenRecorder.proc.kill(); } catch (e) {} }
-  if (mouseTrackerProc) { try { mouseTrackerProc.kill(); } catch (e) {} mouseTrackerProc = null; }
-  if (nativeScreenRecorder && nativeScreenRecorder.proc) { try { nativeScreenRecorder.proc.kill(); } catch (e) {} }
+  if (mouseTrackerProc) { try { mouseTrackerProc.kill(); } catch {} mouseTrackerProc = null; }
+  if (nativeScreenRecorder && nativeScreenRecorder.proc) { try { nativeScreenRecorder.proc.kill(); } catch {} }
   if (pollerInterval) clearInterval(pollerInterval);
   if (batteryInterval) clearInterval(batteryInterval);
   if (fullscreenInterval) clearInterval(fullscreenInterval);
@@ -1945,6 +2001,8 @@ app.on('will-quit', () => {
   if (alwaysOnTopInterval) clearInterval(alwaysOnTopInterval);
   if (dndPollInterval) clearInterval(dndPollInterval);
   if (volumePollInterval) clearInterval(volumePollInterval);
+  if (usbPollInterval) clearInterval(usbPollInterval);
+  if (rpcClient) { try { rpcClient.destroy(); } catch {} rpcClient = null; }
   stopRecorderMouseTracking();
   fs.unwatchFile(WINLAND_THEME_PATH);
 });

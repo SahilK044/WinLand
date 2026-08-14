@@ -4,6 +4,7 @@ import {
   GLB_MODEL_MAP, loadSharedModel, prepareDeviceModel, addStudioLights,
 } from '../../three/deviceModelEngine';
 import Phone3D from './Phone3D';
+import Speaker3D from './Speaker3D';
 
 /**
  * Renders the user's chosen real 3D device inside the Dynamic Island's
@@ -228,7 +229,10 @@ export default function DeviceModel3D({
     camera.position.set(0, 0, 4.1);
 
     const renderer = new THREE.WebGLRenderer({
-      alpha: true, antialias: true, powerPreference: 'high-performance',
+      alpha: true,
+      antialias: true,
+      powerPreference: 'high-performance',
+      precision: 'highp',
     });
     const dpr = Math.max(window.devicePixelRatio || 1, 2);
     renderer.setPixelRatio(dpr);
@@ -524,6 +528,9 @@ export default function DeviceModel3D({
   if (failed) {
     if (category === 'phone') {
       return <Phone3D size={size} isAnimated={true} isDisconnected={isDisconnected} />;
+    }
+    if (category === 'speaker') {
+      return <Speaker3D size={size} isAnimated={true} isDisconnected={isDisconnected} />;
     }
     return null;
   }

@@ -90,7 +90,7 @@ export default function SettingsWindow() {
   const [selectedHeadphones, setSelectedHeadphones] = useState(() => localStorage.getItem('winland_headphones_id') || 'razerbarracuda');
   const [selectedEarbuds, setSelectedEarbuds]       = useState(() => localStorage.getItem('winland_earbuds_id')    || 'airpodspro');
   const [selectedController, setSelectedController] = useState(() => localStorage.getItem('winland_controller_id') || 'ps5_controller');
-  const [selectedSpeaker, setSelectedSpeaker]       = useState(() => localStorage.getItem('winland_speaker_id')    || 'soundbar');
+  const [selectedSpeaker, setSelectedSpeaker]       = useState(() => localStorage.getItem('winland_speaker_id')    || 'sonos_soundbar');
   const [selectedColor, setSelectedColor]           = useState(() => localStorage.getItem('winland_color_variant') || 'space-grey');
 
   const [animStyles, setAnimStyles] = useState(() => {
@@ -164,7 +164,7 @@ export default function SettingsWindow() {
 
   const currentColorHex = DEVICE_COLOR_VARIANTS[selectedColor]?.hex || '#3a3a3c';
 
-  const readDevicePrefs = () => ({
+  const readDevicePrefs = useCallback(() => ({
     phoneId:        selectedPhone,
     headphonesId:   selectedHeadphones,
     earbudsId:      selectedEarbuds,
@@ -177,7 +177,8 @@ export default function SettingsWindow() {
     autoHideDuration: autoHideDuration,
     autoHide:       autoHide,
     targetDisplay:  selectedDisplay,
-  });
+  }), [selectedPhone, selectedHeadphones, selectedEarbuds, selectedController,
+       selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay]);
 
   useEffect(() => {
     localStorage.setItem('winland_phone_id',        selectedPhone);
@@ -206,7 +207,7 @@ export default function SettingsWindow() {
 
     window.electronAPI?.sendDevicePrefs?.(readDevicePrefs());
   }, [selectedPhone, selectedHeadphones, selectedEarbuds, selectedController,
-      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay]);
+      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay, readDevicePrefs]);
 
   const handleClose = () => window.electronAPI?.closeSettingsWindow?.();
 

@@ -29,6 +29,32 @@ function fmt(ms) {
   return `${m}:${s < 10 ? '0' : ''}${s}`;
 }
 
+function getButtonIconColor(bgColor) {
+  if (!bgColor) return '#ffffff';
+  let r = 255, g = 255, b = 255;
+  if (bgColor.startsWith('#')) {
+    const hex = bgColor.replace('#', '');
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length >= 6) {
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+    }
+  } else if (bgColor.startsWith('rgb')) {
+    const parts = bgColor.match(/\d+/g);
+    if (parts && parts.length >= 3) {
+      r = parseInt(parts[0], 10);
+      g = parseInt(parts[1], 10);
+      b = parseInt(parts[2], 10);
+    }
+  }
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  return lum > 165 ? '#000000' : '#ffffff';
+}
+
 function parseLrc(lrcText) {
   if (!lrcText) return [];
   const lines = lrcText.split('\n');
@@ -115,9 +141,13 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
   useEffect(() => {
     if (!isPlaying) return;
     let rafId;
-    const updateLoop = () => {
-      const delta = performance.now() - syncRef.current.baseTime;
-      setSmoothMs(syncRef.current.baseMs + delta);
+    let lastTick = 0;
+    const updateLoop = (now) => {
+      if (now - lastTick >= 50) {
+        lastTick = now;
+        const delta = performance.now() - syncRef.current.baseTime;
+        setSmoothMs(syncRef.current.baseMs + delta);
+      }
       rafId = requestAnimationFrame(updateLoop);
     };
     rafId = requestAnimationFrame(updateLoop);
@@ -627,6 +657,111 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, onClick }) => {
   );
 };
 
+// Full-Bleed Album Art Component with Butter-Smooth Track Crossfade & Eased Dissolve
+const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
+  const [currentCover, setCurrentCover] = useState(coverUrl);
+  const [prevCover, setPrevCover] = useState(null);
+  const [isFading, setIsFading] = useState(false);
+  const fadeTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (coverUrl !== currentCover) {
+      setPrevCover(currentCover);
+      setCurrentCover(coverUrl);
+      setIsFading(true);
+
+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
+      fadeTimeoutRef.current = setTimeout(() => {
+        setPrevCover(null);
+        setIsFading(false);
+      }, 650);
+    }
+    return () => {
+      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
+    };
+  }, [coverUrl, currentCover]);
+
+  if (!currentCover && !prevCover) return null;
+
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        if (onClick) onClick(e);
+        else window.electronAPI?.launchApp?.('spotify');
+      }}
+      title="Open in Spotify"
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        width: '42%',
+        cursor: 'pointer',
+        zIndex: 0,
+        overflow: 'hidden',
+        borderTopLeftRadius: 'inherit',
+        borderBottomLeftRadius: 'inherit',
+        WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) 16%, rgba(0,0,0,0.65) 36%, rgba(0,0,0,0.38) 56%, rgba(0,0,0,0.16) 74%, rgba(0,0,0,0.03) 88%, transparent 100%)',
+        maskImage: 'linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) 16%, rgba(0,0,0,0.65) 36%, rgba(0,0,0,0.38) 56%, rgba(0,0,0,0.16) 74%, rgba(0,0,0,0.03) 88%, transparent 100%)',
+        userSelect: 'none',
+      }}
+    >
+      {/* Previous cover dissolving out */}
+      {prevCover && (
+        <img
+          key={`prev-${prevCover}`}
+          src={prevCover}
+          alt="previous artwork"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'left center',
+            filter: 'contrast(1.02) saturate(1.06)',
+            opacity: 0,
+            transform: 'scale(1.04)',
+            transition: 'opacity 0.65s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1)',
+          }}
+        />
+      )}
+
+      {/* Current cover dissolving and scaling in */}
+      {currentCover && (
+        <img
+          key={`curr-${currentCover}`}
+          src={currentCover}
+          alt={title}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'left center',
+            filter: 'contrast(1.02) saturate(1.06)',
+            opacity: isFading ? 0.82 : 0.82,
+            transform: 'scale(1.0)',
+            animation: isFading ? 'albumArtFadeIn 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : 'none',
+          }}
+        />
+      )}
+
+      {/* Subtle dark gradient overlay to guarantee soft integration into pitch black */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to right, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.6) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  );
+};
+
 // System-wide Windows Master Volume Control (Lower Left Side - Zero Overlap / Zero Popups)
 const SystemVolumeControl = ({ eqColor, eqGlow }) => {
   const [volume, setVolume] = useState(50);
@@ -710,15 +845,13 @@ const SystemVolumeControl = ({ eqColor, eqGlow }) => {
   const VolumeIcon = isMuted || volume === 0 ? VolumeX : volume < 50 ? Volume1 : Volume2;
 
   return (
-    <>
+    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <button
         onClick={toggleMute}
         onWheel={handleWheel}
         onMouseEnter={() => setShowBadge(true)}
         onMouseLeave={() => setShowBadge(false)}
         style={{
-          position: 'absolute',
-          left: 22,
           background: showBadge ? 'rgba(255, 255, 255, 0.15)' : 'none',
           border: 'none',
           borderRadius: '50%',
@@ -729,19 +862,19 @@ const SystemVolumeControl = ({ eqColor, eqGlow }) => {
           alignItems: 'center',
           justifyContent: 'center',
           transition: 'all 0.25s ease',
-          zIndex: 20,
         }}
       >
         <VolumeIcon size={18} color="rgba(255, 255, 255, 0.85)" />
       </button>
 
-      {/* Floating percentage badge above volume icon (Zero layout shifting, zero button crowding) */}
+      {/* Floating percentage badge above volume icon */}
       <div
         style={{
           position: 'absolute',
-          left: 14,
-          bottom: 35,
-          background: 'rgba(20, 20, 22, 0.92)',
+          left: '50%',
+          bottom: 34,
+          transform: showBadge ? 'translateX(-50%) translateY(0) scale(1)' : 'translateX(-50%) translateY(4px) scale(0.9)',
+          background: 'rgba(20, 20, 22, 0.94)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.22)',
@@ -755,7 +888,6 @@ const SystemVolumeControl = ({ eqColor, eqGlow }) => {
           fontVariantNumeric: 'tabular-nums',
           WebkitFontSmoothing: 'antialiased',
           opacity: showBadge ? 1 : 0,
-          transform: showBadge ? 'translateY(0) scale(1)' : 'translateY(4px) scale(0.9)',
           pointerEvents: 'none',
           transition: 'opacity 0.2s cubic-bezier(0.32, 0.72, 0, 1), transform 0.2s cubic-bezier(0.32, 0.72, 0, 1)',
           whiteSpace: 'nowrap',
@@ -765,7 +897,7 @@ const SystemVolumeControl = ({ eqColor, eqGlow }) => {
       >
         {volume}%
       </div>
-    </>
+    </div>
   );
 };
 
@@ -805,6 +937,7 @@ export default function MusicWidget({
   isSplit,
   isLyricsView,
   isDndActive = false,
+  isDndVisible,
   onToggleLyrics,
   trackInfo = {},
   barHeights = [3, 3, 3, 3, 3],
@@ -825,7 +958,10 @@ export default function MusicWidget({
   const [dragPosX, setDragPosX] = useState(0);
   const scrubberRef = useRef(null);
 
-  // ── 60 FPS Sub-millisecond Smooth Real-time Progress Tracking ─────────────
+  // ── 60/120 FPS Sub-pixel Butter-Smooth Real-time Progress Tracking ─────────────
+  const progressBarRef = useRef(null);
+  const knobRef = useRef(null);
+  const currentTimeTextRef = useRef(null);
   const [realtimeMs, setRealtimeMs] = useState(progressMs);
   const syncRef = useRef({ baseMs: progressMs, baseTime: performance.now() });
   const lastTitleRef = useRef(title);
@@ -840,28 +976,63 @@ export default function MusicWidget({
   }, [title]);
 
   useEffect(() => {
-    const drift = Math.abs(progressMs - realtimeMs);
-    if (drift > 1000 || !isPlaying) {
+    if (!isPlaying) {
       syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
       setRealtimeMs(progressMs);
+      const currentPct = durationMs > 0 ? (progressMs / durationMs) * 100 : 0;
+      if (progressBarRef.current) progressBarRef.current.style.width = `${currentPct}%`;
+      if (knobRef.current) {
+        knobRef.current.style.left = `calc(${currentPct}% + ${(0.5 - currentPct / 100) * 8}px)`;
+        knobRef.current.style.opacity = currentPct > 0.5 ? '1' : '0';
+      }
+      if (currentTimeTextRef.current) currentTimeTextRef.current.textContent = fmt(progressMs);
+      return;
     }
-  }, [progressMs, isPlaying, title]);
+
+    const currentCalculated = syncRef.current.baseMs + (performance.now() - syncRef.current.baseTime);
+    const drift = progressMs - currentCalculated;
+
+    if (Math.abs(drift) > 1200) {
+      // Hard resync on large seeks / track skips
+      syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
+      setRealtimeMs(progressMs);
+    } else if (Math.abs(drift) > 50) {
+      // Gentle micro-sync without visual stutter
+      syncRef.current.baseMs += drift * 0.25;
+    }
+  }, [progressMs, isPlaying, title, durationMs]);
 
   useEffect(() => {
     if (!isPlaying || durationMs <= 0) return;
     let rafId;
-    let lastUpdate = performance.now();
-    const updateLoop = () => {
+    let lastSec = -1;
+
+    const updateFrame = () => {
       const now = performance.now();
-      if (now - lastUpdate > 100) {
-        const delta = now - syncRef.current.baseTime;
-        const current = syncRef.current.baseMs + delta;
-        setRealtimeMs(Math.min(current, durationMs));
-        lastUpdate = now;
+      const delta = now - syncRef.current.baseTime;
+      const current = Math.min(syncRef.current.baseMs + delta, durationMs);
+      const currentPct = Math.min(100, Math.max(0, (current / durationMs) * 100));
+
+      if (progressBarRef.current) {
+        progressBarRef.current.style.width = `${currentPct}%`;
       }
-      rafId = requestAnimationFrame(updateLoop);
+      if (knobRef.current) {
+        knobRef.current.style.left = `calc(${currentPct}% + ${(0.5 - currentPct / 100) * 8}px)`;
+        knobRef.current.style.opacity = currentPct > 0.5 ? '1' : '0';
+      }
+
+      const sec = Math.floor(current / 1000);
+      if (sec !== lastSec) {
+        lastSec = sec;
+        if (currentTimeTextRef.current) {
+          currentTimeTextRef.current.textContent = fmt(current);
+        }
+      }
+
+      rafId = requestAnimationFrame(updateFrame);
     };
-    rafId = requestAnimationFrame(updateLoop);
+
+    rafId = requestAnimationFrame(updateFrame);
     return () => cancelAnimationFrame(rafId);
   }, [isPlaying, durationMs, title]);
 
@@ -880,7 +1051,15 @@ export default function MusicWidget({
     const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
     const ratio = clickX / rect.width;
     setDragPosX(clickX);
-    return Math.round(ratio * durationMs);
+    const targetMs = Math.round(ratio * durationMs);
+    const dragPct = (targetMs / durationMs) * 100;
+    if (progressBarRef.current) progressBarRef.current.style.width = `${dragPct}%`;
+    if (knobRef.current) {
+      knobRef.current.style.left = `calc(${dragPct}% + ${(0.5 - dragPct / 100) * 8}px)`;
+      knobRef.current.style.opacity = '1';
+    }
+    if (currentTimeTextRef.current) currentTimeTextRef.current.textContent = fmt(targetMs);
+    return targetMs;
   }, [durationMs]);
 
   const handleMouseDown = (e) => {
@@ -900,6 +1079,7 @@ export default function MusicWidget({
     const onUp = (e) => {
       setIsDragging(false);
       const targetMs = calcMsFromEvent(e);
+      syncRef.current = { baseMs: targetMs, baseTime: performance.now() };
       onSeek?.(targetMs);
     };
     window.addEventListener('pointermove', onMove);
@@ -1016,88 +1196,119 @@ export default function MusicWidget({
     );
   }
 
+  const playIconColor = getButtonIconColor(eqColor);
+
   return (
-    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '14px 18px', boxSizing: 'border-box', fontFamily: MAC_FONT }}>
+    <div style={{
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      display: 'flex',
+      alignItems: 'center',
+      fontFamily: MAC_FONT,
+      borderRadius: 'inherit',
+      overflow: 'hidden',
+    }}>
 
-      {/* ── Top Row: Album Art | Track Info | Equalizer ── */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <AlbumArt coverUrl={coverUrl} title={title} size={52} r={12} />
+      {/* ── Left Artwork Canvas with Translucent Soft Feathered Gradient Dissolve & Smooth Crossfade ── */}
+      {coverUrl && (
+        <FullBleedAlbumArt coverUrl={coverUrl} title={title} />
+      )}
 
-        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndActive ? 122 : 0, transition: 'padding-right 0.28s cubic-bezier(0.32, 1.25, 0.36, 1)' }}>
-          <MarqueeText style={{ fontSize: 14, fontWeight: 700, color: 'inherit', lineHeight: '18px', letterSpacing: '-0.2px' }}>
-            {title}
-          </MarqueeText>
-          {artist && (
-            <MarqueeText className="widget-subtitle" style={{ fontSize: 12, fontWeight: 500, marginTop: 2, lineHeight: '16px' }}>
-              {artist}
-            </MarqueeText>
+      {/* ── Right Content Deck (Header, Scrubber & Controls — Generous Spacing) ── */}
+      <div style={{
+        position: 'relative',
+        zIndex: 2,
+        marginLeft: coverUrl ? '30%' : 0,
+        width: coverUrl ? '70%' : '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '16px 20px 14px 10px',
+        boxSizing: 'border-box',
+        transition: 'margin-left 0.3s cubic-bezier(0.32, 0.72, 0, 1), width 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
+      }}>
+
+        {/* ── 1. Top Row: Track Info & Equalizer ── */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
+          {!coverUrl && (
+            <div style={{ marginRight: 10 }}>
+              <AlbumArt coverUrl={coverUrl} title={title} size={48} r={10} />
+            </div>
           )}
-          <div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, color: eqColor, transition: 'color 0.8s ease' }}>
-            {isPlaying ? 'Media • Active' : 'Media • Paused'}
+
+          <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndVisible ? 80 : 8 }}>
+            <MarqueeText style={{ fontSize: 16.5, fontWeight: 750, color: '#ffffff', lineHeight: '20px', letterSpacing: '-0.3px' }}>
+              {title}
+            </MarqueeText>
+            {artist && (
+              <MarqueeText className="widget-subtitle" style={{ fontSize: 12, fontWeight: 550, marginTop: 2, lineHeight: '15px' }}>
+                {artist}
+              </MarqueeText>
+            )}
+            <div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, color: eqColor, transition: 'color 0.8s ease' }}>
+              {isPlaying ? 'Media • Active' : 'Media • Paused'}
+            </div>
+          </div>
+
+          <div style={{ flexShrink: 0, marginTop: 2 }}>
+            <EqBars h={16} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
           </div>
         </div>
 
-        <EqBars h={20} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
-      </div>
-
-      {/* ── Middle Row: Scrubber / Progress Bar & Timers ── */}
-      <div style={{ marginTop: 6, marginBottom: 2, position: 'relative' }}>
-        {/* Floating Apple Scrubber Tooltip */}
-        {isDragging && (
-          <div
-            style={{
-              position: 'absolute',
-              top: -24,
-              left: dragPosX,
-              transform: 'translateX(-50%)',
-              background: 'rgba(255, 255, 255, 0.95)',
-              color: '#000000',
-              fontSize: 10,
-              fontWeight: 800,
-              padding: '2px 7px',
-              borderRadius: 6,
-              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-              pointerEvents: 'none',
-              zIndex: 20,
-            }}
-          >
-            {fmt(dragProgressMs)}
-          </div>
-        )}
-
-        <div
-          ref={scrubberRef}
-          onMouseDown={handleMouseDown}
-          style={{ width: '100%', height: 6, background: 'rgba(255, 255, 255, 0.14)', borderRadius: 4, cursor: 'pointer', position: 'relative', overflow: 'visible' }}
-        >
-          {/* Filled Progress Bar — strict overflow: hidden so shimmer is 100% contained */}
-          <div
-            className="progress-shimmer-bar"
-            style={{
-              width: `${pct}%`,
-              height: '100%',
-              background: progressGradient,
-              borderRadius: 4,
-              boxShadow: `0 0 10px ${eqGlow}, 0 0 20px ${eqGlow}`,
-              transition: isDragging ? 'none' : 'background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow 0.9s cubic-bezier(0.2, 0.9, 0.2, 1), opacity 0.36s ease',
-              opacity: visualizerOpacity,
-              willChange: 'width',
-              position: 'relative',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Shimmer overlay effect */}
+        {/* ── 2. Middle Row: Scrubber / Progress Bar & Timers ── */}
+        <div style={{ width: '100%', marginTop: 8, marginBottom: 4, position: 'relative' }}>
+          {/* Floating Scrubber Tooltip */}
+          {isDragging && (
             <div
-              className="progress-shimmer-overlay"
               style={{
-                animationPlayState: isPlaying ? 'running' : 'paused',
+                position: 'absolute',
+                top: -24,
+                left: dragPosX,
+                transform: 'translateX(-50%)',
+                background: 'rgba(255, 255, 255, 0.95)',
+                color: '#000000',
+                fontSize: 10,
+                fontWeight: 800,
+                padding: '2px 7px',
+                borderRadius: 6,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                pointerEvents: 'none',
+                zIndex: 20,
               }}
-            />
-          </div>
+            >
+              {fmt(dragProgressMs)}
+            </div>
+          )}
 
-          {/* Glowing tip knob handle — positioned at exact tip of progress */}
-          {pct > 0.5 && (
+          <div
+            ref={scrubberRef}
+            onMouseDown={handleMouseDown}
+            style={{ width: '100%', height: 5, background: 'rgba(255, 255, 255, 0.16)', borderRadius: 3, cursor: 'pointer', position: 'relative', overflow: 'visible' }}
+          >
+            {/* Progress bar */}
             <div
+              ref={progressBarRef}
+              className="progress-shimmer-bar"
+              style={{
+                width: `${pct}%`,
+                height: '100%',
+                background: progressGradient,
+                borderRadius: 3,
+                boxShadow: `0 0 8px ${eqGlow}`,
+                transition: isDragging ? 'none' : 'background 0.8s ease, box-shadow 0.8s ease',
+                willChange: 'width',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <div className="progress-shimmer-overlay" style={{ animationPlayState: isPlaying ? 'running' : 'paused' }} />
+            </div>
+
+            {/* Glowing tip knob handle */}
+            <div
+              ref={knobRef}
               style={{
                 position: 'absolute',
                 left: `calc(${pct}% + ${(0.5 - pct / 100) * 8}px)`,
@@ -1107,112 +1318,111 @@ export default function MusicWidget({
                 height: 8,
                 borderRadius: '50%',
                 background: '#ffffff',
-                boxShadow: `0 0 8px #ffffff, 0 0 14px ${eqColor}`,
+                boxShadow: `0 0 6px #ffffff, 0 0 10px ${eqColor}`,
                 pointerEvents: 'none',
                 zIndex: 5,
+                opacity: pct > 0.5 ? 1 : 0,
+                transition: 'opacity 0.2s ease',
               }}
             />
-          )}
+          </div>
+
+          <div className="widget-subtitle" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 4, fontWeight: 600 }}>
+            <span ref={currentTimeTextRef}>{fmt(activeDisplayMs)}</span>
+            <span>{durationMs > 0 ? fmt(durationMs) : '--:--'}</span>
+          </div>
         </div>
-        <div className="widget-subtitle" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 4, fontWeight: 600 }}>
-          <span>{fmt(activeDisplayMs)}</span>
-          <span>{durationMs > 0 ? fmt(durationMs) : '--:--'}</span>
-        </div>
-      </div>
 
-      {/* ── Bottom Row: Apple Transport Controls (Smooth Spring Morphing) ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 32, marginTop: 4, position: 'relative' }}>
-        <SystemVolumeControl eqColor={eqColor} eqGlow={eqGlow} />
+        {/* ── 3. Bottom Row: Spaced Transport Controls (Comfortable Breathing Room) ── */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 8px', marginTop: 4 }}>
+          <SystemVolumeControl />
 
-        <button
-          className="icon-only"
-          onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
-          style={{ background: 'transparent', border: 'none', boxShadow: 'none', cursor: 'pointer', padding: 6, color: 'inherit', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-        >
-          <SkipBack size={22} fill="currentColor" color="currentColor" />
-        </button>
+          <button
+            className="icon-only"
+            onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, color: '#ffffff', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          >
+            <SkipBack size={21} fill="currentColor" color="currentColor" />
+          </button>
 
-        <button
-          onClick={(e) => { e.stopPropagation(); onTogglePlay?.(); }}
-          style={{
-            width: 44, height: 44, borderRadius: '50%', border: 'none', cursor: 'pointer',
-            background: eqColor,
-            boxShadow: `0 0 18px ${eqGlow}`,
-            transition: 'background 0.8s ease, box-shadow 0.8s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            position: 'relative', overflow: 'hidden',
-          }}
-        >
-          {/* Pause Icon Wrapper */}
-          <div
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePlay?.(); }}
             style={{
-              position: 'absolute',
+              width: 42, height: 42, borderRadius: '50%', border: 'none', cursor: 'pointer',
+              background: eqColor,
+              boxShadow: `0 0 16px ${eqGlow}`,
+              transition: 'background 0.8s ease, box-shadow 0.8s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              position: 'relative', overflow: 'hidden',
+            }}
+          >
+            {/* Pause Icon Wrapper */}
+            <div
+              style={{
+                position: 'absolute',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'opacity 0.22s ease-out, transform 0.22s ease-out',
+                opacity: isPlaying ? 1 : 0,
+                transform: isPlaying ? 'scale(1)' : 'scale(0.6)',
+                pointerEvents: 'none',
+              }}
+            >
+              <Pause size={19} fill={playIconColor} color={playIconColor} />
+            </div>
+
+            {/* Play Icon Wrapper */}
+            <div
+              style={{
+                position: 'absolute',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'opacity 0.22s ease-out, transform 0.22s ease-out',
+                opacity: isPlaying ? 0 : 1,
+                transform: isPlaying ? 'scale(0.6)' : 'scale(1)',
+                pointerEvents: 'none',
+              }}
+            >
+              <Play size={19} fill={playIconColor} color={playIconColor} style={{ marginLeft: 2 }} />
+            </div>
+          </button>
+
+          <button
+            className="icon-only"
+            onClick={(e) => { e.stopPropagation(); onNext?.(); }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, color: '#ffffff', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+          >
+            <SkipForward size={21} fill="currentColor" color="currentColor" />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onToggleLyrics?.();
+            }}
+            title="Synced Lyrics"
+            style={{
+              background: isLyricsView ? 'rgba(255, 255, 255, 0.15)' : 'none',
+              border: 'none',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              padding: 6,
+              color: isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.85)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'opacity 0.22s ease-out, transform 0.22s ease-out, visibility 0.22s ease-out',
-              opacity: isPlaying ? 1 : 0,
-              visibility: isPlaying ? 'visible' : 'hidden',
-              transform: isPlaying ? 'scale(1) rotate(0deg)' : 'scale(0.6) rotate(-45deg)',
-              pointerEvents: 'none',
+              transition: 'all 0.3s ease',
+              filter: isLyricsView ? `drop-shadow(0 0 6px ${eqGlow})` : 'none',
             }}
           >
-            <Pause size={20} fill="#ffffff" color="#ffffff" />
-          </div>
+            <StraightMicIcon size={18} color={isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.85)'} />
+          </button>
+        </div>
 
-          {/* Play Icon Wrapper */}
-          <div
-            style={{
-              position: 'absolute',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'opacity 0.22s ease-out, transform 0.22s ease-out, visibility 0.22s ease-out',
-              opacity: isPlaying ? 0 : 1,
-              visibility: isPlaying ? 'hidden' : 'visible',
-              transform: isPlaying ? 'scale(0.6) rotate(45deg)' : 'scale(1) rotate(0deg)',
-              pointerEvents: 'none',
-            }}
-          >
-            <Play size={20} fill="#ffffff" color="#ffffff" style={{ marginLeft: 2 }} />
-          </div>
-        </button>
-
-        <button
-          className="icon-only"
-          onClick={(e) => { e.stopPropagation(); onNext?.(); }}
-          style={{ background: 'transparent', border: 'none', boxShadow: 'none', cursor: 'pointer', padding: 6, color: 'inherit', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-        >
-          <SkipForward size={22} fill="currentColor" color="currentColor" />
-        </button>
-
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onToggleLyrics?.();
-          }}
-          title="Synced Lyrics"
-          style={{
-            position: 'absolute',
-            right: 22,
-            background: isLyricsView ? 'rgba(255, 255, 255, 0.15)' : 'none',
-            border: 'none',
-            borderRadius: '50%',
-            cursor: 'pointer',
-            padding: 6,
-            color: isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.75)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.3s ease',
-            filter: isLyricsView ? `drop-shadow(0 0 6px ${eqGlow})` : 'none',
-          }}
-        >
-          <StraightMicIcon size={18} color={isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.85)'} />
-        </button>
       </div>
-
     </div>
   );
 }

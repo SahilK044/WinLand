@@ -39,6 +39,7 @@ import galaxyCaseLidGlb  from '../assets/models/galaxy_case_lid.glb?url';
 import galaxyBudLeftGlb  from '../assets/models/galaxy_bud_left.glb?url';
 import galaxyBudRightGlb from '../assets/models/galaxy_bud_right.glb?url';
 import soundbarGlb       from '../assets/models/soundbar.glb?url';
+import sonosSoundbarGlb  from '../assets/models/sonos_soundbar.glb?url';
 import ps5ControllerGlb  from '../assets/models/ps5_controller.glb?url';
 import xboxBlackGlb      from '../assets/models/xbox_black.glb?url';
 import xboxWhiteGlb      from '../assets/models/xbox_white.glb?url';
@@ -72,6 +73,7 @@ export const GLB_MODEL_MAP = {
   airpodsmax: airpodsmaxGlb,
   galaxybuds: galaxybudsGlb,
   soundbar: soundbarGlb,
+  sonos_soundbar: sonosSoundbarGlb,
   ps5_controller: ps5ControllerGlb,
   xbox_black: xboxBlackGlb,
   xbox_white: xboxWhiteGlb,
@@ -139,6 +141,7 @@ export const MODEL_CONFIGS = {
   airpodspro:     { baseRotY: 0, baseRotX: 0, scaleFactor: 1.60, riseAxis: 'y', secondaryAxis: 'z', secondarySign: 1, riseMult: 0.55, budsAuthoredOut: true, lidAuthoredOpen: true, hingeZUseMax: true, openNudgeY: 0.10 },
   galaxybuds:     { baseRotY: 0, baseRotX: -Math.PI / 2 - 0.15, scaleFactor: 1.60, riseAxis: 'z', secondaryAxis: 'y', secondarySign: -1, riseMult: 0.85, lidOpenAngle: Math.PI / 2, openNudgeY: 0.38, preRiggedLid: true, splitBuds: true },
   soundbar:       { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.35 },
+  sonos_soundbar: { baseRotY: 0,              baseRotX: 0.12, scaleFactor: 1.45 },
   // The DualSense GLB is authored back-on, so it needs a half turn to show its
   // face; the Xbox GLBs are already authored face-on.
   ps5_controller: { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.28 },

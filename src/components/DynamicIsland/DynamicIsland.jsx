@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { motion } from 'framer-motion';
+import UsbWidget from '../Activities/UsbWidget';
+import DiscordWidget from '../Activities/DiscordWidget';
 import MusicWidget from '../Activities/MusicWidget';
 import TimerWidget from '../Activities/TimerWidget';
 import CallWidget from '../Activities/CallWidget';
@@ -145,36 +148,6 @@ function computeBarHeightsWithGain(t, gain) {
   });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 100% SOLID OPAQUE background gradient — ZERO text bleed-through!
-// ─────────────────────────────────────────────────────────────────────────────
-function buildPillBg(accent, expanded, isPlaying, isLight) {
-  if (!expanded || !isPlaying || !accent) {
-    return isLight ? 'rgba(255, 255, 255, 0.94)' : '#000000';
-  }
-  const { r, g, b } = accent;
-
-  if (isLight) {
-    const r1 = Math.min(255, Math.round(r * 0.54 + 180));
-    const g1 = Math.min(255, Math.round(g * 0.54 + 180));
-    const b1 = Math.min(255, Math.round(b * 0.54 + 180));
-    return `linear-gradient(135deg, rgb(${r1},${g1},${b1}) 0%, rgba(255, 255, 255, 0.96) 65%, #FFFFFF 100%)`;
-  }
-
-  const r1 = Math.min(255, Math.round(r * 0.40));
-  const g1 = Math.min(255, Math.round(g * 0.40));
-  const b1 = Math.min(255, Math.round(b * 0.40));
-
-  const r2 = Math.min(255, Math.round(r * 0.16));
-  const g2 = Math.min(255, Math.round(g * 0.16));
-  const b2 = Math.min(255, Math.round(b * 0.16));
-
-  const r3 = Math.min(255, Math.round(r * 0.05));
-  const g3 = Math.min(255, Math.round(g * 0.05));
-  const b3 = Math.min(255, Math.round(b * 0.05));
-
-  return `linear-gradient(135deg, rgb(${r1},${g1},${b1}) 0%, rgb(${r2},${g2},${b2}) 35%, rgb(${r3},${g3},${b3}) 65%, #000000 100%)`;
-}
 
 export default function DynamicIsland({
   activeState,
@@ -216,7 +189,10 @@ export default function DynamicIsland({
     });
     return () => unsub();
   }, []);
+
   const [callData, setCallData] = useState(null);
+  const [usbData, setUsbData] = useState(null);
+  const [discordVoice, setDiscordVoice] = useState(null);
   const capsuleRef = useRef(null);
   const secondaryCapsuleRef = useRef(null);
   const [isCapsuleHovered, setIsCapsuleHovered] = useState(false);
@@ -226,6 +202,11 @@ export default function DynamicIsland({
   // pressing one pill incorrectly lights up the other's glass shimmer.
   const [isSecondaryHovered, setIsSecondaryHovered] = useState(false);
   const [isSecondaryPressed, setIsSecondaryPressed] = useState(false);
+  const isDraggingRef = useRef(false);
+  const isCapsulePressedRef = useRef(false);
+  useEffect(() => {
+    isCapsulePressedRef.current = isCapsulePressed || isSecondaryPressed;
+  }, [isCapsulePressed, isSecondaryPressed]);
   const [bluetoothData, setBluetoothData] = useState({
     deviceName: 'AirPods Pro',
     batteryPct: 88,
@@ -320,13 +301,16 @@ export default function DynamicIsland({
   const resetIdleTimer = useCallback(() => {
     setIsDocked(false);
     clearTimeout(idleTimerRef.current);
+    if (isDraggingRef.current || isCapsulePressedRef.current) return;
     const isEnabled = devicePrefs?.autoHideIdle !== false && weatherConfig?.autoHideIdle !== false;
     const durationSec = devicePrefs?.autoHideDuration || weatherConfig?.autoHideDuration || 10;
     const delayMs = Math.max(1000, durationSec * 1000);
 
     if (isEnabled && activeState === 'idle') {
       idleTimerRef.current = setTimeout(() => {
-        setIsDocked(true);
+        if (!isDraggingRef.current && !isCapsulePressedRef.current) {
+          setIsDocked(true);
+        }
       }, delayMs);
     }
   }, [activeState, devicePrefs?.autoHideIdle, devicePrefs?.autoHideDuration, weatherConfig?.autoHideIdle, weatherConfig?.autoHideDuration]);
@@ -344,6 +328,8 @@ export default function DynamicIsland({
   const batteryDismiss        = useRef(null);
   const bluetoothDismiss      = useRef(null);
   const screenshotDismiss     = useRef(null);
+  const usbDismiss            = useRef(null);
+  const discordDismiss        = useRef(null);
   // Remembers what the island was showing (e.g. expanded-lyrics) right before a
   // transient overlay (bluetooth / battery / volume) interrupted it, so we can
   // resume that view instead of always dropping back to the compact player -
@@ -351,13 +337,17 @@ export default function DynamicIsland({
   const preOverlayStateRef    = useRef(null);
   const prevCoverRef          = useRef(null);
   const trackInfoRef          = useRef(trackInfo);
+  const setNotificationRef    = useRef(setNotification);
 
-  // Keep a ref mirror of trackInfo so the mount-once IPC listener effect below
-  // (empty dep array) can read the *current* track instead of the value it
-  // closed over at mount time.
+  // Keep a ref mirror of trackInfo & setNotification so the mount-once IPC listener effect below
+  // (empty dep array) can read current values without stale closures.
   useEffect(() => {
     trackInfoRef.current = trackInfo;
   }, [trackInfo]);
+
+  useEffect(() => {
+    setNotificationRef.current = setNotification;
+  }, [setNotification]);
 
 
 
@@ -385,7 +375,7 @@ export default function DynamicIsland({
       const isPs = gp.id?.toLowerCase().includes('dualsense') || gp.id?.toLowerCase().includes('playstation') || gp.id?.toLowerCase().includes('054c');
       const name = isPs ? 'DualSense Wireless Controller' : 'Xbox Wireless Controller';
 
-      setNotification?.({
+      setNotificationRef.current?.({
         title: `${name} Connected`,
         subtitle: `Gaming Gamepad • ${gp.buttons?.length || 16} Buttons • Ready`,
         icon: '🎮',
@@ -395,7 +385,9 @@ export default function DynamicIsland({
 
     window.addEventListener('gamepadconnected', handleGamepadConnected);
     return () => window.removeEventListener('gamepadconnected', handleGamepadConnected);
-  }, []);
+  }, [setActiveState]);
+
+
 
   const currentArtUrlRef = useRef(null);
   // ── Accent color extraction when album art changes ────────────────────────
@@ -579,12 +571,24 @@ export default function DynamicIsland({
       }
     }) : null;
 
-    const isOverlayState = (s) => s === 'expanded-battery' || s === 'volume-osd' || s === 'expanded-bluetooth' || s === 'expanded-call' || s === 'compact-call' || s === 'compact-screenrec' || s === 'expanded-screenrec';
+    const isOverlayState = (s) => (
+      s === 'expanded-battery' ||
+      s === 'volume-osd' ||
+      s === 'expanded-bluetooth' ||
+      s === 'expanded-call' ||
+      s === 'compact-call' ||
+      s === 'compact-screenrec' ||
+      s === 'expanded-screenrec' ||
+      s === 'expanded-screenshot' ||
+      s === 'expanded-usb' ||
+      s === 'expanded-discord'
+    );
     const resumeFromOverlay = () => {
       const resumeState = preOverlayStateRef.current;
       preOverlayStateRef.current = null;
       if (resumeState === 'expanded-lyrics' || resumeState === 'expanded-music') return resumeState;
-      return trackInfoRef.current.title && isTimerActive ? 'split' : (trackInfoRef.current.title ? 'compact-music' : (isTimerActive ? 'compact-timer' : 'idle'));
+      const isTimerRunning = timerStore.getTimers().some((t) => t.status === 'running');
+      return trackInfoRef.current.title && isTimerRunning ? 'split' : (trackInfoRef.current.title ? 'compact-music' : (isTimerRunning ? 'compact-timer' : 'idle'));
     };
 
     const cleanBattery = window.electronAPI.onBatteryUpdate(({ pct, charging, minsLeft, changed, isInitial }) => {
@@ -689,6 +693,57 @@ export default function DynamicIsland({
         })
       : () => {};
 
+    const cleanUsb = window.electronAPI?.onUsbConnected
+      ? window.electronAPI.onUsbConnected((data) => {
+          if (!data) return;
+          setUsbData(data);
+          setIsDocked(false);
+          soundEngine.playChime();
+          setActiveState((prev) => {
+            if (!isOverlayState(prev)) preOverlayStateRef.current = prev;
+            return 'expanded-usb';
+          });
+          clearTimeout(usbDismiss.current);
+          usbDismiss.current = setTimeout(() => {
+            setActiveState((prev) => prev === 'expanded-usb' ? resumeFromOverlay() : prev);
+          }, 6000);
+        })
+      : () => {};
+
+    const cleanUsbEjected = window.electronAPI?.onUsbEjected
+      ? window.electronAPI.onUsbEjected((data) => {
+          if (data && data.success) {
+            soundEngine.playChime();
+            setNotificationRef.current?.({
+              icon: 'HardDrive',
+              title: 'Drive Ejected',
+              subtitle: 'It is now safe to disconnect your device.',
+            });
+            setActiveState('notification');
+          }
+        })
+      : () => {};
+
+    const cleanDiscord = window.electronAPI?.onDiscordVoiceUpdate
+      ? window.electronAPI.onDiscordVoiceUpdate((data) => {
+          if (!data) return;
+          setDiscordVoice(data);
+          if (data.speaking) {
+            setIsDocked(false);
+            setActiveState((prev) => {
+              if (!isOverlayState(prev)) preOverlayStateRef.current = prev;
+              return 'expanded-discord';
+            });
+            clearTimeout(discordDismiss.current);
+          } else {
+            clearTimeout(discordDismiss.current);
+            discordDismiss.current = setTimeout(() => {
+              setActiveState((prev) => prev === 'expanded-discord' ? resumeFromOverlay() : prev);
+            }, 3000);
+          }
+        })
+      : () => {};
+
     if (window.electronAPI?.requestBluetoothStatus) {
       window.electronAPI.requestBluetoothStatus();
     }
@@ -701,8 +756,26 @@ export default function DynamicIsland({
       window.electronAPI.requestTimerStatus();
     }
 
-    return () => { cleanSpotify?.(); cleanTimer?.(); cleanBattery?.(); cleanVolume?.(); cleanBT?.(); cleanCall?.(); cleanScreenshot?.(); cleanScreenRec?.(); clearTimeout(batteryDismiss.current); clearTimeout(bluetoothDismiss.current); clearTimeout(screenshotDismiss.current); if (volumeDismiss.current) clearTimeout(volumeDismiss.current); };
-  }, []);
+    return () => {
+      cleanSpotify?.();
+      cleanTimer?.();
+      cleanBattery?.();
+      cleanVolume?.();
+      cleanBT?.();
+      cleanCall?.();
+      cleanScreenshot?.();
+      cleanScreenRec?.();
+      cleanUsb?.();
+      cleanUsbEjected?.();
+      cleanDiscord?.();
+      clearTimeout(batteryDismiss.current);
+      clearTimeout(bluetoothDismiss.current);
+      clearTimeout(screenshotDismiss.current);
+      clearTimeout(usbDismiss.current);
+      clearTimeout(discordDismiss.current);
+      if (volumeDismiss.current) clearTimeout(volumeDismiss.current);
+    };
+  }, [updateTrackData, setActiveState]);
 
   const gainRef = useRef(0);
   const eqSettledRef = useRef(true);
@@ -783,6 +856,10 @@ export default function DynamicIsland({
       'expanded-launcher': [390, 185],
       'expanded-screenshot':[360, 90],
       'expanded-bluetooth': [376, 61],
+      'expanded-usb':      [384, 68],
+      'expanded-discord':  [370, 76],
+      'compact-live-activity': [300, 44],
+      'expanded-live-activity': [380, 160],
     };
     const [w, h] = sizeMap[activeState] || [250, 44];
     const prev = prevWindowSizeRef.current;
@@ -816,6 +893,10 @@ export default function DynamicIsland({
       'expanded-launcher': 'state-expanded-launcher',
       'expanded-screenshot':'state-expanded-screenshot',
       'expanded-bluetooth':'state-expanded-bluetooth',
+      'expanded-usb':      'state-expanded-usb',
+      'expanded-discord':  'state-expanded-discord',
+      'compact-live-activity': 'state-compact-live-activity',
+      'expanded-live-activity': 'state-expanded-live-activity',
     }[activeState] || 'state-idle';
   };
 
@@ -840,20 +921,36 @@ export default function DynamicIsland({
     );
 
     let lastIgnoreState = null;
+    let mouseCheckRaf = null;
 
     const syncMousePassthrough = (event) => {
+      if (isDraggingRef.current || isCapsulePressedRef.current) {
+        if (lastIgnoreState !== false) {
+          lastIgnoreState = false;
+          setIgnore(false);
+        }
+        return;
+      }
+      if (mouseCheckRaf) return;
       const x = event.clientX;
       const y = event.clientY;
-      const primary = capsuleRef.current?.getBoundingClientRect();
-      const secondary = secondaryCapsuleRef.current?.getBoundingClientRect();
-      const overPill = isInside(primary, x, y) || isInside(secondary, x, y);
-      const shouldIgnore = !overPill;
-      if (shouldIgnore !== lastIgnoreState) {
-        lastIgnoreState = shouldIgnore;
-        setIgnore(shouldIgnore);
-      }
+      mouseCheckRaf = requestAnimationFrame(() => {
+        mouseCheckRaf = null;
+        const primary = capsuleRef.current?.getBoundingClientRect();
+        const secondary = secondaryCapsuleRef.current?.getBoundingClientRect();
+        const overPill = isInside(primary, x, y) || isInside(secondary, x, y);
+        const shouldIgnore = !overPill;
+        if (shouldIgnore !== lastIgnoreState) {
+          lastIgnoreState = shouldIgnore;
+          setIgnore(shouldIgnore);
+        }
+      });
     };
     const handleWindowLeave = () => {
+      if (mouseCheckRaf) {
+        cancelAnimationFrame(mouseCheckRaf);
+        mouseCheckRaf = null;
+      }
       if (lastIgnoreState !== true) {
         lastIgnoreState = true;
         setIgnore(true);
@@ -865,14 +962,13 @@ export default function DynamicIsland({
     const initialIgnore = !shouldCaptureExpandedSurface;
     lastIgnoreState = initialIgnore;
     setIgnore(initialIgnore);
-    window.addEventListener('mousemove', syncMousePassthrough, true);
-    document.addEventListener('mousemove', syncMousePassthrough, true);
-    window.addEventListener('mouseleave', handleWindowLeave, true);
+    window.addEventListener('mousemove', syncMousePassthrough, { capture: true, passive: true });
+    window.addEventListener('mouseleave', handleWindowLeave, { capture: true, passive: true });
 
     return () => {
-      window.removeEventListener('mousemove', syncMousePassthrough, true);
-      document.removeEventListener('mousemove', syncMousePassthrough, true);
-      window.removeEventListener('mouseleave', handleWindowLeave, true);
+      if (mouseCheckRaf) cancelAnimationFrame(mouseCheckRaf);
+      window.removeEventListener('mousemove', syncMousePassthrough, { capture: true });
+      window.removeEventListener('mouseleave', handleWindowLeave, { capture: true });
       setIgnore(true);
     };
   }, [activeState]);
@@ -1022,6 +1118,7 @@ export default function DynamicIsland({
   };
 
   const handleIslandClick = (e) => {
+    if (isDraggingRef.current) return;
     if (e.defaultPrevented) return;
     if (activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') return;
     if (e.target && (e.target.closest('button') || e.target.closest('input') || e.target.closest('svg') || e.target.closest('.interactive-child'))) {
@@ -1081,8 +1178,35 @@ export default function DynamicIsland({
 
   if (activeState === 'split') {
     return (
-      <div className="island-anchor" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-        <div className="island-split-container">
+      <motion.div 
+        className="island-anchor" 
+        onMouseEnter={(e) => { handleMouseEnter(e); setIsCapsuleHovered(true); }} 
+        onMouseLeave={(e) => { setIsCapsuleHovered(false); handleMouseLeave(e); }}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.45}
+        dragSnapToOrigin={true}
+        dragTransition={{ bounceStiffness: 600, bounceDamping: 28, power: 0.12 }}
+        onDragStart={() => {
+          isDraggingRef.current = true;
+          setIsDocked(false);
+          resetIdleTimer();
+        }}
+        onDragEnd={() => {
+          setTimeout(() => {
+            isDraggingRef.current = false;
+          }, 80);
+          resetIdleTimer();
+        }}
+      >
+        <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} aria-hidden="true">
+          <filter id="metaball" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur" />
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
+            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          </filter>
+        </svg>
+        <div className="island-split-container" style={{ filter: 'url(#metaball)' }}>
           {/* Primary Capsule: Music / Call */}
           <div
             ref={capsuleRef}
@@ -1147,12 +1271,39 @@ export default function DynamicIsland({
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="island-anchor" onMouseEnter={(e) => { handleMouseEnter(e); setIsCapsuleHovered(true); }} onMouseLeave={(e) => { setIsCapsuleHovered(false); handleMouseLeave(e); }}>
+    <motion.div 
+      className="island-anchor" 
+      onMouseEnter={(e) => { handleMouseEnter(e); setIsCapsuleHovered(true); }} 
+      onMouseLeave={(e) => { setIsCapsuleHovered(false); handleMouseLeave(e); }}
+      drag="x"
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.45}
+      dragSnapToOrigin={true}
+      dragTransition={{ bounceStiffness: 600, bounceDamping: 28, power: 0.12 }}
+      onDragStart={() => {
+        isDraggingRef.current = true;
+        setIsDocked(false);
+        resetIdleTimer();
+      }}
+      onDragEnd={() => {
+        setTimeout(() => {
+          isDraggingRef.current = false;
+        }, 80);
+        resetIdleTimer();
+      }}
+    >
+      <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} aria-hidden="true">
+        <filter id="metaball-main" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur" />
+          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
+          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+        </filter>
+      </svg>
       {/* Invisible top edge hit trigger region to wake up auto-hidden island on mouse hover */}
       <div
         style={{
@@ -1193,21 +1344,21 @@ export default function DynamicIsland({
           accentColor={eqColor}
         />
         {/* Smooth organic moving liquid aura background — Beat-Synced Equalizer Glow Pulse with 0.75s Silk Fade */}
-        <div
-          className="liquid-aura-container"
-          style={{
-            opacity: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo?.title
-              ? (trackInfo?.isPlaying ? 0.72 + beatPulse * 0.28 : 0.16)
-              : 0,
-            transform: `scale(${1 + beatPulse * 0.12})`,
-            filter: `blur(${24 + beatPulse * 8}px)`,
-            transition: 'opacity 0.75s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.9, 0.2, 1), filter 0.6s ease',
-          }}
-        >
-          <div className="liquid-blob-1" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.35) 55%, transparent 100%)`, transition: 'background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)' }} />
-          <div className="liquid-blob-2" style={{ background: `radial-gradient(circle, rgba(${smoothR},${smoothG},${smoothB},0.9) 0%, rgba(${smoothR},${smoothG},${smoothB},0.25) 50%, transparent 100%)`, transition: 'background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)' }} />
-          <div className="liquid-blob-3" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.2) 45%, transparent 100%)`, transition: 'background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)' }} />
-        </div>
+        {(activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo?.title && (
+          <div
+            className="liquid-aura-container"
+            style={{
+              opacity: trackInfo?.isPlaying ? 0.72 + beatPulse * 0.28 : 0.16,
+              transform: `scale3d(${1 + beatPulse * 0.12}, ${1 + beatPulse * 0.12}, 1)`,
+              pointerEvents: 'none',
+              transition: 'opacity 0.75s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.9, 0.2, 1)',
+            }}
+          >
+            <div className="liquid-blob-1" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.35) 55%, transparent 100%)` }} />
+            <div className="liquid-blob-2" style={{ background: `radial-gradient(circle, rgba(${smoothR},${smoothG},${smoothB},0.9) 0%, rgba(${smoothR},${smoothG},${smoothB},0.25) 50%, transparent 100%)` }} />
+            <div className="liquid-blob-3" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.2) 45%, transparent 100%)` }} />
+          </div>
+        )}
 
         <div className="activity-fade-content" key={(activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') ? 'screenrec' : (activeState === 'expanded-music' || activeState === 'compact-music' || activeState === 'expanded-lyrics') ? 'music' : (activeState === 'expanded-call' || activeState === 'compact-call') ? 'call' : activeState}>
 
@@ -1219,6 +1370,7 @@ export default function DynamicIsland({
               isExpanded={activeState === 'expanded-music' || activeState === 'expanded-lyrics'}
               isLyricsView={activeState === 'expanded-lyrics'}
               isDndActive={isDndActive}
+              isDndVisible={isDndVisible}
               onToggleLyrics={() => setActiveState((prev) => prev === 'expanded-lyrics' ? 'expanded-music' : 'expanded-lyrics')}
               trackInfo={trackInfo}
               barHeights={barHeights}
@@ -1283,6 +1435,8 @@ export default function DynamicIsland({
           {activeState === 'expanded-screenshot' && (
             <ScreenshotWidget imageSrc={screenshotData} onDismiss={() => setActiveState('idle')} />
           )}
+          {activeState === 'expanded-usb' && <UsbWidget data={usbData} />}
+          {activeState === 'expanded-discord' && <DiscordWidget data={discordVoice} />}
           {(activeState === 'compact-screenrec' || activeState === 'expanded-screenrec') && (
             <ScreenRecorderWidget
               isCompact={activeState === 'compact-screenrec'}
@@ -1310,70 +1464,72 @@ export default function DynamicIsland({
             <LiveActivitiesWidget onExpand={() => setActiveState('expanded-live-activity')} />
           )}
 
-          {/* Official 1:1 macOS Dark Translucent Glass Focus / Do Not Disturb Badge */}
-          {shouldRenderDnd && activeState !== 'compact-music' && activeState !== 'split' && activeState !== 'expanded-launcher' && (
-            <button
-              title="Focus Mode / Do Not Disturb Active (Click to toggle)"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.electronAPI?.toggleDnd) window.electronAPI.toggleDnd();
-              }}
-              style={{
-                position: 'absolute',
-                top: activeState.startsWith('expanded-') ? 14 : 9,
-                right: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') ? 85 : (activeState.startsWith('expanded-') ? 16 : 14),
-                background: 'rgba(94, 92, 230, 0.24)',
-                border: '1px solid rgba(135, 133, 255, 0.38)',
-                borderRadius: 14,
-                padding: activeState.startsWith('expanded-') ? '3.5px 9px' : '3.5px 7px',
-                cursor: 'pointer',
-                zIndex: 30,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 5,
-                opacity: isDndVisible ? 1 : 0,
-                transform: isDndVisible ? 'scale(1) translateY(0)' : 'scale(0.72) translateY(-4px)',
-                filter: isDndVisible ? 'blur(0px)' : 'blur(4px)',
-                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)',
-                transition: 'opacity 0.28s cubic-bezier(0.32, 1.25, 0.36, 1), transform 0.28s cubic-bezier(0.32, 1.25, 0.36, 1), filter 0.28s ease, background 0.2s ease, box-shadow 0.2s ease',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-              }}
-              onMouseEnter={(e) => {
-                if (!isDndVisible) return;
-                e.currentTarget.style.transform = 'scale(1.06) translateY(-1px)';
-                e.currentTarget.style.background = 'rgba(94, 92, 230, 0.42)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(94, 92, 230, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35)';
-              }}
-              onMouseLeave={(e) => {
-                if (!isDndVisible) return;
-                e.currentTarget.style.transform = 'scale(1.0) translateY(0)';
-                e.currentTarget.style.background = 'rgba(94, 92, 230, 0.24)';
-                e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)';
-              }}
-            >
-              <Moon size={11} color="#a5a3ff" fill="#a5a3ff" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }} />
-              {activeState.startsWith('expanded-') && (
-                <span
-                  style={{
-                    fontSize: 10.5,
-                    fontWeight: 650,
-                    color: '#e4e3ff',
-                    letterSpacing: '-0.2px',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.4)',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Do Not Disturb
-                </span>
-              )}
-            </button>
-          )}
         </div>
       </div>
-    </div>
+
+      {/* Official 1:1 macOS Dark Translucent Glass Focus / Do Not Disturb Badge */}
+      {shouldRenderDnd && activeState !== 'compact-music' && activeState !== 'split' && activeState !== 'expanded-launcher' && (
+        <button
+          title="Focus Mode / Do Not Disturb Active (Click to toggle)"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.electronAPI?.toggleDnd) window.electronAPI.toggleDnd();
+          }}
+          style={{
+            position: 'absolute',
+            top: activeState.startsWith('expanded-') ? 14 : 9,
+            right: (activeState === 'expanded-music' || activeState === 'expanded-lyrics') ? 52 : (activeState.startsWith('expanded-') ? 16 : 14),
+            background: 'rgba(94, 92, 230, 0.24)',
+            border: '1px solid rgba(135, 133, 255, 0.38)',
+            borderRadius: 14,
+            padding: activeState.startsWith('expanded-') ? '3.5px 9px' : '3.5px 7px',
+            cursor: 'pointer',
+            zIndex: 30,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 5,
+            opacity: isDndVisible ? 1 : 0,
+            transform: isDndVisible ? 'scale(1) translateY(0)' : 'scale(0.72) translateY(-4px)',
+            filter: isDndVisible ? 'blur(0px)' : 'blur(4px)',
+            boxShadow: '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)',
+            transition: 'opacity 0.28s cubic-bezier(0.32, 1.25, 0.36, 1), transform 0.28s cubic-bezier(0.32, 1.25, 0.36, 1), filter 0.28s ease, background 0.2s ease, box-shadow 0.2s ease',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+          }}
+          onMouseEnter={(e) => {
+            if (!isDndVisible) return;
+            e.currentTarget.style.transform = 'scale(1.06) translateY(-1px)';
+            e.currentTarget.style.background = 'rgba(94, 92, 230, 0.42)';
+            e.currentTarget.style.boxShadow = '0 6px 20px rgba(94, 92, 230, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.35)';
+          }}
+          onMouseLeave={(e) => {
+            if (!isDndVisible) return;
+            e.currentTarget.style.transform = 'scale(1.0) translateY(0)';
+            e.currentTarget.style.background = 'rgba(94, 92, 230, 0.24)';
+            e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)';
+          }}
+        >
+          <Moon size={11} color="#a5a3ff" fill="#a5a3ff" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }} />
+          {activeState.startsWith('expanded-') && (
+            <span
+              style={{
+                fontSize: 10.5,
+                fontWeight: 650,
+                color: '#e4e3ff',
+                letterSpacing: '-0.2px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif',
+                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Do Not Disturb
+            </span>
+          )}
+        </button>
+      )}
+
+    </motion.div>
   );
 }
 
