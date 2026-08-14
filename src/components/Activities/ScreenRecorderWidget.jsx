@@ -328,50 +328,40 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
     requestCanvasFrame();
 
     let isRunning = true;
-    let rVfcHandle = null;
     let rafHandle = null;
-    let intervalHandle = null;
+    let lastDrawTime = performance.now();
+    const frameInterval = 1000 / targetFps;
 
     const onFrame = () => {
       if (!isRunning) return;
+      
       if (statusRef.current === 'paused') {
-        scheduleNext();
+        rafHandle = requestAnimationFrame(onFrame);
         return;
       }
+      
       if (statusRef.current === 'saving' || statusRef.current === 'saved') {
         isRunning = false;
         return;
       }
-      draw();
-      requestCanvasFrame();
-      scheduleNext();
-    };
 
-    const scheduleNext = () => {
-      if (!isRunning) return;
-      if (video && typeof video.requestVideoFrameCallback === 'function') {
-        rVfcHandle = video.requestVideoFrameCallback(onFrame);
-      } else if (targetFps <= 60) {
-        rafHandle = requestAnimationFrame(onFrame);
+      const now = performance.now();
+      // 1ms tolerance for rAF timing jitter
+      if (now - lastDrawTime >= frameInterval - 1) {
+        draw();
+        requestCanvasFrame();
+        lastDrawTime = now;
       }
+      
+      rafHandle = requestAnimationFrame(onFrame);
     };
 
-    if (video && typeof video.requestVideoFrameCallback === 'function') {
-      rVfcHandle = video.requestVideoFrameCallback(onFrame);
-    } else if (targetFps > 60) {
-      intervalHandle = setInterval(onFrame, 1000 / targetFps);
-    } else {
-      rafHandle = requestAnimationFrame(onFrame);
-    }
+    rafHandle = requestAnimationFrame(onFrame);
 
     drawIntervalRef.current = {
       stop: () => {
         isRunning = false;
-        if (rVfcHandle !== null && video && typeof video.cancelVideoFrameCallback === 'function') {
-          try { video.cancelVideoFrameCallback(rVfcHandle); } catch {}
-        }
         if (rafHandle !== null) cancelAnimationFrame(rafHandle);
-        if (intervalHandle !== null) clearInterval(intervalHandle);
       }
     };
 
