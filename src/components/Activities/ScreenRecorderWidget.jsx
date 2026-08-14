@@ -581,6 +581,16 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
       streamRef.current?.getTracks().forEach(t => t.stop());
       composedStreamRef.current?.getTracks().forEach(t => t.stop());
       stopDrawLoop();
+      
+      mouseCleanupRef.current?.();
+      window.electronAPI?.stopScreenRecMouseTracking?.();
+      window.electronAPI?.stopScreenRecHotkeys?.();
+      
+      if (smartFocusRef.current) {
+        smartFocusRef.current.destroy();
+        smartFocusRef.current = null;
+      }
+      
       setStatus('error');
       errorTimerRef.current = setTimeout(() => setStatus('ready'), 3000);
     }

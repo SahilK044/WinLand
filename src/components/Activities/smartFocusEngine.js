@@ -154,8 +154,8 @@ export function createSmartFocusEngine(userConfig = {}) {
       }
     } else {
       // When not locked in a click interaction:
-      // If mouse is NOT clicking or NOT moving, return to full screen (1.0x Overview)!
-      if (!isMoving || (now - focus.lastClickTime > 2000)) {
+      // If mouse is NOT moving, return to full screen (1.0x Overview)!
+      if (!isMoving) {
         focus.state = FOCUS_STATES.OVERVIEW;
         focus.targetX = 0.5;
         focus.targetY = 0.5;
