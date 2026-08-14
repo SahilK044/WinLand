@@ -1172,8 +1172,12 @@ ipcMain.handle('get-initial-config', () => readWinlandConfig());
 
 // ── USB Hub / Eject Logic ───────────────────────────────────────────────
 let knownUsbDrives = new Set();
+let isPollingUsb = false;
 let usbPollInterval = setInterval(() => {
-  exec('powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object DriveType -eq 2 | Select-Object -Property DeviceID, VolumeName, Size, FreeSpace, FileSystem | ConvertTo-Json"', (err, stdout) => {
+  if (isPollingUsb) return; // Prevent overlapping PowerShell process stacking
+  isPollingUsb = true;
+  exec('powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object DriveType -eq 2 | Select-Object -Property DeviceID, VolumeName, Size, FreeSpace, FileSystem | ConvertTo-Json"', { timeout: 4000 }, (err, stdout) => {
+    isPollingUsb = false;
     if (err || !stdout || !stdout.trim()) {
       knownUsbDrives.clear();
       return;
@@ -1200,7 +1204,7 @@ let usbPollInterval = setInterval(() => {
       knownUsbDrives = currentDrives;
     } catch {}
   });
-}, 2500);
+}, 3000);
 
 ipcMain.on('eject-usb', (_event, deviceId) => {
   if (!deviceId || typeof deviceId !== 'string') return;

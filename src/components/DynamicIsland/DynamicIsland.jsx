@@ -957,6 +957,19 @@ export default function DynamicIsland({
       }
     };
 
+    const handleBlur = () => {
+      isDraggingRef.current = false;
+      isCapsulePressedRef.current = false;
+      if (mouseCheckRaf) {
+        cancelAnimationFrame(mouseCheckRaf);
+        mouseCheckRaf = null;
+      }
+      if (lastIgnoreState !== true) {
+        lastIgnoreState = true;
+        setIgnore(true);
+      }
+    };
+
     // Expanded widgets contain real controls, so hold the Electron window in
     // interactive mode immediately.
     const initialIgnore = !shouldCaptureExpandedSurface;
@@ -964,11 +977,13 @@ export default function DynamicIsland({
     setIgnore(initialIgnore);
     window.addEventListener('mousemove', syncMousePassthrough, { capture: true, passive: true });
     window.addEventListener('mouseleave', handleWindowLeave, { capture: true, passive: true });
+    window.addEventListener('blur', handleBlur, { capture: true, passive: true });
 
     return () => {
       if (mouseCheckRaf) cancelAnimationFrame(mouseCheckRaf);
       window.removeEventListener('mousemove', syncMousePassthrough, { capture: true });
       window.removeEventListener('mouseleave', handleWindowLeave, { capture: true });
+      window.removeEventListener('blur', handleBlur, { capture: true });
       setIgnore(true);
     };
   }, [activeState]);

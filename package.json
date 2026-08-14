@@ -30,7 +30,6 @@
       "public/**/*",
       "electron.js",
       "preload.cjs",
-      "preload.js",
       "package.json"
     ],
     "extraResources": [
