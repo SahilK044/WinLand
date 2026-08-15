@@ -107,24 +107,26 @@ img, canvas {
 .island-capsule {
   position: relative;
   margin: 0 auto;
-  border-radius: 28px;
+  border-radius: 22px;
   border: none !important;
-  outline: none !important;
+  outline: 1px solid transparent; /* Enables GPU sub-pixel edge antialiasing in Chromium */
   pointer-events: auto;
   cursor: pointer;
   transform-origin: top center;
   will-change: width, height, border-radius;
   overflow: hidden;
   isolation: isolate;
-  -webkit-mask-image: -webkit-radial-gradient(white, black);
-  mask-image: -webkit-radial-gradient(white, black);
-  transform: translate3d(0, 0, 0);
-  -webkit-transform: translate3d(0, 0, 0);
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  shape-rendering: geometricPrecision;
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.72),
+    0 6px 16px rgba(0, 0, 0, 0.48),
+    0 0 0.5px rgba(255, 255, 255, 0.1);
+  background: #000000;
 
   /* Apple Dynamic Island Single-Pass 120Hz Fluid Elastic Spring */
   transition:
@@ -132,7 +134,8 @@ img, canvas {
     height 0.42s cubic-bezier(0.32, 1.25, 0.36, 1),
     border-radius 0.42s cubic-bezier(0.32, 1.25, 0.36, 1),
     transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.24s ease;
+    opacity 0.24s ease,
+    box-shadow 0.42s cubic-bezier(0.32, 1.25, 0.36, 1);
 }
 
 .island-capsule:active,
@@ -266,21 +269,15 @@ img, canvas {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: #000;
-  box-shadow:
-    0 16px 42px rgba(0, 0, 0, 0.7),
-    0 4px 14px rgba(0, 0, 0, 0.5);
+  background: #000000;
   border: none !important;
   z-index: -1;
   pointer-events: none;
-  transition: box-shadow 0.42s ease;
 }
 
 /* Hover lifts it very slightly off the desktop rather than lightening it. */
 .island-capsule:hover::before {
-  box-shadow:
-    0 22px 50px rgba(0, 0, 0, 0.8),
-    0 6px 18px rgba(0, 0, 0, 0.6);
+  background: #000000;
 }
 
 /* Specular glass edge highlight for anti-aliased curved borders */
@@ -289,10 +286,10 @@ img, canvas {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  border: 0.5px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.085);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12);
   pointer-events: none;
-  z-index: 1;
+  z-index: 10;
 }
 
 /* Secondary label color (Apple's dark-mode secondary-label convention).
@@ -447,8 +444,8 @@ img, canvas {
 /* Active State Dimensions */
 .state-idle {
   width: 250px;
-  height: 42px;
-  border-radius: 21px;
+  height: 44px;
+  border-radius: 22px;
 }
 
 .state-compact-music {
@@ -459,8 +456,8 @@ img, canvas {
 
 .state-compact-timer {
   width: 250px;
-  height: 42px;
-  border-radius: 21px;
+  height: 44px;
+  border-radius: 22px;
 }
 
 .state-split {
@@ -516,20 +513,20 @@ img, canvas {
 .state-expanded-music {
   width: 390px;
   height: 172px;
-  border-radius: 36px;
+  border-radius: 44px;
 }
 
 .state-expanded-lyrics {
   width: 390px;
   height: 300px;
-  border-radius: 36px;
+  border-radius: 46px;
 }
 
 .state-expanded-timer {
   width: 480px;
   height: auto;
   min-height: 82px;
-  border-radius: 34px;
+  border-radius: 41px;
 }
 
 .island-capsule.is-docked {
@@ -548,37 +545,37 @@ img, canvas {
 .state-expanded-shelf {
   width: 380px;
   height: var(--shelf-dynamic-height, 210px);
-  border-radius: 40px;
+  border-radius: 44px;
 }
 
 .state-expanded-sysmon {
   width: 370px;
   height: 150px;
-  border-radius: 32px;
+  border-radius: 42px;
 }
 
 .state-expanded-launcher {
   width: 360px;
   height: 180px;
-  border-radius: 32px;
+  border-radius: 42px;
 }
 
 .state-expanded-settings {
   width: 440px;
   height: 310px;
-  border-radius: 36px;
+  border-radius: 46px;
 }
 
 .state-expanded-screenshot {
   width: 360px;
   height: 90px;
-  border-radius: 26px;
+  border-radius: 36px;
 }
 
 .state-expanded-bluetooth {
   width: 376px;
-  height: 61px;
-  border-radius: 31px;
+  height: 68px;
+  border-radius: 34px;
 }
 
 .state-expanded-usb {
@@ -596,13 +593,13 @@ img, canvas {
 .state-compact-live-activity {
   width: 300px;
   height: 44px;
-  border-radius: 28px;
+  border-radius: 22px;
 }
 
 .state-expanded-live-activity {
   width: 380px;
   height: 160px;
-  border-radius: 36px;
+  border-radius: 42px;
 }
 
 /* Hide native scrollbar inside lyrics view */
@@ -666,7 +663,7 @@ img, canvas {
 .state-expanded-call {
   width: 310px;
   height: 240px;
-  border-radius: 42px;
+  border-radius: 44px;
 }
 
 /* â”€â”€ Call Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */

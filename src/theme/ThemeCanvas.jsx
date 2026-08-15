@@ -76,7 +76,15 @@ export default function ThemeCanvas({
       accentColor: accentColorRef.current,
     };
 
-    const computedRadius = Math.min(height / 2, 28);
+    let computedRadius = Math.min(height / 2, 44);
+    try {
+      const cs = window.getComputedStyle(container);
+      const parsed = parseFloat(cs.borderRadius);
+      if (!isNaN(parsed) && parsed > 0) {
+        computedRadius = parsed;
+      }
+    } catch {}
+
     const bounds = {
       x: 0,
       y: 0,
