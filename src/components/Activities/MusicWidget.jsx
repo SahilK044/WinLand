@@ -112,7 +112,7 @@ function smoothScrollTo(container, targetTop, duration = 300) {
 }
 
 
-const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = false, onSeek, onClose: _onClose, eqColor, eqGlow }) => {
+const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0, isPlaying = false, onSeek, onClose: _onClose, eqColor, eqGlow }) => {
   const [lyrics, setLyrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [plainLyrics, setPlainLyrics] = useState('');
@@ -185,8 +185,9 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
     const attemptFetch = async () => {
       // Strategy 1: LRCLIB Direct Match (Title + Artist)
       try {
-        if (durationMs > 0 && cleanArtist) {
-          const res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}&duration=${Math.round(durationMs / 1000)}`, { signal });
+        if (cleanArtist) {
+          const durParam = durationMs > 0 ? `&duration=${Math.round(durationMs / 1000)}` : '';
+          const res = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}&artist_name=${encodeURIComponent(cleanArtist)}${durParam}`, { signal });
           if (isStale()) return;
           if (res.ok) {
             const data = await res.json();
@@ -292,7 +293,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, isPlaying = fal
 
     attemptFetch();
     return () => controller.abort();
-  }, [title, artist]);
+  }, [title, artist, durationMs]);
 
   const [userOffsetMs, setUserOffsetMs] = useState(() => {
     try { return parseInt(localStorage.getItem('winland_lyrics_offset') || '0', 10); } catch { return 0; }
@@ -1134,6 +1135,7 @@ export default function MusicWidget({
         artist={artist}
         coverUrl={coverUrl}
         progressMs={progressMs}
+        durationMs={durationMs}
         isPlaying={isPlaying}
         onSeek={onSeek}
         onClose={onToggleLyrics}
