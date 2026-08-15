@@ -704,8 +704,8 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
         zIndex: 0,
         overflow: 'hidden',
         borderRadius: 'inherit',
-        WebkitMaskImage: 'linear-gradient(to right, #000 0%, #000 14%, rgba(0,0,0,0.85) 26%, rgba(0,0,0,0.5) 38%, rgba(0,0,0,0.18) 50%, transparent 62%)',
-        maskImage: 'linear-gradient(to right, #000 0%, #000 14%, rgba(0,0,0,0.85) 26%, rgba(0,0,0,0.5) 38%, rgba(0,0,0,0.18) 50%, transparent 62%)',
+        WebkitMaskImage: 'linear-gradient(to right, #000 0%, #000 12%, rgba(0,0,0,0.88) 22%, rgba(0,0,0,0.6) 34%, rgba(0,0,0,0.3) 46%, rgba(0,0,0,0.1) 58%, rgba(0,0,0,0.01) 68%, transparent 76%)',
+        maskImage: 'linear-gradient(to right, #000 0%, #000 12%, rgba(0,0,0,0.88) 22%, rgba(0,0,0,0.6) 34%, rgba(0,0,0,0.3) 46%, rgba(0,0,0,0.1) 58%, rgba(0,0,0,0.01) 68%, transparent 76%)',
         userSelect: 'none',
       }}
     >
@@ -719,7 +719,7 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
             position: 'absolute',
             top: 0,
             left: 0,
-            width: '52%',
+            width: '100%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'left center',
@@ -741,7 +741,7 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
             position: 'absolute',
             top: 0,
             left: 0,
-            width: '52%',
+            width: '100%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'left center',
