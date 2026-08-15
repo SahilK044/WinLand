@@ -780,17 +780,62 @@ img, canvas {
   position: relative;
   z-index: 1;
   contain: layout style;
-  will-change: opacity;
-  animation: islandContentFade 0.18s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+  will-change: opacity, transform;
+  animation: islandContentSpringFade 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-@keyframes islandContentFade {
-  from {
+@keyframes islandContentSpringFade {
+  0% {
     opacity: 0;
+    transform: scale(0.96);
   }
-  to {
+  100% {
     opacity: 1;
+    transform: scale(1);
   }
+}
+
+/* ─── Apple Dynamic Island Fluid Squish & Stretch Physics ─── */
+@keyframes islandSquishExpand {
+  0% {
+    transform: scale3d(1, 1, 1);
+  }
+  30% {
+    /* Fluid volume conservation: horizontal expansion pulls vertical down slightly */
+    transform: scale3d(1.035, 0.965, 1);
+  }
+  65% {
+    /* Elastic spring overshoot & settle */
+    transform: scale3d(0.992, 1.018, 1);
+  }
+  100% {
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+@keyframes islandSquishCollapse {
+  0% {
+    transform: scale3d(1, 1, 1);
+  }
+  30% {
+    /* Inward snap: momentary vertical bulge as horizontal rapidly contracts */
+    transform: scale3d(0.958, 1.036, 1);
+  }
+  65% {
+    /* Cushioned settle */
+    transform: scale3d(1.016, 0.988, 1);
+  }
+  100% {
+    transform: scale3d(1, 1, 1);
+  }
+}
+
+.island-capsule.morph-expand {
+  animation: islandSquishExpand 0.44s cubic-bezier(0.32, 1.25, 0.36, 1) forwards;
+}
+
+.island-capsule.morph-collapse {
+  animation: islandSquishCollapse 0.42s cubic-bezier(0.32, 1.18, 0.36, 1) forwards;
 }
 
 

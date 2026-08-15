@@ -264,6 +264,8 @@ export default function DynamicIsland({
   const [isDndVisible, setIsDndVisible]       = useState(false);
   const [isDocked, setIsDocked]               = useState(false);
   const [isDraggingOverIsland, setIsDraggingOverIsland] = useState(false);
+  const [morphClass, setMorphClass]           = useState('');
+  const morphTimeoutRef = useRef(null);
   const dragDepthRef = useRef(0);
   const idleTimerRef = useRef(null);
 
@@ -866,8 +868,17 @@ export default function DynamicIsland({
     const [w, h] = sizeMap[activeState] || [250, 44];
     const prev = prevWindowSizeRef.current;
     const growing = w > prev.w || h > prev.h;
+    const shrinking = w < prev.w || h < prev.h;
     prevWindowSizeRef.current = { w, h };
     window.electronAPI?.resizeWindow?.(w, h, growing);
+
+    if (prev.w > 0 && (growing || shrinking)) {
+      setMorphClass(growing ? 'morph-expand' : 'morph-collapse');
+      if (morphTimeoutRef.current) clearTimeout(morphTimeoutRef.current);
+      morphTimeoutRef.current = setTimeout(() => {
+        setMorphClass('');
+      }, 440);
+    }
   }, [activeState, timers.length, shelvedItems.length]);
 
   // ── State class map ───────────────────────────────────────────────────────
@@ -1366,7 +1377,7 @@ export default function DynamicIsland({
       <div
         ref={capsuleRef}
         style={{ '--shelf-dynamic-height': `${70 + Math.max(1, Math.min(4, Math.ceil(shelvedItems.length / 3))) * 95}px` }}
-        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''} ${isDraggingOverIsland ? 'shelf-absorption-active' : ''}`}
+        className={`island-capsule ${getStateClass()} ${morphClass} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''} ${isDraggingOverIsland ? 'shelf-absorption-active' : ''}`}
         onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
         onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
         onMouseLeave={(e) => { handleMouseLeave(e); setIsCapsuleHovered(false); }}
