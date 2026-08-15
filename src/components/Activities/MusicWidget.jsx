@@ -658,107 +658,6 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, onClick }) => {
   );
 };
 
-// Full-Bleed Album Art Component with Butter-Smooth Track Crossfade & Eased Dissolve
-const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
-  const [currentCover, setCurrentCover] = useState(coverUrl);
-  const [prevCover, setPrevCover] = useState(null);
-  const [isFading, setIsFading] = useState(false);
-  const fadeTimeoutRef = useRef(null);
-
-  useEffect(() => {
-    if (coverUrl !== currentCover) {
-      setPrevCover(currentCover);
-      setCurrentCover(coverUrl);
-      setIsFading(true);
-
-      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
-      fadeTimeoutRef.current = setTimeout(() => {
-        setPrevCover(null);
-        setIsFading(false);
-      }, 650);
-    }
-    return () => {
-      if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
-    };
-  }, [coverUrl, currentCover]);
-
-  if (!currentCover && !prevCover) return null;
-
-  return (
-    <div
-      onClick={(e) => {
-        e.stopPropagation();
-        if (onClick) onClick(e);
-        else window.electronAPI?.launchApp?.('spotify');
-      }}
-      title="Open in Spotify"
-      style={{
-        position: 'absolute',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        cursor: 'pointer',
-        zIndex: 0,
-        overflow: 'hidden',
-        borderRadius: 'inherit',
-        userSelect: 'none',
-      }}
-    >
-      {/* Previous cover dissolving out */}
-      {prevCover && (
-        <img
-          key={`prev-${prevCover}`}
-          src={prevCover}
-          alt="previous artwork"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center center',
-            filter: 'blur(26px) brightness(0.42) saturate(1.4)',
-            opacity: 0,
-            transform: 'scale(1.1)',
-            transition: 'opacity 0.65s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1)',
-          }}
-        />
-      )}
-
-      {/* Current cover dissolving and scaling in */}
-      {currentCover && (
-        <img
-          key={`curr-${currentCover}`}
-          src={currentCover}
-          alt={title}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center center',
-            filter: 'blur(26px) brightness(0.42) saturate(1.4)',
-            opacity: 0.72,
-            transform: 'scale(1.08)',
-            animation: isFading ? 'albumArtFadeIn 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : 'none',
-          }}
-        />
-      )}
-
-      {/* Ambient dark vignette overlay for deep contrast and glass readability */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 60%, rgba(0,0,0,0.92) 100%)',
-          pointerEvents: 'none',
-        }}
-      />
-    </div>
-  );
-};
-
 // System-wide Windows Master Volume Control (Lower Left Side - Zero Overlap / Zero Popups)
 const SystemVolumeControl = () => {
   const [volume, setVolume] = useState(50);
@@ -1240,12 +1139,6 @@ export default function MusicWidget({
       borderRadius: 'inherit',
       overflow: 'hidden',
     }}>
-
-      {/* ── Left Artwork Canvas with Translucent Soft Feathered Gradient Dissolve & Smooth Crossfade ── */}
-      {coverUrl && (
-        <FullBleedAlbumArt coverUrl={coverUrl} title={title} />
-      )}
-
       {/* ── Content Deck (Header, Scrubber & Controls — Clean Full Width) ── */}
       <div style={{
         position: 'relative',
