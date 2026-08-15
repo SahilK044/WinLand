@@ -838,7 +838,7 @@ export default function DynamicIsland({
       'compact-music':     [310, 44],
       'compact-timer':     [250, 42],
       'split':             [340, 54],
-      'expanded-music':    [390, 172],
+      'expanded-music':    [356, 156],
       'expanded-lyrics':   [390, 300],
       'expanded-timer':    [480, timerHeight],
       'compact-call':      [270, 54],

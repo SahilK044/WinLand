@@ -1149,37 +1149,37 @@ export default function MusicWidget({
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '16px 20px 14px 20px',
+        padding: '14px 18px 12px 18px',
         boxSizing: 'border-box',
       }}>
 
         {/* ── 1. Top Row: Track Info & Equalizer ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div style={{ marginRight: 12, flexShrink: 0 }}>
-            <AlbumArt coverUrl={coverUrl} title={title} size={44} r={10} />
+          <div style={{ marginRight: 11, flexShrink: 0 }}>
+            <AlbumArt coverUrl={coverUrl} title={title} size={40} r={9} />
           </div>
 
           <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndVisible ? 80 : 8 }}>
-            <MarqueeText style={{ fontSize: 16.5, fontWeight: 750, color: '#ffffff', lineHeight: '20px', letterSpacing: '-0.3px', textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 2px 10px rgba(0,0,0,0.6)' }}>
+            <MarqueeText style={{ fontSize: 15.5, fontWeight: 750, color: '#ffffff', lineHeight: '18px', letterSpacing: '-0.3px', textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 2px 10px rgba(0,0,0,0.6)' }}>
               {title}
             </MarqueeText>
             {artist && (
-              <MarqueeText className="widget-subtitle" style={{ fontSize: 12, fontWeight: 550, marginTop: 2, lineHeight: '15px', textShadow: '0 1px 3px rgba(0,0,0,0.75)' }}>
+              <MarqueeText className="widget-subtitle" style={{ fontSize: 11.5, fontWeight: 550, marginTop: 2, lineHeight: '14px', textShadow: '0 1px 3px rgba(0,0,0,0.75)' }}>
                 {artist}
               </MarqueeText>
             )}
-            <div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, color: eqColor, textShadow: '0 1px 2px rgba(0,0,0,0.6)', transition: 'color 0.8s ease' }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, marginTop: 2, color: eqColor, textShadow: '0 1px 2px rgba(0,0,0,0.6)', transition: 'color 0.8s ease' }}>
               {isPlaying ? 'Media • Active' : 'Media • Paused'}
             </div>
           </div>
 
           <div style={{ flexShrink: 0, marginTop: 2 }}>
-            <EqBars h={16} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
+            <EqBars h={15} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
           </div>
         </div>
 
         {/* ── 2. Middle Row: Scrubber / Progress Bar & Timers ── */}
-        <div style={{ width: '100%', marginTop: 8, marginBottom: 4, position: 'relative' }}>
+        <div style={{ width: '100%', marginTop: 6, marginBottom: 2, position: 'relative' }}>
           {/* Floating Scrubber Tooltip */}
           {isDragging && (
             <div
@@ -1277,23 +1277,23 @@ export default function MusicWidget({
         </div>
 
         {/* ── 3. Bottom Row: Spaced Transport Controls (Comfortable Breathing Room) ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 8px', marginTop: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 6px', marginTop: 2 }}>
           <SystemVolumeControl />
 
           <button
             className="icon-only"
             onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, color: '#ffffff', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#ffffff', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
-            <SkipBack size={21} fill="currentColor" color="currentColor" />
+            <SkipBack size={19} fill="currentColor" color="currentColor" />
           </button>
 
           <button
             onClick={(e) => { e.stopPropagation(); onTogglePlay?.(); }}
             style={{
-              width: 42, height: 42, borderRadius: '50%', border: 'none', cursor: 'pointer',
+              width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer',
               background: eqColor,
-              boxShadow: `0 0 16px ${eqGlow}`,
+              boxShadow: `0 0 14px ${eqGlow}`,
               transition: 'background 0.8s ease, box-shadow 0.8s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               position: 'relative', overflow: 'hidden',
@@ -1312,7 +1312,7 @@ export default function MusicWidget({
                 pointerEvents: 'none',
               }}
             >
-              <Pause size={19} fill={playIconColor} color={playIconColor} />
+              <Pause size={17} fill={playIconColor} color={playIconColor} />
             </div>
 
             {/* Play Icon Wrapper */}
@@ -1328,16 +1328,16 @@ export default function MusicWidget({
                 pointerEvents: 'none',
               }}
             >
-              <Play size={19} fill={playIconColor} color={playIconColor} style={{ marginLeft: 2 }} />
+              <Play size={17} fill={playIconColor} color={playIconColor} style={{ marginLeft: 2 }} />
             </div>
           </button>
 
           <button
             className="icon-only"
             onClick={(e) => { e.stopPropagation(); onNext?.(); }}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 6, color: '#ffffff', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#ffffff', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
-            <SkipForward size={21} fill="currentColor" color="currentColor" />
+            <SkipForward size={19} fill="currentColor" color="currentColor" />
           </button>
 
           <button
@@ -1352,7 +1352,7 @@ export default function MusicWidget({
               border: 'none',
               borderRadius: '50%',
               cursor: 'pointer',
-              padding: 6,
+              padding: 5,
               color: isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.85)',
               display: 'flex',
               alignItems: 'center',
@@ -1361,7 +1361,7 @@ export default function MusicWidget({
               filter: isLyricsView ? `drop-shadow(0 0 6px ${eqGlow})` : 'none',
             }}
           >
-            <StraightMicIcon size={18} color={isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.85)'} />
+            <StraightMicIcon size={17} color={isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.85)'} />
           </button>
         </div>
 
