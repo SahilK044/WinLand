@@ -704,8 +704,8 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
         zIndex: 0,
         overflow: 'hidden',
         borderRadius: 'inherit',
-        WebkitMaskImage: 'linear-gradient(to right, #000 0%, #000 12%, rgba(0,0,0,0.88) 22%, rgba(0,0,0,0.6) 34%, rgba(0,0,0,0.3) 46%, rgba(0,0,0,0.1) 58%, rgba(0,0,0,0.01) 68%, transparent 76%)',
-        maskImage: 'linear-gradient(to right, #000 0%, #000 12%, rgba(0,0,0,0.88) 22%, rgba(0,0,0,0.6) 34%, rgba(0,0,0,0.3) 46%, rgba(0,0,0,0.1) 58%, rgba(0,0,0,0.01) 68%, transparent 76%)',
+        WebkitMaskImage: 'linear-gradient(to right, #000 0%, #000 10%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.52) 30%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.03) 48%, transparent 55%)',
+        maskImage: 'linear-gradient(to right, #000 0%, #000 10%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.52) 30%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.03) 48%, transparent 55%)',
         userSelect: 'none',
       }}
     >
@@ -718,8 +718,8 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
           style={{
             position: 'absolute',
             top: 0,
-            left: 0,
-            width: '100%',
+            left: '-6%',
+            width: '106%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'left center',
@@ -740,8 +740,8 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
           style={{
             position: 'absolute',
             top: 0,
-            left: 0,
-            width: '100%',
+            left: '-6%',
+            width: '106%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'left center',
@@ -752,6 +752,16 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
           }}
         />
       )}
+
+      {/* Soft right-side black dissolve gradient ensuring 100% pitch-black contrast under text and controls */}
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 16%, rgba(0,0,0,0.55) 28%, rgba(0,0,0,0.92) 40%, #000000 50%, #000000 100%)',
+          pointerEvents: 'none',
+        }}
+      />
     </div>
   );
 };
