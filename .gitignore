@@ -41,6 +41,7 @@ crash_log.txt
 .vscode/*
 !.vscode/extensions.json
 .idea
+.claude/
 .DS_Store
 *.suo
 *.ntvs*

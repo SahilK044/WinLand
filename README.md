@@ -1,6 +1,6 @@
 # WinLand — Ultra-Fluid Dynamic Island for Windows 🏝️
 
-**WinLand** is a high-performance, interactive Dynamic Island desktop experience for Windows, built with React 19, Three.js (WebGL), Vite, and Electron. It brings fluid macOS-inspired live activities, hardware connection notifications with real-time 3D device models, system telemetry, ambient media controls, phone call notifications, system-wide Do Not Disturb integration, smart screen recording, and live weather directly to your desktop.
+**WinLand** is a high-performance, hardware-accelerated Dynamic Island desktop experience for Windows, built with React 19, Three.js (WebGL), Vite, and Electron. It brings fluid macOS/iOS-inspired live activities, real-time 3D device hardware connection popups, system telemetry, ambient media controls, camera and microphone privacy indicators, phone call notifications, Focus Assist integration, screen recording, and live weather directly to your desktop.
 
 ---
 
@@ -15,6 +15,25 @@
 
 ## 🌟 Key Features
 
+### 🟢 macOS Sequoia Camera & Microphone Privacy Indicators
+- **Hardware Status Dots**: Vibrant Apple emerald (`#30D158`) and warm amber (`#FF9F0A`) luminous indicator dots that illuminate dynamically whenever any application accesses your webcam or microphone.
+- **Interactive Control Center Privacy Card**: Clicking on the privacy indicators blossoms a macOS-styled frosted-glass privacy card displaying active applications accessing your sensors (e.g., *OBS Studio*, *Discord*, *Zoom*, *Google Chrome*) with real-time status badges.
+- **Native Windows Sensor Telemetry**: Continuously queries the Windows `CapabilityAccessManager` subsystem to provide instantaneous detection with zero CPU overhead.
+
+### 🌊 Fluid "Squish & Stretch" Mass Conservation Spring Physics
+- **Volume-Conserving Elastic Dynamics**: When morphing between compact (`310×44`) and expanded activity views (`356×156` / `480×120`), the capsule conserves physical volume by momentarily compressing vertically as it stretches horizontally, followed by cushioned spring settling (`cubic-bezier(0.32, 1.25, 0.36, 1)`).
+- **Synchronized Content Spring Fade**: Internal widgets smoothly scale (`0.96 -> 1.0`) with synchronized alpha crossfading to eliminate layout jitter.
+
+### 🎛️ Tactile Glass Button Recoil & Play/Pause Fluid Morphing
+- **Tactile Haptic Recoil**: Transport buttons compress dynamically on `:active` clicks (`scale(0.88)` - `scale(0.90)`) with spring release curves.
+- **Specular Glass Sheen Sweep**: Interactive button hover states trigger an angled specular light refraction sheen gliding across the circular glass face.
+- **Glyph Morphing**: Play and Pause glyphs smoothly transition into one another with a 35° rotational arc and scaling morph.
+
+### 📁 Shelf Drop Zone Fluid Absorption & 3D Tilt Card Grid
+- **Fluid Ingestion Aura**: Dragging desktop files or shortcuts over the Dynamic Island triggers an energetic blue glass absorption aura (`scale(1.025)`) with ambient edge glow.
+- **Magnetic 3D Perspective Card Tilt**: Shelved applications track your cursor in real time with 3D perspective tilt (`rotateX` / `rotateY`) and dynamic radial specular follow spots.
+- **High-Definition Icon Extraction**: Extracts authentic application icons from target executables and `.lnk` shortcuts.
+
 ### 🎧 3D WebGL Device Connection Popups & Hardware Adaptation
 - **Real-Time Bluetooth & 2.4GHz Detection**: Instantaneous connection and disconnection pop-up notifications for wireless headsets, earbuds, speakers, controllers, and smartphones.
 - **39 Integrated 3D Hardware Models**:
@@ -26,11 +45,10 @@
     - **Google Pixel Series**: Pixel 8 Pro, Pixel 7 Pro, Pixel 6 Pro.
     - **Apple iPhone Series**: iPhone 17 Pro, iPhone 17 Air, iPhone 16 Pro, iPhone 16, iPhone 15 Pro, iPhone 15, iPhone 12.
 
-### 🎵 Ambient Music Player & Synced Lyrics
+### 🎵 Ambient Music Player & Synced Karaoke Lyrics
 - **Full-Bleed Soft-Feather Artwork**: Left-anchored album artwork with an 8-stop smooth horizontal gradient mask that blends naturally into the deep pitch-black capsule.
 - **60/120 FPS Continuous Progress Bar**: Sub-pixel smooth scrubber engine powered by native display `requestAnimationFrame` interpolation.
 - **Dual-Layer Track Crossfades**: Exiting songs dissolve smoothly over 650ms while incoming artwork fades in with a micro-zoom ease.
-- **Adaptive Contrast Controls**: Automatically analyzes cover art luminance to ensure transport buttons and scrubber controls maintain high contrast.
 - **Multi-Provider Synced Lyrics**: 5-stage karaoke word-wipe lyrics engine with LRCLIB, Lyrics.ovh, and NetEase Cloud fallback.
 - **System Master Volume Control**: Integrated inline volume slider with mousewheel support and quick mute toggle.
 
@@ -47,11 +65,6 @@
 ### ⏱️ Interactive Timer & Alarm Widget
 - **Countdown & Progress Ring**: Live remaining time countdown with an animated SVG progress ring and quick-add (+1 min, +5 min) controls.
 - **Synthesized Alarm**: Web Audio API synthesized completion chime played upon timer expiry with smooth auto-dismissal.
-
-### 📂 Desktop Shelf — Drag & Drop App Launcher
-- **Drag & Drop to Hold**: Drag desktop shortcuts, files, or folders onto the island to temporarily shelve them in an expandable tile grid.
-- **Native App Icon Extraction**: Dereferences Windows `.lnk` and `.url` shortcuts to extract authentic high-definition application icons from target executables.
-- **One-Click Launch**: Click any shelved item to instantly open it; clear all items with a single click.
 
 ### 🎥 Screen Studio — Screen Recording Suite
 - **Custom Resolution & Framerates**: Record desktop activity in crisp 1080p, 1440p, or native 4K at up to 120 FPS.
@@ -80,6 +93,7 @@ WinDock (.NET Host) <── %TEMP%\winland_theme.json ──> WinLand (Electron 
 - `onConfigUpdate`: Receives real-time weather and configuration updates.
 - `onBluetoothUpdate`: Real-time Bluetooth & 2.4GHz audio device connection monitoring.
 - `onSystemMediaUpdate`: Live Windows media transport metadata.
+- `onPrivacySensorsUpdate`: Real-time webcam and microphone active usage detection.
 - `onCallUpdate`: Real-time Phone Link & WhatsApp call state notifications.
 - `onDndUpdate`: Real-time Windows 11 Focus Assist / Do Not Disturb status.
 
