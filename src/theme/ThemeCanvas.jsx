@@ -169,7 +169,7 @@ export default function ThemeCanvas({
           requestRender();
         }
       });
-      return unsub;
+      return () => { if (typeof unsub === 'function') unsub(); };
     }
   }, [requestRender]);
 

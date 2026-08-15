@@ -250,13 +250,13 @@ export default function DynamicIsland({
     if (window.electronAPI?.getInitialConfig) {
       window.electronAPI.getInitialConfig().then((data) => {
         if (data) setWeatherConfig(data);
-      });
+      }).catch(() => {});
     }
     if (!window.electronAPI?.onConfigUpdate) return;
     const cleanConfig = window.electronAPI.onConfigUpdate((data) => {
       if (data) setWeatherConfig(data);
     });
-    return () => cleanConfig();
+    return () => { if (typeof cleanConfig === 'function') cleanConfig(); };
   }, []);
 
   const [isDndActive, setIsDndActive]         = useState(false);
@@ -274,7 +274,7 @@ export default function DynamicIsland({
     const cleanDnd = window.electronAPI.onDndStateUpdate(({ isDnd }) => {
       setIsDndActive(!!isDnd);
     });
-    return () => cleanDnd();
+    return () => { if (typeof cleanDnd === 'function') cleanDnd(); };
   }, []);
 
   // Smooth Apple spring fade-in / fade-out transition for DND badge
@@ -552,7 +552,7 @@ export default function DynamicIsland({
   useEffect(() => {
     if (!window.electronAPI) return;
 
-    const cleanSpotify = window.electronAPI.onSystemMediaUpdate(updateTrackData);
+    const cleanSpotify = window.electronAPI.onSystemMediaUpdate ? window.electronAPI.onSystemMediaUpdate(updateTrackData) : null;
     // Mirrors the real Windows Clock timer (electron.js polls it via UI
     // Automation). Previously called a setter (setIsTimerActive) that never
     // existed, so this threw every time an update arrived and the sync
@@ -591,7 +591,7 @@ export default function DynamicIsland({
       return trackInfoRef.current.title && isTimerRunning ? 'split' : (trackInfoRef.current.title ? 'compact-music' : (isTimerRunning ? 'compact-timer' : 'idle'));
     };
 
-    const cleanBattery = window.electronAPI.onBatteryUpdate(({ pct, charging, minsLeft, changed, isInitial }) => {
+    const cleanBattery = window.electronAPI.onBatteryUpdate ? window.electronAPI.onBatteryUpdate(({ pct, charging, minsLeft, changed, isInitial }) => {
       setBattery({ pct, charging, minsLeft });
       if (isInitial) return;
       if (changed && (pct <= 20 || charging)) {
@@ -603,9 +603,9 @@ export default function DynamicIsland({
         clearTimeout(batteryDismiss.current);
         batteryDismiss.current = setTimeout(() => setActiveState((prev) => prev === 'expanded-battery' ? resumeFromOverlay() : prev), 5000);
       }
-    });
+    }) : null;
 
-    const cleanVolume = window.electronAPI.onVolumeUpdate(({ vol, isUserAction, changed, isInitial }) => {
+    const cleanVolume = window.electronAPI.onVolumeUpdate ? window.electronAPI.onVolumeUpdate(({ vol, isUserAction, changed, isInitial }) => {
       setVolume(vol);
       // Do not trigger the top volume-osd overlay during initial silent sync or background polling when volume hasn't changed
       if (isInitial) return;
@@ -618,7 +618,7 @@ export default function DynamicIsland({
         clearTimeout(volumeDismiss.current);
         volumeDismiss.current = setTimeout(() => setActiveState((prev) => prev === 'volume-osd' ? resumeFromOverlay() : prev), 2000);
       }
-    });
+    }) : null;
 
     if (window.electronAPI?.getBluetoothState) {
       window.electronAPI.getBluetoothState().then((data) => {
@@ -628,7 +628,7 @@ export default function DynamicIsland({
       }).catch(() => {});
     }
 
-    const cleanBT = window.electronAPI.onBluetoothUpdate
+    const cleanBT = window.electronAPI?.onBluetoothUpdate
       ? window.electronAPI.onBluetoothUpdate((data) => {
           if (data && data.deviceName) {
             const timestamped = { ...data, timestamp: Date.now() };
@@ -649,7 +649,7 @@ export default function DynamicIsland({
         })
       : () => {};
 
-    const cleanCall = window.electronAPI.onCallUpdate
+    const cleanCall = window.electronAPI?.onCallUpdate
       ? window.electronAPI.onCallUpdate((data) => {
           if (!data || !data.state || data.state === 'ended') {
             setCallData(null);
@@ -865,7 +865,7 @@ export default function DynamicIsland({
     const prev = prevWindowSizeRef.current;
     const growing = w > prev.w || h > prev.h;
     prevWindowSizeRef.current = { w, h };
-    window.electronAPI.resizeWindow(w, h, growing);
+    window.electronAPI?.resizeWindow?.(w, h, growing);
   }, [activeState, timers.length, shelvedItems.length]);
 
   // ── State class map ───────────────────────────────────────────────────────
@@ -1168,17 +1168,17 @@ export default function DynamicIsland({
 
   const handleTogglePlay = () => {
     userToggleLockRef.current = Date.now();
-    if (window.electronAPI) window.electronAPI.sendMediaControl('toggle');
+    window.electronAPI?.sendMediaControl?.('toggle');
     setTrackInfo((prev) => ({ ...prev, isPlaying: !prev.isPlaying }));
   };
 
   const handleNext = () => {
     userToggleLockRef.current = Date.now();
-    if (window.electronAPI) window.electronAPI.sendMediaControl('next');
+    window.electronAPI?.sendMediaControl?.('next');
   };
   const handlePrev = () => {
     userToggleLockRef.current = Date.now();
-    if (window.electronAPI) window.electronAPI.sendMediaControl('previous');
+    window.electronAPI?.sendMediaControl?.('previous');
   };
 
   const handleSeek = (newProgressMs) => {
