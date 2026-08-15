@@ -587,8 +587,9 @@ const MarqueeText = ({ children, style = {}, className = '' }) => {
 };
 
 // Dedicated Album Art Component (Defined outside parent to prevent React component teardown on re-renders)
-const AlbumArt = ({ coverUrl, title, size = 28, r = 7, onClick }) => {
+const AlbumArt = ({ coverUrl, title, size = 28, r = 7, glowColor, glowOpacity = 0.6, onClick }) => {
   const [imgError, setImgError] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
   useEffect(() => {
     setImgError(false);
@@ -599,7 +600,7 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, onClick }) => {
     if (onClick) {
       onClick(e);
     } else if (window.electronAPI?.launchApp) {
-      window.electronAPI?.launchApp?.('spotify');
+      window.electronAPI.launchApp('spotify');
     }
   };
 
@@ -613,47 +614,84 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, onClick }) => {
 
   return (
     <div
-      key={coverUrl || title}
-      onClick={handleClick}
-      title="Open Spotify"
-      className="interactive-child"
       style={{
+        position: 'relative',
         width: size,
         height: size,
         minWidth: size,
         minHeight: size,
-        borderRadius: r,
-        overflow: 'hidden',
         flexShrink: 0,
-        background: 'rgba(255,255,255,0.08)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        border: '1px solid rgba(255,255,255,0.1)',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        cursor: 'pointer',
-        transition: 'transform 0.15s ease',
       }}
     >
-      {(coverUrl && !imgError) ? (
-        <img
-          src={coverUrl}
-          alt="Album Art"
-          onError={() => setImgError(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+      {/* Dynamic Ambient Color Halo */}
+      {glowColor && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: -3,
+            borderRadius: r + 3,
+            background: glowColor,
+            filter: 'blur(8px)',
+            opacity: coverUrl && !imgError ? glowOpacity : 0,
+            transform: isHovered ? 'scale(1.15)' : 'scale(1.0)',
+            transition: 'opacity 0.65s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.8s ease, transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
         />
-      ) : isVideo ? (
-        <div style={{
-          width: '100%', height: '100%',
-          background: 'linear-gradient(135deg, #ff0000 0%, #b30000 60%, #800000 100%)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: 'inset 0 0 10px rgba(0,0,0,0.4)',
-        }}>
-          <Play size={size * 0.45} fill="#ffffff" color="#ffffff" style={{ marginLeft: 2 }} />
-        </div>
-      ) : (
-        <Music size={size * 0.45} color="rgba(255,255,255,0.5)" />
       )}
+
+      {/* Main Squircle Artwork Tile */}
+      <div
+        key={coverUrl || title}
+        onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        title="Open Spotify"
+        className="interactive-child"
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          width: '100%',
+          height: '100%',
+          borderRadius: r,
+          overflow: 'hidden',
+          background: 'rgba(255,255,255,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px solid rgba(255,255,255,0.12)',
+          boxShadow: glowColor && coverUrl
+            ? `0 3px 10px rgba(0,0,0,0.45), 0 0 12px ${glowColor}`
+            : '0 3px 10px rgba(0,0,0,0.4)',
+          cursor: 'pointer',
+          transform: isHovered ? 'scale(1.06)' : 'scale(1)',
+          transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.6s ease',
+        }}
+      >
+        {(coverUrl && !imgError) ? (
+          <img
+            src={coverUrl}
+            alt="Album Art"
+            onError={() => setImgError(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : isVideo ? (
+          <div style={{
+            width: '100%', height: '100%',
+            background: 'linear-gradient(135deg, #ff0000 0%, #b30000 60%, #800000 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: 'inset 0 0 10px rgba(0,0,0,0.4)',
+          }}>
+            <Play size={size * 0.45} fill="#ffffff" color="#ffffff" style={{ marginLeft: 2 }} />
+          </div>
+        ) : (
+          <Music size={size * 0.45} color="rgba(255,255,255,0.5)" />
+        )}
+      </div>
     </div>
   );
 };
@@ -1052,7 +1090,7 @@ export default function MusicWidget({
   if (isSplit) {
     return (
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', boxSizing: 'border-box', fontFamily: MAC_FONT }}>
-        <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} />
+        <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} glowColor={eqGlow} glowOpacity={0.4} />
         <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 8, paddingRight: 8, overflow: 'hidden' }}>
           <MarqueeText style={{ fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: '14px' }}>
             {title || 'Music Player'}
@@ -1081,7 +1119,7 @@ export default function MusicWidget({
           padding: '0 14px', cursor: 'pointer', fontFamily: MAC_FONT, boxSizing: 'border-box',
         }}
       >
-        <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} />
+        <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} glowColor={eqGlow} glowOpacity={0.45} />
         <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 10, paddingRight: 10, overflow: 'hidden' }}>
           <MarqueeText style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', lineHeight: '15px' }}>
             {title || 'Music Player'}
@@ -1156,7 +1194,7 @@ export default function MusicWidget({
         {/* ── 1. Top Row: Track Info & Equalizer ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ marginRight: 11, flexShrink: 0 }}>
-            <AlbumArt coverUrl={coverUrl} title={title} size={40} r={9} />
+            <AlbumArt coverUrl={coverUrl} title={title} size={40} r={9} glowColor={eqGlow} glowOpacity={0.65} />
           </div>
 
           <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndVisible ? 80 : 8 }}>
