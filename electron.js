@@ -346,6 +346,7 @@ function createWindow() {
     safePoll(startBatteryPoller);
     safePoll(startBluetoothPoller);
     safePoll(startCallPoller);
+    safePoll(startPrivacyPoller);
     safePoll(startFullscreenPoller);
     safePoll(registerVolumeKeys);
     watchWinlandConfig();
@@ -908,6 +909,109 @@ ipcMain.on('send-call-action', (_event, action) => {
     lastCallSnapshot = lastCallSnapshot ? { ...lastCallSnapshot, state: '__stale__' } : null;
     setTimeout(() => pollCallState(), 250);
   });
+});
+
+// ── Privacy Indicator Poller (macOS-Style Camera & Mic Privacy Sensors) ─────
+let privacyInterval = null;
+let isPollingPrivacy = false;
+let lastPrivacySnapshot = { cameraActive: false, micActive: false, cameraApps: [], micApps: [] };
+
+function parseCapabilityOutput(stdout) {
+  if (!stdout) return [];
+  const lines = stdout.split(/\r?\n/);
+  const activeApps = [];
+  let currentKey = '';
+  let lastUsedStart = 0;
+  let lastUsedStop = -1;
+
+  function evaluate() {
+    if (currentKey && lastUsedStop === 0 && lastUsedStart > 0) {
+      let appName = currentKey.split('\\').pop() || currentKey;
+      if (appName.includes('#')) {
+        appName = appName.split('#').pop().replace('.exe', '');
+      }
+      appName = appName.replace(/_/g, ' ').replace(/-/g, ' ');
+      // Format friendly names
+      if (appName.toLowerCase().includes('discord')) appName = 'Discord';
+      else if (appName.toLowerCase().includes('chrome')) appName = 'Google Chrome';
+      else if (appName.toLowerCase().includes('obs')) appName = 'OBS Studio';
+      else if (appName.toLowerCase().includes('zoom')) appName = 'Zoom';
+      else if (appName.toLowerCase().includes('teams')) appName = 'Microsoft Teams';
+      else if (appName.toLowerCase().includes('spotify')) appName = 'Spotify';
+      else if (appName.toLowerCase().includes('skype')) appName = 'Skype';
+      else if (appName.toLowerCase().includes('windowscamera') || appName.toLowerCase().includes('camera')) appName = 'Camera';
+      
+      if (!activeApps.includes(appName)) {
+        activeApps.push(appName);
+      }
+    }
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('HKEY_')) {
+      evaluate();
+      currentKey = trimmed;
+      lastUsedStart = 0;
+      lastUsedStop = -1;
+    } else if (trimmed.startsWith('LastUsedTimeStart')) {
+      const parts = trimmed.split(/\s+/);
+      lastUsedStart = parseInt(parts[parts.length - 1], 16) || 0;
+    } else if (trimmed.startsWith('LastUsedTimeStop')) {
+      const parts = trimmed.split(/\s+/);
+      lastUsedStop = parseInt(parts[parts.length - 1], 16) || 0;
+    }
+  }
+  evaluate();
+  return activeApps;
+}
+
+function pollPrivacySensors() {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingPrivacy) return;
+  isPollingPrivacy = true;
+
+  exec('reg query "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam" /s', { timeout: 1500, maxBuffer: 128 * 1024 }, (err, camStdout) => {
+    exec('reg query "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone" /s', { timeout: 1500, maxBuffer: 128 * 1024 }, (err2, micStdout) => {
+      isPollingPrivacy = false;
+      if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
+
+      const cameraApps = parseCapabilityOutput(camStdout);
+      const micApps = parseCapabilityOutput(micStdout);
+      const cameraActive = cameraApps.length > 0;
+      const micActive = micApps.length > 0;
+
+      const nextSnapshot = { cameraActive, micActive, cameraApps, micApps };
+      const nextKey = `${cameraActive}|${micActive}|${cameraApps.join(',')}|${micApps.join(',')}`;
+      const prevKey = `${lastPrivacySnapshot.cameraActive}|${lastPrivacySnapshot.micActive}|${lastPrivacySnapshot.cameraApps.join(',')}|${lastPrivacySnapshot.micApps.join(',')}`;
+
+      if (nextKey !== prevKey) {
+        lastPrivacySnapshot = nextSnapshot;
+        sendToWindow(mainWindow, 'privacy-sensors-update', nextSnapshot);
+      }
+    });
+  });
+}
+
+function startPrivacyPoller() {
+  if (privacyInterval) clearInterval(privacyInterval);
+  pollPrivacySensors();
+  privacyInterval = setInterval(pollPrivacySensors, 2000);
+}
+
+ipcMain.handle('get-privacy-sensors', () => {
+  return lastPrivacySnapshot;
+});
+
+ipcMain.on('simulate-privacy-sensors', (_event, state) => {
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
+  const snapshot = {
+    cameraActive: !!state?.cameraActive,
+    micActive: !!state?.micActive,
+    cameraApps: state?.cameraApps || (state?.cameraActive ? ['FaceTime'] : []),
+    micApps: state?.micApps || (state?.micActive ? ['Voice Memos'] : []),
+  };
+  lastPrivacySnapshot = snapshot;
+  sendToWindow(mainWindow, 'privacy-sensors-update', snapshot);
 });
 
 // ── Fullscreen App Detector ─────────────────────────────────────────────────

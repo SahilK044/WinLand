@@ -19,6 +19,7 @@ import LauncherWidget from '../Activities/LauncherWidget';
 import ScreenshotWidget from '../Activities/ScreenshotWidget';
 import BluetoothWidget from '../Activities/BluetoothWidget';
 import LiveActivitiesWidget from '../Activities/LiveActivitiesWidget';
+import PrivacyIndicator from '../Activities/PrivacyIndicator';
 import { soundEngine } from '../../utils/soundEngine';
 import ThemeCanvas from '../../theme/ThemeCanvas';
 import { themeManager } from '../../theme/ThemeManager';
@@ -1273,6 +1274,10 @@ export default function DynamicIsland({
               isPressed={isCapsulePressed}
               accentColor={eqColor}
             />
+            {/* macOS Privacy Indicator (Camera & Mic Active Dots) */}
+            <div style={{ position: 'absolute', top: 5, right: 8, zIndex: 99, pointerEvents: 'auto' }}>
+              <PrivacyIndicator isLight={isLight} />
+            </div>
             <div className="activity-fade-content" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
               <MusicWidget
                 isSplit={true}
@@ -1382,6 +1387,10 @@ export default function DynamicIsland({
           isPressed={isCapsulePressed}
           accentColor={eqColor}
         />
+        {/* macOS Privacy Indicator (Camera & Mic Active Dots) */}
+        <div style={{ position: 'absolute', top: 5, right: 8, zIndex: 99, pointerEvents: 'auto' }}>
+          <PrivacyIndicator isLight={isLight} />
+        </div>
         {/* Smooth organic moving liquid aura background — Beat-Synced Equalizer Glow Pulse with 0.75s Silk Fade */}
         {(activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo?.title && (
           <div

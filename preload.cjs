@@ -179,4 +179,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('screenrec-update', handler);
   },
   openFileLocation: (filePath) => ipcRenderer.send('open-file-location', filePath),
+
+  // macOS Privacy Indicators (Camera & Microphone Status)
+  getPrivacySensors: () => ipcRenderer.invoke('get-privacy-sensors'),
+  onPrivacySensorsUpdate: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('privacy-sensors-update', handler);
+    return () => ipcRenderer.removeListener('privacy-sensors-update', handler);
+  },
+  simulatePrivacySensors: (state) => ipcRenderer.send('simulate-privacy-sensors', state),
 });
