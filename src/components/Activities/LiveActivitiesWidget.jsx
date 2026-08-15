@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Activity, Zap } from 'lucide-react';
 
-const MAC_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif';
+const MAC_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", sans-serif';
 
 const DEFAULT_GAMES = [
   {

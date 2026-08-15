@@ -10,7 +10,7 @@ import { soundEngine } from '../../utils/soundEngine';
    Incoming ring : pulsing green ring around avatar, accept/decline buttons
    ──────────────────────────────────────────────────────────────────────────── */
 
-const SF_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "SF Compact", "Helvetica Neue", system-ui, sans-serif';
+const SF_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", system-ui, sans-serif';
 
 /* ── Inline SVG icons (Clean macOS Apple style) ─────────────────────────── */
 const PhoneIcon = ({ size = 16, color = '#fff', style = {} }) => (

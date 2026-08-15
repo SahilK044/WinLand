@@ -6,7 +6,7 @@ import Phone3D from './Phone3D';
 import DeviceModel3D from './DeviceModel3D';
 import { readDevicePrefs, prefCategoryFor, engineCategoryFor } from '../../data/devicePrefs';
 
-const MAC_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Helvetica Neue", Helvetica, Arial, sans-serif';
+const MAC_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif';
 
 // ── Keyframe Animations ──────────────────────────────────────────────────────
 const ANIMATION_STYLES = `

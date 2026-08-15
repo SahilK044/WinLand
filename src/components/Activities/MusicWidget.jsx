@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music, RefreshCw, Volume1, Volume2, VolumeX } from 'lucide-react';
 
-const MAC_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Arial, sans-serif';
+const MAC_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Arial, sans-serif';
 
 const StraightMicIcon = ({ size = 18, color = 'currentColor' }) => (
   <svg
@@ -697,14 +697,14 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
         top: 0,
         left: 0,
         bottom: 0,
-        width: '42%',
+        width: '58%',
         cursor: 'pointer',
         zIndex: 0,
         overflow: 'hidden',
         borderTopLeftRadius: 'inherit',
         borderBottomLeftRadius: 'inherit',
-        WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) 16%, rgba(0,0,0,0.65) 36%, rgba(0,0,0,0.38) 56%, rgba(0,0,0,0.16) 74%, rgba(0,0,0,0.03) 88%, transparent 100%)',
-        maskImage: 'linear-gradient(to right, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.85) 16%, rgba(0,0,0,0.65) 36%, rgba(0,0,0,0.38) 56%, rgba(0,0,0,0.16) 74%, rgba(0,0,0,0.03) 88%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to right, #000 0%, #000 24%, rgba(0,0,0,0.85) 42%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.25) 76%, rgba(0,0,0,0.06) 88%, transparent 100%)',
+        maskImage: 'linear-gradient(to right, #000 0%, #000 24%, rgba(0,0,0,0.85) 42%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.25) 76%, rgba(0,0,0,0.06) 88%, transparent 100%)',
         userSelect: 'none',
       }}
     >
@@ -743,19 +743,19 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
             objectFit: 'cover',
             objectPosition: 'left center',
             filter: 'contrast(1.02) saturate(1.06)',
-            opacity: isFading ? 0.82 : 0.82,
+            opacity: 0.82,
             transform: 'scale(1.0)',
             animation: isFading ? 'albumArtFadeIn 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : 'none',
           }}
         />
       )}
 
-      {/* Subtle dark gradient overlay to guarantee soft integration into pitch black */}
+      {/* Ultra-soft dark gradient overlay guaranteeing seamless dissolution into deep black */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to right, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.2) 60%, rgba(0,0,0,0.6) 100%)',
+          background: 'linear-gradient(to right, transparent 0%, transparent 22%, rgba(0,0,0,0.35) 48%, rgba(0,0,0,0.75) 75%, #000000 100%)',
           pointerEvents: 'none',
         }}
       />
@@ -1254,13 +1254,13 @@ export default function MusicWidget({
       <div style={{
         position: 'relative',
         zIndex: 2,
-        marginLeft: coverUrl ? '30%' : 0,
-        width: coverUrl ? '70%' : '100%',
+        marginLeft: coverUrl ? '32%' : 0,
+        width: coverUrl ? '68%' : '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '16px 20px 14px 10px',
+        padding: '16px 20px 14px 6px',
         boxSizing: 'border-box',
         transition: 'margin-left 0.3s cubic-bezier(0.32, 0.72, 0, 1), width 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
       }}>

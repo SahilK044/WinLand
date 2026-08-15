@@ -4,7 +4,7 @@ import { timerStore } from '../../features/timer/TimerStore';
 import { TimerRow } from '../../features/timer/TimerRow';
 import { TIMER_COLORS } from '../../features/timer/timer.constants';
 
-const SF_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "SF Compact", "Helvetica Neue", system-ui, sans-serif';
+const SF_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", system-ui, sans-serif';
 
 function formatTimeMs(ms) {
   const totalSeconds = Math.max(0, Math.floor((ms || 0) / 1000));
