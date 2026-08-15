@@ -696,16 +696,15 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
         position: 'absolute',
         top: 0,
         left: 0,
-        right: 0,
         bottom: 0,
-        width: '100%',
-        height: '100%',
+        width: '46%',
         cursor: 'pointer',
         zIndex: 0,
         overflow: 'hidden',
-        borderRadius: 'inherit',
-        WebkitMaskImage: 'linear-gradient(to right, #000 0%, #000 10%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.52) 30%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.03) 48%, transparent 55%)',
-        maskImage: 'linear-gradient(to right, #000 0%, #000 10%, rgba(0,0,0,0.85) 20%, rgba(0,0,0,0.52) 30%, rgba(0,0,0,0.2) 40%, rgba(0,0,0,0.03) 48%, transparent 55%)',
+        borderTopLeftRadius: 'inherit',
+        borderBottomLeftRadius: 'inherit',
+        WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 32%, rgba(0,0,0,0.85) 54%, rgba(0,0,0,0.45) 75%, rgba(0,0,0,0.1) 90%, transparent 100%)',
+        maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 32%, rgba(0,0,0,0.85) 54%, rgba(0,0,0,0.45) 75%, rgba(0,0,0,0.1) 90%, transparent 100%)',
         userSelect: 'none',
       }}
     >
@@ -717,9 +716,8 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
           alt="previous artwork"
           style={{
             position: 'absolute',
-            top: 0,
-            left: '-6%',
-            width: '106%',
+            inset: 0,
+            width: '100%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'left center',
@@ -739,26 +737,25 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
           alt={title}
           style={{
             position: 'absolute',
-            top: 0,
-            left: '-6%',
-            width: '106%',
+            inset: 0,
+            width: '100%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'left center',
             filter: 'contrast(1.02) saturate(1.06)',
-            opacity: 0.82,
+            opacity: 0.85,
             transform: 'scale(1.0)',
             animation: isFading ? 'albumArtFadeIn 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : 'none',
           }}
         />
       )}
 
-      {/* Soft right-side black dissolve gradient ensuring 100% pitch-black contrast under text and controls */}
+      {/* Subtle dark gradient overlay ensuring soft integration into deep black */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.15) 16%, rgba(0,0,0,0.55) 28%, rgba(0,0,0,0.92) 40%, #000000 50%, #000000 100%)',
+          background: 'linear-gradient(to right, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.2) 55%, rgba(0,0,0,0.7) 100%)',
           pointerEvents: 'none',
         }}
       />
@@ -1257,13 +1254,13 @@ export default function MusicWidget({
       <div style={{
         position: 'relative',
         zIndex: 2,
-        marginLeft: coverUrl ? '32%' : 0,
-        width: coverUrl ? '68%' : '100%',
+        marginLeft: coverUrl ? '30%' : 0,
+        width: coverUrl ? '70%' : '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '16px 20px 14px 6px',
+        padding: '16px 20px 14px 10px',
         boxSizing: 'border-box',
         transition: 'margin-left 0.3s cubic-bezier(0.32, 0.72, 0, 1), width 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
       }}>
