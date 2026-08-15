@@ -626,8 +626,8 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, glowColor, glowOpacity = 
         justifyContent: 'center',
       }}
     >
-      {/* Dynamic Ambient Color Halo */}
-      {glowColor && (
+      {/* Dynamic Ambient Color Halo (Clean Expanded View Only) */}
+      {glowColor && size >= 36 && (
         <div
           style={{
             position: 'absolute',
@@ -664,12 +664,10 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, glowColor, glowOpacity = 
           alignItems: 'center',
           justifyContent: 'center',
           border: '1px solid rgba(255,255,255,0.12)',
-          boxShadow: glowColor && coverUrl
-            ? `0 3px 10px rgba(0,0,0,0.45), 0 0 12px ${glowColor}`
-            : '0 3px 10px rgba(0,0,0,0.4)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
           cursor: 'pointer',
           transform: isHovered ? 'scale(1.06)' : 'scale(1)',
-          transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.6s ease',
+          transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
         {(coverUrl && !imgError) ? (

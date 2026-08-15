@@ -1250,14 +1250,7 @@ export default function DynamicIsland({
           resetIdleTimer();
         }}
       >
-        <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} aria-hidden="true">
-          <filter id="metaball" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur" />
-            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
-            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
-          </filter>
-        </svg>
-        <div className="island-split-container" style={{ filter: 'url(#metaball)' }}>
+        <div className="island-split-container">
           {/* Primary Capsule: Music / Call */}
           <div
             ref={capsuleRef}
@@ -1348,13 +1341,6 @@ export default function DynamicIsland({
         resetIdleTimer();
       }}
     >
-      <svg style={{ position: 'absolute', width: 0, height: 0, pointerEvents: 'none' }} aria-hidden="true">
-        <filter id="metaball-main" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="4.5" result="blur" />
-          <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="goo" />
-          <feComposite in="SourceGraphic" in2="goo" operator="atop" />
-        </filter>
-      </svg>
       {/* Invisible top edge hit trigger region to wake up auto-hidden island on mouse hover */}
       <div
         style={{
