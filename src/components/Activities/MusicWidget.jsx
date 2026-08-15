@@ -694,17 +694,13 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
       title="Open in Spotify"
       style={{
         position: 'absolute',
-        top: 0,
-        left: 0,
-        bottom: 0,
-        width: '46%',
+        inset: 0,
+        width: '100%',
+        height: '100%',
         cursor: 'pointer',
         zIndex: 0,
         overflow: 'hidden',
-        borderTopLeftRadius: 'inherit',
-        borderBottomLeftRadius: 'inherit',
-        WebkitMaskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 32%, rgba(0,0,0,0.85) 54%, rgba(0,0,0,0.45) 75%, rgba(0,0,0,0.1) 90%, transparent 100%)',
-        maskImage: 'linear-gradient(to right, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 32%, rgba(0,0,0,0.85) 54%, rgba(0,0,0,0.45) 75%, rgba(0,0,0,0.1) 90%, transparent 100%)',
+        borderRadius: 'inherit',
         userSelect: 'none',
       }}
     >
@@ -720,10 +716,10 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            objectPosition: 'left center',
-            filter: 'contrast(1.02) saturate(1.06)',
+            objectPosition: 'center center',
+            filter: 'blur(26px) brightness(0.42) saturate(1.4)',
             opacity: 0,
-            transform: 'scale(1.04)',
+            transform: 'scale(1.1)',
             transition: 'opacity 0.65s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.65s cubic-bezier(0.2, 0.8, 0.2, 1)',
           }}
         />
@@ -741,21 +737,21 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            objectPosition: 'left center',
-            filter: 'contrast(1.02) saturate(1.06)',
-            opacity: 0.85,
-            transform: 'scale(1.0)',
+            objectPosition: 'center center',
+            filter: 'blur(26px) brightness(0.42) saturate(1.4)',
+            opacity: 0.72,
+            transform: 'scale(1.08)',
             animation: isFading ? 'albumArtFadeIn 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : 'none',
           }}
         />
       )}
 
-      {/* Subtle dark gradient overlay ensuring soft integration into deep black */}
+      {/* Ambient dark vignette overlay for deep contrast and glass readability */}
       <div
         style={{
           position: 'absolute',
           inset: 0,
-          background: 'linear-gradient(to right, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.2) 55%, rgba(0,0,0,0.7) 100%)',
+          background: 'radial-gradient(ellipse at center, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 60%, rgba(0,0,0,0.92) 100%)',
           pointerEvents: 'none',
         }}
       />
@@ -1250,28 +1246,25 @@ export default function MusicWidget({
         <FullBleedAlbumArt coverUrl={coverUrl} title={title} />
       )}
 
-      {/* ── Right Content Deck (Header, Scrubber & Controls — Generous Spacing) ── */}
+      {/* ── Content Deck (Header, Scrubber & Controls — Clean Full Width) ── */}
       <div style={{
         position: 'relative',
         zIndex: 2,
-        marginLeft: coverUrl ? '30%' : 0,
-        width: coverUrl ? '70%' : '100%',
+        marginLeft: 0,
+        width: '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '16px 20px 14px 10px',
+        padding: '16px 20px 14px 20px',
         boxSizing: 'border-box',
-        transition: 'margin-left 0.3s cubic-bezier(0.32, 0.72, 0, 1), width 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
       }}>
 
         {/* ── 1. Top Row: Track Info & Equalizer ── */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', width: '100%' }}>
-          {!coverUrl && (
-            <div style={{ marginRight: 10 }}>
-              <AlbumArt coverUrl={coverUrl} title={title} size={48} r={10} />
-            </div>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ marginRight: 12, flexShrink: 0 }}>
+            <AlbumArt coverUrl={coverUrl} title={title} size={44} r={10} />
+          </div>
 
           <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndVisible ? 80 : 8 }}>
             <MarqueeText style={{ fontSize: 16.5, fontWeight: 750, color: '#ffffff', lineHeight: '20px', letterSpacing: '-0.3px', textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 2px 10px rgba(0,0,0,0.6)' }}>
