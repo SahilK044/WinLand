@@ -1274,15 +1274,15 @@ export default function MusicWidget({
           )}
 
           <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndVisible ? 80 : 8 }}>
-            <MarqueeText style={{ fontSize: 16.5, fontWeight: 750, color: '#ffffff', lineHeight: '20px', letterSpacing: '-0.3px' }}>
+            <MarqueeText style={{ fontSize: 16.5, fontWeight: 750, color: '#ffffff', lineHeight: '20px', letterSpacing: '-0.3px', textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 2px 10px rgba(0,0,0,0.6)' }}>
               {title}
             </MarqueeText>
             {artist && (
-              <MarqueeText className="widget-subtitle" style={{ fontSize: 12, fontWeight: 550, marginTop: 2, lineHeight: '15px' }}>
+              <MarqueeText className="widget-subtitle" style={{ fontSize: 12, fontWeight: 550, marginTop: 2, lineHeight: '15px', textShadow: '0 1px 3px rgba(0,0,0,0.75)' }}>
                 {artist}
               </MarqueeText>
             )}
-            <div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, color: eqColor, transition: 'color 0.8s ease' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, marginTop: 3, color: eqColor, textShadow: '0 1px 2px rgba(0,0,0,0.6)', transition: 'color 0.8s ease' }}>
               {isPlaying ? 'Media • Active' : 'Media • Paused'}
             </div>
           </div>
