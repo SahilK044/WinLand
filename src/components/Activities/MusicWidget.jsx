@@ -567,8 +567,8 @@ const MarqueeText = ({ children, style = {}, className = '' }) => {
         whiteSpace: 'nowrap',
         width: '100%',
         position: 'relative',
-        maskImage: shouldScroll ? 'linear-gradient(90deg, #000 82%, transparent 98%)' : 'none',
-        WebkitMaskImage: shouldScroll ? 'linear-gradient(90deg, #000 82%, transparent 98%)' : 'none',
+        maskImage: shouldScroll ? 'linear-gradient(90deg, transparent 0%, #000 3.5%, #000 88%, transparent 100%)' : 'none',
+        WebkitMaskImage: shouldScroll ? 'linear-gradient(90deg, transparent 0%, #000 3.5%, #000 88%, transparent 100%)' : 'none',
         ...style,
       }}
     >
@@ -696,15 +696,16 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
         position: 'absolute',
         top: 0,
         left: 0,
+        right: 0,
         bottom: 0,
-        width: '58%',
+        width: '100%',
+        height: '100%',
         cursor: 'pointer',
         zIndex: 0,
         overflow: 'hidden',
-        borderTopLeftRadius: 'inherit',
-        borderBottomLeftRadius: 'inherit',
-        WebkitMaskImage: 'linear-gradient(to right, #000 0%, #000 24%, rgba(0,0,0,0.85) 42%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.25) 76%, rgba(0,0,0,0.06) 88%, transparent 100%)',
-        maskImage: 'linear-gradient(to right, #000 0%, #000 24%, rgba(0,0,0,0.85) 42%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.25) 76%, rgba(0,0,0,0.06) 88%, transparent 100%)',
+        borderRadius: 'inherit',
+        WebkitMaskImage: 'linear-gradient(to right, #000 0%, #000 14%, rgba(0,0,0,0.85) 26%, rgba(0,0,0,0.5) 38%, rgba(0,0,0,0.18) 50%, transparent 62%)',
+        maskImage: 'linear-gradient(to right, #000 0%, #000 14%, rgba(0,0,0,0.85) 26%, rgba(0,0,0,0.5) 38%, rgba(0,0,0,0.18) 50%, transparent 62%)',
         userSelect: 'none',
       }}
     >
@@ -716,8 +717,9 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
           alt="previous artwork"
           style={{
             position: 'absolute',
-            inset: 0,
-            width: '100%',
+            top: 0,
+            left: 0,
+            width: '52%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'left center',
@@ -737,8 +739,9 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
           alt={title}
           style={{
             position: 'absolute',
-            inset: 0,
-            width: '100%',
+            top: 0,
+            left: 0,
+            width: '52%',
             height: '100%',
             objectFit: 'cover',
             objectPosition: 'left center',
@@ -749,16 +752,6 @@ const FullBleedAlbumArt = ({ coverUrl, title, onClick }) => {
           }}
         />
       )}
-
-      {/* Ultra-soft dark gradient overlay guaranteeing seamless dissolution into deep black */}
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(to right, transparent 0%, transparent 22%, rgba(0,0,0,0.35) 48%, rgba(0,0,0,0.75) 75%, #000000 100%)',
-          pointerEvents: 'none',
-        }}
-      />
     </div>
   );
 };
