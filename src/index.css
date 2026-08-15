@@ -1276,3 +1276,118 @@ img, canvas {
   align-items: center;
   justify-content: center;
 }
+
+/* ─── Tactile Glass Button Recoil & Play/Pause Micro-Animations ─── */
+.tactile-btn {
+  transform: scale(1);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.2s ease, opacity 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tactile-btn:hover {
+  transform: scale(1.1);
+}
+.tactile-btn:active {
+  transform: scale(0.88);
+  transition-duration: 0.08s;
+}
+
+.tactile-skip-prev {
+  transform: scale(1) translateX(0);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tactile-skip-prev:hover {
+  transform: scale(1.12) translateX(-1.5px);
+}
+.tactile-skip-prev:active {
+  transform: scale(0.86) translateX(-3px);
+  transition-duration: 0.08s;
+}
+
+.tactile-skip-next {
+  transform: scale(1) translateX(0);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tactile-skip-next:hover {
+  transform: scale(1.12) translateX(1.5px);
+}
+.tactile-skip-next:active {
+  transform: scale(0.86) translateX(3px);
+  transition-duration: 0.08s;
+}
+
+.tactile-play-btn {
+  position: relative;
+  transform: scale(1);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.8s ease, box-shadow 0.8s ease;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tactile-play-btn:hover {
+  transform: scale(1.08);
+}
+.tactile-play-btn:active {
+  transform: scale(0.9);
+  transition-duration: 0.08s;
+}
+
+/* Glass Sheen sweep */
+.tactile-play-btn::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.05) 40%, transparent 60%);
+  transform: rotate(-45deg) translateY(-100%);
+  transition: transform 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+  opacity: 0;
+}
+.tactile-play-btn:hover::after {
+  transform: rotate(-45deg) translateY(0);
+  opacity: 1;
+}
+
+/* ─── Shelf Fluid Absorption & 3D Tilt Grid ─── */
+.island-capsule.shelf-absorption-active {
+  box-shadow: 0 0 32px rgba(59, 130, 246, 0.75), inset 0 0 16px rgba(59, 130, 246, 0.35), 0 12px 36px rgba(0, 0, 0, 0.85) !important;
+  border-color: rgba(96, 165, 250, 0.7) !important;
+  transform: scale(1.025) !important;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, border-color 0.3s ease !important;
+}
+
+.shelf-tile-card-3d {
+  position: relative;
+  height: 86px;
+  padding: 8px 6px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justifyContent: center;
+  gap: 6px;
+  box-sizing: border-box;
+  transform-style: preserve-3d;
+  perspective: 600px;
+  transition: background 0.2s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, box-shadow 0.22s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.shelf-tile-card-3d:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 0 12px rgba(255, 255, 255, 0.05);
+}
+.shelf-tile-card-3d:active {
+  transform: scale(0.94);
+  transition-duration: 0.08s;
+}

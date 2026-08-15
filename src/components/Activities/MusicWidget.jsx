@@ -785,6 +785,7 @@ const SystemVolumeControl = () => {
         onWheel={handleWheel}
         onMouseEnter={() => setShowBadge(true)}
         onMouseLeave={() => setShowBadge(false)}
+        className="tactile-btn"
         style={{
           background: showBadge ? 'rgba(255, 255, 255, 0.15)' : 'none',
           border: 'none',
@@ -795,7 +796,6 @@ const SystemVolumeControl = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          transition: 'all 0.25s ease',
         }}
       >
         <VolumeIcon size={18} color="rgba(255, 255, 255, 0.85)" />
@@ -1319,20 +1319,20 @@ export default function MusicWidget({
           <SystemVolumeControl />
 
           <button
-            className="icon-only"
+            className="icon-only tactile-skip-prev tactile-btn"
             onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#ffffff', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#ffffff', display: 'flex', alignItems: 'center' }}
           >
             <SkipBack size={19} fill="currentColor" color="currentColor" />
           </button>
 
           <button
+            className="tactile-play-btn"
             onClick={(e) => { e.stopPropagation(); onTogglePlay?.(); }}
             style={{
               width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer',
               background: eqColor,
               boxShadow: `0 0 14px ${eqGlow}`,
-              transition: 'background 0.8s ease, box-shadow 0.8s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               position: 'relative', overflow: 'hidden',
             }}
@@ -1344,9 +1344,9 @@ export default function MusicWidget({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'opacity 0.22s ease-out, transform 0.22s ease-out',
+                transition: 'opacity 0.26s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 opacity: isPlaying ? 1 : 0,
-                transform: isPlaying ? 'scale(1)' : 'scale(0.6)',
+                transform: isPlaying ? 'scale(1) rotate(0deg)' : 'scale(0.5) rotate(35deg)',
                 pointerEvents: 'none',
               }}
             >
@@ -1360,9 +1360,9 @@ export default function MusicWidget({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'opacity 0.22s ease-out, transform 0.22s ease-out',
+                transition: 'opacity 0.26s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.26s cubic-bezier(0.34, 1.56, 0.64, 1)',
                 opacity: isPlaying ? 0 : 1,
-                transform: isPlaying ? 'scale(0.6)' : 'scale(1)',
+                transform: isPlaying ? 'scale(0.5) rotate(-35deg)' : 'scale(1) rotate(0deg)',
                 pointerEvents: 'none',
               }}
             >
@@ -1371,9 +1371,9 @@ export default function MusicWidget({
           </button>
 
           <button
-            className="icon-only"
+            className="icon-only tactile-skip-next tactile-btn"
             onClick={(e) => { e.stopPropagation(); onNext?.(); }}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#ffffff', display: 'flex', alignItems: 'center', transition: 'transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#ffffff', display: 'flex', alignItems: 'center' }}
           >
             <SkipForward size={19} fill="currentColor" color="currentColor" />
           </button>
@@ -1385,6 +1385,7 @@ export default function MusicWidget({
               onToggleLyrics?.();
             }}
             title="Synced Lyrics"
+            className="tactile-btn"
             style={{
               background: isLyricsView ? 'rgba(255, 255, 255, 0.15)' : 'none',
               border: 'none',

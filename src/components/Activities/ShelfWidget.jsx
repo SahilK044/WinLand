@@ -23,6 +23,7 @@ const CustomFolderIcon = ({ size = 32 }) => (
 
 const ShelfTileItem = ({ item, idx, onOpenItem, onRemoveItem }) => {
   const [liveIcon, setLiveIcon] = useState(item.iconUrl || null);
+  const [tilt, setTilt] = useState({ rx: 0, ry: 0, px: 50, py: 50, active: false });
 
   useEffect(() => {
     let isMounted = true;
@@ -35,6 +36,21 @@ const ShelfTileItem = ({ item, idx, onOpenItem, onRemoveItem }) => {
     }
     return () => { isMounted = false; };
   }, [item.path, item.type, item.iconUrl]);
+
+  const handleMouseMove = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const px = (x / rect.width) * 100;
+    const py = (y / rect.height) * 100;
+    const rx = -((y - rect.height / 2) / (rect.height / 2)) * 12;
+    const ry = ((x - rect.width / 2) / (rect.width / 2)) * 12;
+    setTilt({ rx, ry, px, py, active: true });
+  };
+
+  const handleMouseLeave = () => {
+    setTilt({ rx: 0, ry: 0, px: 50, py: 50, active: false });
+  };
 
   const renderVisual = () => {
     if (item.type === 'folder' || item.type?.includes('folder')) {
@@ -61,25 +77,19 @@ const ShelfTileItem = ({ item, idx, onOpenItem, onRemoveItem }) => {
         e.stopPropagation();
         onOpenItem?.(item);
       }}
-      className="shelf-tile-card"
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      className="shelf-tile-card-3d"
       style={{
-        position: 'relative',
-        height: 86,
-        padding: '8px 6px',
-        background: 'rgba(255, 255, 255, 0.07)',
-        border: '1px solid rgba(255, 255, 255, 0.12)',
-        borderRadius: 12,
-        cursor: 'pointer',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 6,
-        boxSizing: 'border-box',
-        transition: 'background 0.2s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease',
+        transform: tilt.active
+          ? `perspective(600px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) scale3d(1.06, 1.06, 1.06)`
+          : 'perspective(600px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
+        background: tilt.active
+          ? `radial-gradient(circle at ${tilt.px}% ${tilt.py}%, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.06) 65%)`
+          : 'rgba(255, 255, 255, 0.07)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 34 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 34, transform: 'translateZ(18px)', transition: 'transform 0.2s ease' }}>
         {renderVisual()}
       </div>
 
@@ -95,6 +105,7 @@ const ShelfTileItem = ({ item, idx, onOpenItem, onRemoveItem }) => {
           textOverflow: 'ellipsis',
           padding: '0 4px',
           boxSizing: 'border-box',
+          transform: 'translateZ(12px)',
         }}
         title={item.name || item.text}
       >
@@ -106,7 +117,7 @@ const ShelfTileItem = ({ item, idx, onOpenItem, onRemoveItem }) => {
           e.stopPropagation();
           onRemoveItem?.(idx);
         }}
-        className="tile-trash-btn"
+        className="tile-trash-btn tactile-btn"
         style={{
           position: 'absolute',
           top: 4,
@@ -114,15 +125,16 @@ const ShelfTileItem = ({ item, idx, onOpenItem, onRemoveItem }) => {
           width: 18,
           height: 18,
           borderRadius: '50%',
-          background: 'rgba(0, 0, 0, 0.6)',
-          border: 'none',
-          color: 'rgba(255, 255, 255, 0.75)',
+          background: 'rgba(0, 0, 0, 0.65)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          color: 'rgba(255, 255, 255, 0.85)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           padding: 0,
-          transition: 'background 0.2s ease, color 0.2s ease',
+          zIndex: 10,
+          transform: 'translateZ(20px)',
         }}
         title="Remove item"
       >
@@ -170,6 +182,7 @@ export default function ShelfWidget({ isCompact, shelvedItems = [], onRemoveItem
               e.stopPropagation();
               onClearAll?.();
             }}
+            className="tactile-btn"
             style={{
               position: 'relative',
               zIndex: 100,
@@ -185,7 +198,6 @@ export default function ShelfWidget({ isCompact, shelvedItems = [], onRemoveItem
               display: 'flex',
               alignItems: 'center',
               gap: 5,
-              transition: 'background 0.2s ease, border-color 0.2s ease',
             }}
           >
             <Trash2 size={12} style={{ pointerEvents: 'none' }} />

@@ -263,6 +263,8 @@ export default function DynamicIsland({
   const [shouldRenderDnd, setShouldRenderDnd] = useState(false);
   const [isDndVisible, setIsDndVisible]       = useState(false);
   const [isDocked, setIsDocked]               = useState(false);
+  const [isDraggingOverIsland, setIsDraggingOverIsland] = useState(false);
+  const dragDepthRef = useRef(0);
   const idleTimerRef = useRef(null);
 
   // Listen to Focus Mode / DND state updates
@@ -1042,9 +1044,24 @@ export default function DynamicIsland({
     setActiveState((prev) => prev === 'expanded-launcher' ? (trackInfo.title ? 'compact-music' : 'idle') : 'expanded-launcher');
   };
 
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    dragDepthRef.current++;
+    setIsDraggingOverIsland(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) {
+      setIsDraggingOverIsland(false);
+    }
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
     e.stopPropagation();
+    setIsDraggingOverIsland(true);
     if (activeState !== 'expanded-shelf') {
       setActiveState('expanded-shelf');
     }
@@ -1053,6 +1070,8 @@ export default function DynamicIsland({
   const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    dragDepthRef.current = 0;
+    setIsDraggingOverIsland(false);
     const rawFiles = Array.from(e.dataTransfer?.files || []);
     const items = await Promise.all(
       rawFiles.map(async (f) => {
@@ -1347,7 +1366,7 @@ export default function DynamicIsland({
       <div
         ref={capsuleRef}
         style={{ '--shelf-dynamic-height': `${70 + Math.max(1, Math.min(4, Math.ceil(shelvedItems.length / 3))) * 95}px` }}
-        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''}`}
+        className={`island-capsule ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''} ${isDraggingOverIsland ? 'shelf-absorption-active' : ''}`}
         onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
         onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
         onMouseLeave={(e) => { handleMouseLeave(e); setIsCapsuleHovered(false); }}
@@ -1355,6 +1374,8 @@ export default function DynamicIsland({
         onMouseDown={() => setIsCapsulePressed(true)}
         onMouseUp={() => setIsCapsulePressed(false)}
         onContextMenu={handleContextMenu}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
