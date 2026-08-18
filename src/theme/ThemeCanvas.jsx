@@ -50,9 +50,10 @@ export default function ThemeCanvas({
     if (!ctx) return;
 
     const dpr = Math.max(window.devicePixelRatio || 1, 2);
+    const rect = container.getBoundingClientRect();
     const { width: currentW, height: currentH } = sizeRef.current;
-    const width = Math.max(container.clientWidth || currentW, 10);
-    const height = Math.max(container.clientHeight || currentH, 10);
+    const width = Math.max(rect.width || container.clientWidth || currentW, 10);
+    const height = Math.max(rect.height || container.clientHeight || currentH, 10);
 
     const targetWidth = Math.round(width * dpr);
     const targetHeight = Math.round(height * dpr);
@@ -81,7 +82,7 @@ export default function ThemeCanvas({
       const cs = window.getComputedStyle(container);
       const parsed = parseFloat(cs.borderRadius);
       if (!isNaN(parsed) && parsed > 0) {
-        computedRadius = parsed;
+        computedRadius = Math.min(parsed, height / 2);
       }
     } catch {}
 
@@ -264,8 +265,11 @@ export default function ThemeCanvas({
         height: '100%',
         pointerEvents: 'none',
         borderRadius: 'inherit',
+        WebkitMaskImage: '-webkit-radial-gradient(white, black)',
+        maskImage: '-webkit-radial-gradient(white, black)',
         zIndex: 0,
       }}
     />
   );
 }
+

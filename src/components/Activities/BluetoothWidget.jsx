@@ -5,6 +5,7 @@ import Earbuds3D from './Earbuds3D';
 import Phone3D from './Phone3D';
 import DeviceModel3D from './DeviceModel3D';
 import { readDevicePrefs, prefCategoryFor, engineCategoryFor } from '../../data/devicePrefs';
+import { DEVICE_COLOR_VARIANTS } from '../../data/deviceCatalog';
 
 const MAC_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif';
 
@@ -353,15 +354,18 @@ export default function BluetoothWidget({
     // their chosen motion style. Mice and keyboards have no model in the
     // catalog, so they keep their vector icons below.
     if (prefCategory && chosenModelId) {
+      const colorKey = localStorage.getItem('winland_color_variant') || 'space-grey';
+      const tintHex = DEVICE_COLOR_VARIANTS[colorKey]?.hex;
       return (
         <DeviceModel3D
-          key={`3d-${chosenModelId}-${chosenStyle}`}
+          key={`3d-${chosenModelId}-${chosenStyle}-${colorKey}`}
           modelId={chosenModelId}
           category={engineCategoryFor(prefCategory)}
           styleCategory={prefCategory}
           animStyle={chosenStyle}
           size={iconSize}
           isDisconnected={isDisconnected}
+          tintHex={tintHex}
         />
       );
     }

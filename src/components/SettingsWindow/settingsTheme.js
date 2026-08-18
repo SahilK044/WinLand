@@ -9,6 +9,18 @@
  * - Full Dark & Light appearance modes
  */
 export const SETTINGS_CSS = `
+.wl-root-container {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  background: transparent !important;
+  background-color: transparent !important;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
 .wl-root {
   --base: #1e1e22;
   --panel-top: #232328;
@@ -19,7 +31,7 @@ export const SETTINGS_CSS = `
   --surface-active: rgba(255, 255, 255, 0.12);
   --group-bg: rgba(255, 255, 255, 0.035);
   --stroke: rgba(255, 255, 255, 0.08);
-  --stroke-strong: rgba(255, 255, 255, 0.15);
+  --stroke-strong: rgba(255, 255, 255, 0.14);
   --label: #f5f5f7;
   --label-2: rgba(235, 235, 245, 0.65);
   --label-3: rgba(235, 235, 245, 0.35);
@@ -37,10 +49,10 @@ export const SETTINGS_CSS = `
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: 12px;
   border: 1px solid var(--stroke-strong);
   background: linear-gradient(180deg, var(--panel-top) 0%, var(--panel-bottom) 100%);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.85);
+  box-shadow: none !important;
   font-family: var(--font);
   color: var(--label);
   user-select: none;
@@ -112,8 +124,9 @@ export const SETTINGS_CSS = `
   padding: 12px 10px;
   background: var(--sidebar);
   border-right: 1px solid var(--stroke);
-  display: flex; flex-direction: column; gap: 2px;
+  display: flex; flex-direction: column; gap: 3px;
   overflow-y: auto;
+  scroll-behavior: smooth;
 }
 .wl-sidebar::-webkit-scrollbar { width: 0; }
 
@@ -155,6 +168,7 @@ export const SETTINGS_CSS = `
 .wl-side-group:first-of-type { padding-top: 2px; }
 
 .wl-tab {
+  position: relative;
   display: flex; align-items: center; gap: 10px;
   width: 100%; padding: 6px 9px;
   border: none; border-radius: 7px;
@@ -164,21 +178,13 @@ export const SETTINGS_CSS = `
   cursor: pointer;
   transition: background 120ms ease, color 120ms ease;
 }
-.wl-tab:hover { background: var(--surface-hover); }
-.wl-tab[aria-current="true"] {
-  background: var(--accent);
-  color: #ffffff;
-  font-weight: 600;
-  box-shadow: 0 2px 8px var(--accent-glow);
-}
+.wl-tab:hover:not(.is-active) { background: var(--surface-hover); }
 
 .wl-tab-badge {
   width: 22px; height: 22px; border-radius: 6px;
   display: flex; align-items: center; justify-content: center;
   color: #ffffff; flex-shrink: 0;
-}
-.wl-tab[aria-current="true"] .wl-tab-badge {
-  background: rgba(255, 255, 255, 0.25) !important;
+  transition: transform 0.2s ease, background 0.2s ease;
 }
 
 /* ── Content Area ─────────────────────────────────────────────────────── */

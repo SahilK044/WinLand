@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music, RefreshCw, Volume1, Volume2, VolumeX } from 'lucide-react';
+import { useEqBars } from '../../utils/eqStore';
 
 const MAC_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Arial, sans-serif';
 
@@ -53,6 +54,19 @@ function getButtonIconColor(bgColor) {
   }
   const lum = 0.299 * r + 0.587 * g + 0.114 * b;
   return lum > 165 ? '#000000' : '#ffffff';
+}
+
+function cleanTrackTitle(title) {
+  if (!title) return '';
+  return title
+    .replace(/\s*[([][^\])]*(?:feat\.?|ft\.?|with|from|version|remaster(?:ed)?|deluxe|bonus|anniversary|radio edit|original|mix)[^\])]*[)\]]/gi, '')
+    .replace(/\s*-\s*(?:feat\.?|ft\.?|with|remastered|deluxe|radio edit|mono|stereo|single).*$/i, '')
+    .trim();
+}
+
+function cleanArtistName(artist) {
+  if (!artist) return '';
+  return artist.split(/[,&/]|(?:feat\.?|ft\.?|with)/i)[0].trim();
 }
 
 function parseLrc(lrcText) {
@@ -112,7 +126,7 @@ function smoothScrollTo(container, targetTop, duration = 300) {
 }
 
 
-const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0, isPlaying = false, onSeek, onClose: _onClose, eqColor, eqGlow }) => {
+const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0, isPlaying = false, onSeek, onClose: _onClose, eqColor, eqGlow, isLight = false }) => {
   const [lyrics, setLyrics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [plainLyrics, setPlainLyrics] = useState('');
@@ -167,8 +181,8 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
     setLyrics([]);
     setPlainLyrics('');
 
-    const cleanTitle = title.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').split('-')[0].trim();
-    const cleanArtist = artist ? artist.split(',')[0].split('&')[0].trim() : '';
+    const cleanTitle = cleanTrackTitle(title);
+    const cleanArtist = cleanArtistName(artist);
     const isStale = () => lyricsRequestIdRef.current !== requestId;
 
     const isArtistMatch = (resArtist, targetArtist) => {
@@ -180,10 +194,22 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
       return a.includes(b) || b.includes(a);
     };
 
+    const isTitleMatch = (resTitle, targetTitle) => {
+      if (!targetTitle) return true;
+      if (!resTitle) return false;
+      const a = resTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const b = targetTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!a || !b) return false;
+      return a.includes(b) || b.includes(a);
+    };
+
     const controller = new AbortController();
     const { signal } = controller;
+
     const attemptFetch = async () => {
-      // Strategy 1: LRCLIB Direct Match (Title + Artist)
+      let fallbackPlain = '';
+
+      // Strategy 1: LRCLIB Direct Match (Clean Title + Clean Artist)
       try {
         if (cleanArtist) {
           const durParam = durationMs > 0 ? `&duration=${Math.round(durationMs / 1000)}` : '';
@@ -192,14 +218,21 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
           if (res.ok) {
             const data = await res.json();
             if (isStale()) return;
-            if (data.syncedLyrics) { setLyrics(parseLrc(data.syncedLyrics)); setLoading(false); return; }
-            if (data.plainLyrics) { setPlainLyrics(data.plainLyrics); setLoading(false); return; }
+            if (data.syncedLyrics) {
+              const parsed = parseLrc(data.syncedLyrics);
+              if (parsed.length > 0) {
+                setLyrics(parsed);
+                setLoading(false);
+                return;
+              }
+            }
+            if (data.plainLyrics && !fallbackPlain) fallbackPlain = data.plainLyrics;
           }
         }
       } catch {}
       if (isStale()) return;
 
-      // Strategy 2: LRCLIB Search (Title + Artist)
+      // Strategy 2: LRCLIB Search with Combo (Clean Title + Clean Artist)
       try {
         const q = `${cleanTitle} ${cleanArtist}`.trim();
         const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(q)}`, { signal });
@@ -208,60 +241,49 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
           const results = await res.json();
           if (isStale()) return;
           if (Array.isArray(results) && results.length > 0) {
-            const matched = results.filter((r) => isArtistMatch(r.artistName, cleanArtist));
-            const pool = matched.length > 0 ? matched : results;
-            const synced = pool.find((r) => r.syncedLyrics);
-            if (synced) { setLyrics(parseLrc(synced.syncedLyrics)); setLoading(false); return; }
-            const plain = pool.find((r) => r.plainLyrics);
-            if (plain) { setPlainLyrics(plain.plainLyrics); setLoading(false); return; }
-          }
-        }
-      } catch {}
-      if (isStale()) return;
-
-      // Strategy 3: LRCLIB Search (Title Only - ONLY accept if artist matches)
-      try {
-        if (cleanArtist) {
-          const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`, { signal });
-          if (isStale()) return;
-          if (res.ok) {
-            const results = await res.json();
-            if (isStale()) return;
-            if (Array.isArray(results) && results.length > 0) {
-              const matched = results.filter((r) => isArtistMatch(r.artistName, cleanArtist));
-              if (matched.length > 0) {
-                const synced = matched.find((r) => r.syncedLyrics);
-                if (synced) { setLyrics(parseLrc(synced.syncedLyrics)); setLoading(false); return; }
-                const plain = matched.find((r) => r.plainLyrics);
-                if (plain) { setPlainLyrics(plain.plainLyrics); setLoading(false); return; }
+            const synced = results.find((r) => r.syncedLyrics && (isArtistMatch(r.artistName, cleanArtist) || isTitleMatch(r.trackName, cleanTitle)));
+            if (synced) {
+              const parsed = parseLrc(synced.syncedLyrics);
+              if (parsed.length > 0) {
+                setLyrics(parsed);
+                setLoading(false);
+                return;
               }
             }
+            const plain = results.find((r) => r.plainLyrics && isArtistMatch(r.artistName, cleanArtist));
+            if (plain && !fallbackPlain) fallbackPlain = plain.plainLyrics;
           }
         }
       } catch {}
       if (isStale()) return;
 
-      // Strategy 4: Lyrics.ovh API Fallback
+      // Strategy 3: LRCLIB Search with Clean Title only
       try {
-        if (cleanArtist) {
-          const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`, { signal });
+        const res = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle)}`, { signal });
+        if (isStale()) return;
+        if (res.ok) {
+          const results = await res.json();
           if (isStale()) return;
-          if (res.ok) {
-            const data = await res.json();
-            if (isStale()) return;
-            if (data.lyrics && data.lyrics.trim()) {
-              setPlainLyrics(data.lyrics.trim());
-              setLoading(false);
-              return;
+          if (Array.isArray(results) && results.length > 0) {
+            const synced = results.find((r) => r.syncedLyrics && isArtistMatch(r.artistName, cleanArtist));
+            if (synced) {
+              const parsed = parseLrc(synced.syncedLyrics);
+              if (parsed.length > 0) {
+                setLyrics(parsed);
+                setLoading(false);
+                return;
+              }
             }
+            const plain = results.find((r) => r.plainLyrics && isArtistMatch(r.artistName, cleanArtist));
+            if (plain && !fallbackPlain) fallbackPlain = plain.plainLyrics;
           }
         }
       } catch {}
       if (isStale()) return;
 
-      // Strategy 5: NetEase Synced LRC API
+      // Strategy 4: NetEase Synced LRC API (Title + Artist)
       try {
-        const searchRes = await fetch(`https://music.163.com/api/search/get/web?csrf_token=&u=1&s=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}&type=1&offset=0&total=true&limit=5`, { signal });
+        const searchRes = await fetch(`https://music.163.com/api/search/get/web?csrf_token=&u=1&s=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}&type=1&offset=0&total=true&limit=8`, { signal });
         if (isStale()) return;
         if (searchRes.ok) {
           const searchData = await searchRes.json();
@@ -288,6 +310,60 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
       } catch {}
       if (isStale()) return;
 
+      // Strategy 5: NetEase Search with Clean Title Only
+      try {
+        const searchRes = await fetch(`https://music.163.com/api/search/get/web?csrf_token=&u=1&s=${encodeURIComponent(cleanTitle)}&type=1&offset=0&total=true&limit=6`, { signal });
+        if (isStale()) return;
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          const songs = searchData?.result?.songs || [];
+          const matchedSong = songs.find((s) => s.artists?.some((a) => isArtistMatch(a.name, cleanArtist)));
+          const songId = matchedSong?.id;
+          if (songId) {
+            const lrcRes = await fetch(`https://music.163.com/api/song/lyric?os=pc&id=${songId}&lv=-1&kv=-1&tv=-1`, { signal });
+            if (isStale()) return;
+            if (lrcRes.ok) {
+              const lrcData = await lrcRes.json();
+              if (isStale()) return;
+              if (lrcData?.lrc?.lyric) {
+                const parsed = parseLrc(lrcData.lrc.lyric);
+                if (parsed.length > 0) {
+                  setLyrics(parsed);
+                  setLoading(false);
+                  return;
+                }
+              }
+            }
+          }
+        }
+      } catch {}
+      if (isStale()) return;
+
+      // If we recorded plain lyrics as a fallback from any search, use them now
+      if (fallbackPlain && fallbackPlain.trim()) {
+        setPlainLyrics(fallbackPlain.trim());
+        setLoading(false);
+        return;
+      }
+
+      // Strategy 6: Lyrics.ovh Plain Lyrics API Fallback
+      try {
+        if (cleanArtist) {
+          const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`, { signal });
+          if (isStale()) return;
+          if (res.ok) {
+            const data = await res.json();
+            if (isStale()) return;
+            if (data.lyrics && data.lyrics.trim()) {
+              setPlainLyrics(data.lyrics.trim());
+              setLoading(false);
+              return;
+            }
+          }
+        }
+      } catch {}
+
+      if (isStale()) return;
       setLoading(false);
     };
 
@@ -356,7 +432,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        padding: '12px 14px 10px',
+        padding: '12px 16px 12px',
         boxSizing: 'border-box',
         fontFamily: MAC_FONT,
         position: 'relative',
@@ -368,8 +444,8 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
       {/* Ambient accent glow */}
       <div className="lyric-ambient-glow" style={{ '--lyric-glow-color': glowColor }} />
 
-      {/* Header: album art + song title + artist + sync adjuster */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, flexShrink: 0, position: 'relative', zIndex: 1 }}>
+      {/* Header: mini album art + song title + artist + sync adjuster */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, paddingBottom: 6, borderBottom: isLight ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.08)', flexShrink: 0, position: 'relative', zIndex: 10 }}>
         {/* Mini album art */}
         <div
           className="album-art-spring interactive-child"
@@ -379,28 +455,28 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
           }}
           title="Open Spotify"
           style={{
-            width: 38, height: 38, minWidth: 38,
-            borderRadius: 10,
+            width: 36, height: 36, minWidth: 36,
+            borderRadius: 9,
             overflow: 'hidden',
-            background: 'rgba(255,255,255,0.08)',
+            background: isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.08)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0,
-            boxShadow: `0 3px 12px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.08) inset`,
+            boxShadow: '0 3px 12px rgba(0,0,0,0.45)',
             cursor: 'pointer',
           }}
         >
           {coverUrl ? (
             <img src={coverUrl} alt="art" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
-            <Music size={16} color="rgba(255,255,255,0.4)" />
+            <Music size={16} color={isLight ? 'rgba(0,0,0,0.4)' : 'rgba(255,255,255,0.4)'} />
           )}
         </div>
         {/* Title + artist */}
-        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0 }}>
-          <MarqueeText style={{ fontSize: 12, fontWeight: 700, color: '#fff', letterSpacing: '-0.1px' }}>
+        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          <MarqueeText style={{ fontSize: 13, fontWeight: 750, color: isLight ? '#000000' : '#ffffff', letterSpacing: '-0.2px', lineHeight: '16px' }}>
             {title}
           </MarqueeText>
-          <MarqueeText style={{ fontSize: 10, fontWeight: 500, color: 'rgba(255,255,255,0.45)', marginTop: 1 }}>
+          <MarqueeText style={{ fontSize: 10.5, fontWeight: 550, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255,255,255,0.5)', marginTop: 2, lineHeight: '14px' }}>
             {artist}
           </MarqueeText>
         </div>
@@ -410,18 +486,20 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 3,
-            background: 'rgba(255, 255, 255, 0.08)',
-            padding: '3px 6px',
+            gap: 4,
+            background: isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.09)',
+            backdropFilter: 'blur(10px)',
+            padding: '3px 7px',
             borderRadius: 8,
-            border: '1px solid rgba(255, 255, 255, 0.12)',
+            border: isLight ? '1px solid rgba(0, 0, 0, 0.1)' : '1px solid rgba(255, 255, 255, 0.12)',
             flexShrink: 0,
           }}
         >
           <button
+            type="button"
             onClick={(e) => handleOffsetChange(-200, e)}
             style={{
-              background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)',
+              background: 'none', border: 'none', color: isLight ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.75)',
               fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '1px 3px',
               borderRadius: 4, transition: 'color 0.15s ease',
             }}
@@ -429,13 +507,31 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
           >
             -0.2s
           </button>
-          <span style={{ fontSize: 9, fontWeight: 600, color: userOffsetMs !== 0 ? '#30d158' : 'rgba(255,255,255,0.4)' }}>
+          <span
+            onClick={(e) => {
+              if (userOffsetMs !== 0) {
+                e.stopPropagation();
+                setUserOffsetMs(0);
+                try { localStorage.setItem('winland_lyrics_offset', '0'); } catch {}
+              }
+            }}
+            style={{
+              fontSize: 9.5,
+              fontWeight: 700,
+              color: userOffsetMs !== 0 ? '#30d158' : (isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)'),
+              cursor: userOffsetMs !== 0 ? 'pointer' : 'default',
+              userSelect: 'none',
+              padding: '0 2px',
+            }}
+            title={userOffsetMs !== 0 ? "Click to reset sync" : "Vocal Sync"}
+          >
             {userOffsetMs > 0 ? `+${(userOffsetMs / 1000).toFixed(1)}s` : userOffsetMs < 0 ? `${(userOffsetMs / 1000).toFixed(1)}s` : 'Sync'}
           </span>
           <button
+            type="button"
             onClick={(e) => handleOffsetChange(200, e)}
             style={{
-              background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)',
+              background: 'none', border: 'none', color: isLight ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.75)',
               fontSize: 10, fontWeight: 700, cursor: 'pointer', padding: '1px 3px',
               borderRadius: 4, transition: 'color 0.15s ease',
             }}
@@ -446,7 +542,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
         </div>
       </div>
 
-      {/* Clip wrapper: hard-clips the scroll layer inside the pill's rounded corners */}
+      {/* Clip wrapper: soft top & bottom vignette fade */}
       <div
         style={{
           flex: 1,
@@ -454,8 +550,8 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
           overflow: 'hidden',
           position: 'relative',
           zIndex: 1,
-          maskImage: 'linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%)',
+          maskImage: 'linear-gradient(180deg, transparent 0%, #000 7%, #000 93%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(180deg, transparent 0%, #000 7%, #000 93%, transparent 100%)',
         }}
       >
         {/* Lyrics scroll area — no native scrollbar */}
@@ -471,11 +567,11 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
           }}
         >
           {loading ? (
-            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.45)', fontSize: 11, gap: 6 }}>
-              <RefreshCw size={13} className="spin-loader" /> Fetching lyrics…
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? 'rgba(60,60,67,0.6)' : 'rgba(255,255,255,0.5)', fontSize: 12, gap: 8 }}>
+              <RefreshCw size={14} className="spin-loader" /> Fetching synced lyrics…
             </div>
           ) : lyrics.length > 0 ? (
-            <div style={{ padding: '34px 4px' }}>
+            <div style={{ padding: '64px 8px' }}>
               {lyrics.map((item, idx) => {
                 const isActive = idx === activeIndex;
                 const isPast = idx < activeIndex;
@@ -499,11 +595,15 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
               })}
             </div>
           ) : plainLyrics ? (
-            <div style={{ whiteSpace: 'pre-wrap', color: 'rgba(255,255,255,0.6)', fontSize: 11, lineHeight: 1.6, padding: '10px 4px' }}>
-              {plainLyrics}
+            <div style={{ padding: '24px 10px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {plainLyrics.split('\n').filter(Boolean).map((line, idx) => (
+                <div key={idx} className="lyric-plain-row" style={{ fontSize: 13.5, fontWeight: 600, color: isLight ? '#1d1d1f' : 'rgba(255,255,255,0.85)', lineHeight: '20px' }}>
+                  {line}
+                </div>
+              ))}
             </div>
           ) : (
-            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: isLight ? 'rgba(60,60,67,0.45)' : 'rgba(255,255,255,0.4)', fontSize: 12 }}>
               No lyrics found
             </div>
           )}
@@ -663,8 +763,7 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, glowColor, glowOpacity = 
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          border: '1px solid rgba(255,255,255,0.12)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.45)',
           cursor: 'pointer',
           transform: isHovered ? 'scale(1.06)' : 'scale(1)',
           transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -695,7 +794,7 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, glowColor, glowOpacity = 
 };
 
 // System-wide Windows Master Volume Control (Lower Left Side - Zero Overlap / Zero Popups)
-const SystemVolumeControl = () => {
+const SystemVolumeControl = ({ isLight = false }) => {
   const [volume, setVolume] = useState(50);
   const [isMuted, setIsMuted] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
@@ -785,18 +884,18 @@ const SystemVolumeControl = () => {
         onMouseLeave={() => setShowBadge(false)}
         className="tactile-btn"
         style={{
-          background: showBadge ? 'rgba(255, 255, 255, 0.15)' : 'none',
+          background: showBadge ? (isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.15)') : 'none',
           border: 'none',
           borderRadius: '50%',
           cursor: 'pointer',
           padding: 6,
-          color: 'rgba(255, 255, 255, 0.85)',
+          color: isLight ? '#1d1d1f' : 'rgba(255, 255, 255, 0.85)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <VolumeIcon size={18} color="rgba(255, 255, 255, 0.85)" />
+        <VolumeIcon size={18} color={isLight ? '#1d1d1f' : 'rgba(255, 255, 255, 0.85)'} />
       </button>
 
       {/* Floating percentage badge above volume icon */}
@@ -806,15 +905,15 @@ const SystemVolumeControl = () => {
           left: '50%',
           bottom: 34,
           transform: showBadge ? 'translateX(-50%) translateY(0) scale(1)' : 'translateX(-50%) translateY(4px) scale(0.9)',
-          background: 'rgba(20, 20, 22, 0.94)',
+          background: isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(20, 20, 22, 0.94)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.22)',
+          border: isLight ? '1px solid rgba(0, 0, 0, 0.12)' : '1px solid rgba(255, 255, 255, 0.22)',
           borderRadius: 7,
           padding: '2.5px 8px',
           fontSize: 10.5,
           fontWeight: 650,
-          color: '#ffffff',
+          color: isLight ? '#000000' : '#ffffff',
           fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Rounded", "SF Pro Display", system-ui, sans-serif',
           letterSpacing: '-0.2px',
           fontVariantNumeric: 'tabular-nums',
@@ -823,7 +922,7 @@ const SystemVolumeControl = () => {
           pointerEvents: 'none',
           transition: 'opacity 0.2s cubic-bezier(0.32, 0.72, 0, 1), transform 0.2s cubic-bezier(0.32, 0.72, 0, 1)',
           whiteSpace: 'nowrap',
-          boxShadow: '0 6px 18px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)',
+          boxShadow: isLight ? '0 4px 16px rgba(0, 0, 0, 0.12)' : '0 6px 18px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.2)',
           zIndex: 25,
         }}
       >
@@ -834,45 +933,50 @@ const SystemVolumeControl = () => {
 };
 
 // Common Equalizer Component (Smooth Liquid Spring Animation)
-const EqBars = ({ h = 14, visualizerOpacity, barHeights, eqColor, eqGlow }) => (
-  <div style={{
-    display: 'flex',
-    alignItems: 'flex-end',
-    gap: 2.5,
-    height: h,
-    flexShrink: 0,
-    opacity: visualizerOpacity,
-    transform: `scaleY(${0.92 + visualizerOpacity * 0.08})`,
-    transformOrigin: 'bottom center',
-    filter: visualizerOpacity < 1 ? 'blur(0.4px)' : 'none',
-    transition: 'opacity 0.36s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.42s cubic-bezier(0.2, 0.9, 0.2, 1), filter 0.36s ease',
-  }}>
-    {barHeights.map((bh, i) => (
-      <div
-        key={i}
-        style={{
-          width: 2.5,
-          height: `${Math.max(8, bh)}%`,
-          background: `linear-gradient(180deg, rgba(255,255,255,0.94), ${eqColor} 38%, ${eqColor})`,
-          borderRadius: 2,
-          boxShadow: bh > 10 ? `0 0 7px ${eqGlow}, 0 0 14px ${eqGlow}` : `0 0 4px ${eqGlow}`,
-          transition: 'height 0.05s linear, background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)',
-        }}
-      />
-    ))}
-  </div>
-);
+// Subscribes to the eqStore directly so bar ticks re-render ONLY this tiny
+// component — the island root and MusicWidget stay out of the hot path.
+const EqBars = ({ h = 14, visualizerOpacity, eqColor, eqGlow }) => {
+  const barHeights = useEqBars();
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'flex-end',
+      gap: 2.5,
+      height: h,
+      flexShrink: 0,
+      opacity: visualizerOpacity,
+      transform: `scaleY(${0.92 + visualizerOpacity * 0.08})`,
+      transformOrigin: 'bottom center',
+      filter: visualizerOpacity < 1 ? 'blur(0.4px)' : 'none',
+      transition: 'opacity 0.36s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.42s cubic-bezier(0.2, 0.9, 0.2, 1), filter 0.36s ease',
+    }}>
+      {barHeights.map((bh, i) => (
+        <div
+          key={i}
+          style={{
+            width: 2.5,
+            height: `${Math.max(8, bh)}%`,
+            background: `linear-gradient(180deg, rgba(255,255,255,0.94), ${eqColor} 38%, ${eqColor})`,
+            borderRadius: 2,
+            boxShadow: bh > 10 ? `0 0 7px ${eqGlow}, 0 0 14px ${eqGlow}` : `0 0 4px ${eqGlow}`,
+            transition: 'height 0.05s linear, background 0.9s cubic-bezier(0.2, 0.9, 0.2, 1), box-shadow 0.9s cubic-bezier(0.2, 0.9, 0.2, 1)',
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 export default function MusicWidget({
   isCompact,
   isExpanded: _isExpanded,
   isSplit,
   isLyricsView,
+  isLight = false,
   isDndActive: _isDndActive = false,
   isDndVisible,
   onToggleLyrics,
   trackInfo = {},
-  barHeights = [3, 3, 3, 3, 3],
   eqColor = '#34c759',
   eqGlow = 'rgba(52,199,89,0.35)',
   progressGradient = 'linear-gradient(90deg, #34c759, #30d158)',
@@ -988,11 +1092,14 @@ export default function MusicWidget({
     return () => cancelAnimationFrame(rafId);
   }, [isPlaying, durationMs, title]);
 
-  // Clock for empty expanded state fallback
+  // Clock for empty expanded state fallback. Only ticks while no track is
+  // playing — the progress bar drives its own rAF loop, so a 1s interval here
+  // just forced a full re-render every second while music was visible.
   useEffect(() => {
+    if (title) return undefined;
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [title]);
 
   const activeDisplayMs = isDragging ? dragProgressMs : realtimeMs;
   const pct = durationMs > 0 ? Math.min(100, Math.max(0, (activeDisplayMs / durationMs) * 100)) : 0;
@@ -1072,6 +1179,7 @@ export default function MusicWidget({
         onClose={onToggleLyrics}
         eqColor={eqColor}
         eqGlow={eqGlow}
+        isLight={isLight}
       />
     );
   }
@@ -1090,17 +1198,17 @@ export default function MusicWidget({
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', boxSizing: 'border-box', fontFamily: MAC_FONT }}>
         <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} glowColor={eqGlow} glowOpacity={0.4} />
         <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 8, paddingRight: 8, overflow: 'hidden' }}>
-          <MarqueeText style={{ fontSize: 11, fontWeight: 700, color: '#fff', lineHeight: '14px' }}>
+          <MarqueeText style={{ fontSize: 11, fontWeight: 700, color: isLight ? '#000000' : '#ffffff', lineHeight: '14px' }}>
             {title || 'Music Player'}
           </MarqueeText>
           {artist && (
-            <MarqueeText style={{ fontSize: 9.5, fontWeight: 500, color: 'rgba(255,255,255,0.5)', lineHeight: '13px' }}>
+            <MarqueeText style={{ fontSize: 9.5, fontWeight: 500, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255,255,255,0.5)', lineHeight: '13px' }}>
               {artist}
             </MarqueeText>
           )}
         </div>
         <div style={{ flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}>
-          <EqBars h={14} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
+          <EqBars h={14} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
         </div>
       </div>
     );
@@ -1119,17 +1227,17 @@ export default function MusicWidget({
       >
         <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} glowColor={eqGlow} glowOpacity={0.45} />
         <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 10, paddingRight: 10, overflow: 'hidden' }}>
-          <MarqueeText style={{ fontSize: 11.5, fontWeight: 700, color: '#fff', lineHeight: '15px' }}>
+          <MarqueeText style={{ fontSize: 11.5, fontWeight: 700, color: isLight ? '#000000' : '#ffffff', lineHeight: '15px' }}>
             {title || 'Music Player'}
           </MarqueeText>
           {artist && (
-            <MarqueeText style={{ fontSize: 10, fontWeight: 500, color: 'rgba(255,255,255,0.55)', lineHeight: '14px' }}>
+            <MarqueeText style={{ fontSize: 10, fontWeight: 500, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255,255,255,0.55)', lineHeight: '14px' }}>
               {artist}
             </MarqueeText>
           )}
         </div>
         <div style={{ flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}>
-          <EqBars h={14} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
+          <EqBars h={14} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
         </div>
       </div>
     );
@@ -1147,7 +1255,7 @@ export default function MusicWidget({
           style={{
             fontSize: 52,
             fontWeight: 700,
-            color: '#ffffff',
+            color: isLight ? '#000000' : '#ffffff',
             letterSpacing: '-1.5px',
             lineHeight: '58px',
             fontVariantNumeric: 'tabular-nums',
@@ -1155,7 +1263,7 @@ export default function MusicWidget({
         >
           {timeString}
         </div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255, 255, 255, 0.55)', letterSpacing: '0.1px' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255, 255, 255, 0.55)', letterSpacing: '0.1px' }}>
           {dateString}
         </div>
       </div>
@@ -1192,25 +1300,25 @@ export default function MusicWidget({
         {/* ── 1. Top Row: Track Info & Equalizer ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
           <div style={{ marginRight: 11, flexShrink: 0 }}>
-            <AlbumArt coverUrl={coverUrl} title={title} size={40} r={9} glowColor={eqGlow} glowOpacity={0.65} />
+            <AlbumArt coverUrl={coverUrl} title={title} size={40} r={9} glowColor={eqGlow} glowOpacity={isLight ? 0.4 : 0.65} />
           </div>
 
           <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndVisible ? 80 : 8 }}>
-            <MarqueeText style={{ fontSize: 15.5, fontWeight: 750, color: '#ffffff', lineHeight: '18px', letterSpacing: '-0.3px', textShadow: '0 1px 4px rgba(0,0,0,0.85), 0 2px 10px rgba(0,0,0,0.6)' }}>
+            <MarqueeText style={{ fontSize: 15.5, fontWeight: 750, color: isLight ? '#000000' : '#ffffff', lineHeight: '18px', letterSpacing: '-0.3px' }}>
               {title}
             </MarqueeText>
             {artist && (
-              <MarqueeText className="widget-subtitle" style={{ fontSize: 11.5, fontWeight: 550, marginTop: 2, lineHeight: '14px', textShadow: '0 1px 3px rgba(0,0,0,0.75)' }}>
+              <MarqueeText className="widget-subtitle" style={{ fontSize: 11.5, fontWeight: 550, marginTop: 2, lineHeight: '14px', color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255, 255, 255, 0.55)' }}>
                 {artist}
               </MarqueeText>
             )}
-            <div style={{ fontSize: 9.5, fontWeight: 700, marginTop: 2, color: eqColor, textShadow: '0 1px 2px rgba(0,0,0,0.6)', transition: 'color 0.8s ease' }}>
+            <div style={{ fontSize: 9.5, fontWeight: 700, marginTop: 2, color: eqColor, transition: 'color 0.8s ease' }}>
               {isPlaying ? 'Media • Active' : 'Media • Paused'}
             </div>
           </div>
 
           <div style={{ flexShrink: 0, marginTop: 2 }}>
-            <EqBars h={15} visualizerOpacity={visualizerOpacity} barHeights={barHeights} eqColor={eqColor} eqGlow={eqGlow} />
+            <EqBars h={15} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
           </div>
         </div>
 
@@ -1224,13 +1332,13 @@ export default function MusicWidget({
                 top: -24,
                 left: dragPosX,
                 transform: 'translateX(-50%)',
-                background: 'rgba(255, 255, 255, 0.95)',
+                background: isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(255, 255, 255, 0.95)',
                 color: '#000000',
                 fontSize: 10,
                 fontWeight: 800,
                 padding: '2px 7px',
                 borderRadius: 6,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.15)' : '0 4px 12px rgba(0,0,0,0.3)',
                 pointerEvents: 'none',
                 zIndex: 20,
               }}
@@ -1259,7 +1367,7 @@ export default function MusicWidget({
             <div style={{
               width: '100%',
               height: 5,
-              background: 'rgba(255, 255, 255, 0.16)',
+              background: isLight ? 'rgba(0, 0, 0, 0.10)' : 'rgba(255, 255, 255, 0.16)',
               borderRadius: 3,
               position: 'relative',
               overflow: 'visible',
@@ -1295,8 +1403,8 @@ export default function MusicWidget({
                   width: isDragging ? 11 : 8,
                   height: isDragging ? 11 : 8,
                   borderRadius: '50%',
-                  background: '#ffffff',
-                  boxShadow: `0 0 6px #ffffff, 0 0 10px ${eqColor}`,
+                  background: isLight ? '#1d1d1f' : '#ffffff',
+                  boxShadow: isLight ? '0 1px 4px rgba(0,0,0,0.25)' : `0 0 6px #ffffff, 0 0 10px ${eqColor}`,
                   pointerEvents: 'none',
                   zIndex: 5,
                   opacity: pct > 0.5 ? 1 : 0,
@@ -1306,7 +1414,7 @@ export default function MusicWidget({
             </div>
           </div>
 
-          <div className="widget-subtitle" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 2, fontWeight: 600 }}>
+          <div className="widget-subtitle" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 2, fontWeight: 600, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255, 255, 255, 0.55)' }}>
             <span ref={currentTimeTextRef}>{fmt(activeDisplayMs)}</span>
             <span>{durationMs > 0 ? fmt(durationMs) : '--:--'}</span>
           </div>
@@ -1314,12 +1422,12 @@ export default function MusicWidget({
 
         {/* ── 3. Bottom Row: Spaced Transport Controls (Comfortable Breathing Room) ── */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '0 6px', marginTop: 2 }}>
-          <SystemVolumeControl />
+          <SystemVolumeControl isLight={isLight} />
 
           <button
             className="icon-only tactile-skip-prev tactile-btn"
             onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#ffffff', display: 'flex', alignItems: 'center' }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: isLight ? '#1d1d1f' : '#ffffff', display: 'flex', alignItems: 'center' }}
           >
             <SkipBack size={19} fill="currentColor" color="currentColor" />
           </button>
@@ -1330,7 +1438,7 @@ export default function MusicWidget({
             style={{
               width: 38, height: 38, borderRadius: '50%', border: 'none', cursor: 'pointer',
               background: eqColor,
-              boxShadow: `0 0 14px ${eqGlow}`,
+              boxShadow: isLight ? `0 2px 10px rgba(0,0,0,0.14), 0 0 12px ${eqGlow}` : `0 0 14px ${eqGlow}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               position: 'relative', overflow: 'hidden',
             }}
@@ -1371,7 +1479,7 @@ export default function MusicWidget({
           <button
             className="icon-only tactile-skip-next tactile-btn"
             onClick={(e) => { e.stopPropagation(); onNext?.(); }}
-            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: '#ffffff', display: 'flex', alignItems: 'center' }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: isLight ? '#1d1d1f' : '#ffffff', display: 'flex', alignItems: 'center' }}
           >
             <SkipForward size={19} fill="currentColor" color="currentColor" />
           </button>
@@ -1385,12 +1493,12 @@ export default function MusicWidget({
             title="Synced Lyrics"
             className="tactile-btn"
             style={{
-              background: isLyricsView ? 'rgba(255, 255, 255, 0.15)' : 'none',
+              background: isLyricsView ? (isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.15)') : 'none',
               border: 'none',
               borderRadius: '50%',
               cursor: 'pointer',
               padding: 5,
-              color: isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.85)',
+              color: isLyricsView ? eqColor : (isLight ? '#1d1d1f' : 'rgba(255, 255, 255, 0.85)'),
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1398,7 +1506,7 @@ export default function MusicWidget({
               filter: isLyricsView ? `drop-shadow(0 0 6px ${eqGlow})` : 'none',
             }}
           >
-            <StraightMicIcon size={17} color={isLyricsView ? eqColor : 'rgba(255, 255, 255, 0.85)'} />
+            <StraightMicIcon size={17} color={isLyricsView ? eqColor : (isLight ? '#1d1d1f' : 'rgba(255, 255, 255, 0.85)')} />
           </button>
         </div>
 

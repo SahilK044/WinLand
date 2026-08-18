@@ -6,27 +6,19 @@ import { IThemeRenderer } from '../IThemeRenderer.js';
  */
 export class LightRenderer extends IThemeRenderer {
   DrawBackground(ctx, bounds, _state, options = {}) {
-    const { width, height, radius = 24 } = bounds;
-    ctx.save();
-    
-    // Translucent light mode background
-    ctx.fillStyle = options.bgColor || 'rgba(255, 255, 255, 0.94)';
-    ctx.beginPath();
-    ctx.roundRect(0, 0, width, height, radius);
-    ctx.fill();
-
-    ctx.restore();
+    if (options.bgColor) {
+      const { width, height, radius = 24 } = bounds;
+      ctx.save();
+      ctx.fillStyle = options.bgColor;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, width, height, radius);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
-  DrawBorder(ctx, bounds) {
-    const { width, height, radius = 24 } = bounds;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(0, 0, 0, 0.08)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.roundRect(0.5, 0.5, width - 1, height - 1, radius);
-    ctx.stroke();
-    ctx.restore();
+  DrawBorder() {
+    // Border is cleanly handled by CSS ::after with subpixel hardware antialiasing
   }
 
   DrawShadow() {
@@ -52,6 +44,6 @@ export class LightRenderer extends IThemeRenderer {
 
   DrawDisabled(ctx, bounds, state, options) {
     this.DrawBackground(ctx, bounds, state, options);
-    this.DrawBorder(ctx, bounds, state, options);
   }
 }
+

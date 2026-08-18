@@ -2,7 +2,7 @@ import { app, BrowserWindow, screen, ipcMain, globalShortcut, shell, desktopCapt
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
-import { exec, execFile, spawn } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import DiscordRPC from 'discord-rpc';
 import os from 'os';
 
@@ -38,10 +38,16 @@ const DEFAULT_SETTINGS = {
   showBattery: true,
   showVolume: true,
   pollInterval: 2500,
+  // "Hide during fullscreen games" from Settings. Defaults to true so a
+  // first-run install matches the behaviour the toggle advertises; the
+  // SettingsWindow default below is aligned with this.
+  hideInFullscreen: true,
   // null = follow the primary display. Otherwise a display.id from
   // screen.getAllDisplays(), set via the Settings window's Multi-Monitor
   // Pinning control (get-displays / set-target-display IPC below).
   targetDisplayId: null,
+  // Liquid beat-synced ambient aura glow behind the expanded music player.
+  musicAura: true,
 };
 
 function readSettings() {
@@ -129,13 +135,116 @@ fs.mkdirSync(SCRIPT_DIR, { recursive: true });
 // weather (~every 15 min, plus on launch) and whenever settings are saved.
 // We read it once for the initial state, then watch it for changes.
 const WINLAND_THEME_PATH = path.join(os.tmpdir(), 'winland_theme.json');
+let cachedWeatherData = null;
+
+function formatCleanCityName(name = '') {
+  if (!name) return 'South Delhi';
+  const raw = name.trim();
+  const lower = raw.toLowerCase();
+  if (lower.includes('paharganj') || lower === 'dehli') return 'Delhi';
+  if (lower.includes('chatarpur')) return 'South Delhi';
+  if (lower.includes('delhi cantonment')) return 'West Delhi';
+  return raw;
+}
+
+async function fetchLiveWeatherFromNetwork() {
+  const settings = readSettings();
+  let lat = settings.pinnedLat;
+  let lon = settings.pinnedLon;
+  let city = settings.pinnedCity;
+
+  if (!lat || !lon) {
+    lat = 28.5915;
+    lon = 77.0531;
+    city = 'Dwarka';
+  }
+
+  // Tier 1: Real-time physical surface observation stations for the pinned coordinates
+  try {
+    const r = await fetch(`https://wttr.in/${lat},${lon}?format=j1`, { signal: AbortSignal.timeout(4000) });
+    if (r.ok) {
+      const d = await r.json();
+      const curr = d.current_condition?.[0];
+      const area = d.nearest_area?.[0];
+      if (curr && curr.temp_C !== undefined) {
+        const tempC = Number(curr.temp_C);
+        const condition = curr.weatherDesc?.[0]?.value?.trim() || 'Clear';
+        cachedWeatherData = {
+          city: city || formatCleanCityName(area?.areaName?.[0]?.value || area?.region?.[0]?.value || 'Dwarka'),
+          country: area?.country?.[0]?.value || 'India',
+          latitude: lat,
+          longitude: lon,
+          temperatureC: tempC,
+          temperature: tempC,
+          weatherCondition: condition,
+          humidity: Number(curr.humidity || 50),
+          apparentTemperatureC: Number(curr.FeelsLikeC || tempC),
+          isDay: (curr.isdaytime === 'yes' || curr.isdaytime === '1' || new Date().getHours() >= 6 && new Date().getHours() < 19),
+        };
+        return cachedWeatherData;
+      }
+    }
+  } catch {}
+
+  // Tier 2: Open-Meteo GFS NOAA global observations for the pinned coordinates
+  try {
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code&models=gfs_seamless&timezone=auto`;
+    const wr = await fetch(weatherUrl, { signal: AbortSignal.timeout(4000) });
+    if (wr.ok) {
+      const wd = await wr.json();
+      if (wd?.current) {
+        const current = wd.current;
+        const code = Number(current.weather_code);
+        let condition = 'Clear';
+        if (code === 0 || code === 1) condition = current.is_day ? 'Sunny' : 'Clear';
+        else if (code === 2) condition = 'Partly Cloudy';
+        else if (code === 3) condition = 'Overcast';
+        else if (code === 45 || code === 48) condition = 'Foggy';
+        else if (code >= 51 && code <= 57) condition = 'Drizzle';
+        else if (code >= 61 && code <= 67) condition = 'Rain';
+        else if (code >= 71 && code <= 77) condition = 'Snow';
+        else if (code >= 80 && code <= 82) condition = 'Rain Showers';
+        else if (code >= 95) condition = 'Thunderstorm';
+
+        cachedWeatherData = {
+          city: city || 'Dwarka',
+          latitude: lat,
+          longitude: lon,
+          temperatureC: current.temperature_2m,
+          temperature: current.temperature_2m,
+          weatherCondition: condition,
+          weatherCode: current.weather_code,
+          isDay: current.is_day === 1,
+          humidity: Number(current.relative_humidity_2m || 50),
+          apparentTemperatureC: Number(current.apparent_temperature || current.temperature_2m),
+        };
+        return cachedWeatherData;
+      }
+    }
+  } catch {}
+
+  return cachedWeatherData || null;
+}
+
+async function broadcastLiveWeather() {
+  const live = await fetchLiveWeatherFromNetwork();
+  if (live && mainWindow && mainWindow.webContents) {
+    sendToWindow(mainWindow, 'config-update', live);
+  }
+}
 
 function readWinlandConfig() {
   try {
-    if (!fs.existsSync(WINLAND_THEME_PATH)) return null;
-    return JSON.parse(fs.readFileSync(WINLAND_THEME_PATH, 'utf8'));
+    let fileData = null;
+    if (fs.existsSync(WINLAND_THEME_PATH)) {
+      fileData = JSON.parse(fs.readFileSync(WINLAND_THEME_PATH, 'utf8'));
+    }
+    if (cachedWeatherData) {
+      return { ...cachedWeatherData, ...fileData };
+    }
+    return fileData;
   } catch {
-    return null;
+    return cachedWeatherData || null;
   }
 }
 
@@ -147,14 +256,13 @@ function broadcastWinlandConfig() {
 }
 
 function watchWinlandConfig() {
-  // fs.watch is unreliable across platforms (esp. Windows) for files that don't
-  // exist yet; watchFile's polling is slower but predictable, and WinDock only
-  // rewrites this file every ~15 min (or on demand for settings changes), so a
-  // 3s poll is plenty responsive without adding real overhead.
   fs.unwatchFile(WINLAND_THEME_PATH);
   fs.watchFile(WINLAND_THEME_PATH, { interval: 3000 }, (curr, prev) => {
     if (curr.mtimeMs !== prev.mtimeMs) broadcastWinlandConfig();
   });
+  // Auto-fetch live weather on startup and every 10 minutes
+  broadcastLiveWeather();
+  setInterval(broadcastLiveWeather, 10 * 60 * 1000);
 }
 
 function getSpotifyExePath() {
@@ -246,7 +354,7 @@ function createWindow() {
       nodeIntegration: false,
       // Sandboxed renderer: preload only needs contextBridge + ipcRenderer, both
       // of which work under the sandbox, so there's no reason to weaken it.
-      sandbox: false,
+      sandbox: true,
       // This overlay is always-on-top and never focused, so Chromium's default
       // background throttling can cap its animation loops well below the
       // display's refresh rate. Disabling it lets the island, visualizer and
@@ -318,15 +426,21 @@ function createWindow() {
 
   mainWindow.webContents.on('render-process-gone', (event, details) => {
     console.error('RENDERER CRASHED:', details.reason, details.exitCode);
-    // Recover: recreate the window
-    if (!mainWindow || mainWindow.isDestroyed()) {
+    // Recover: reload the island in place. The old destroy/create path could
+    // never fire — a crashed renderer leaves the window alive, so
+    // isDestroyed() was false and nothing happened.
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.reload();
+    } else {
       createWindow();
     }
   });
 
   mainWindow.webContents.on('crashed', () => {
     console.error('WEBCONTENTS CRASHED - recovering');
-    if (!mainWindow || mainWindow.isDestroyed()) {
+    if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed()) {
+      mainWindow.webContents.reload();
+    } else {
       createWindow();
     }
   });
@@ -388,7 +502,7 @@ function createSettingsWindow() {
     backgroundColor: '#00000000',
     alwaysOnTop: true,
     resizable: false,
-    hasShadow: true,
+    hasShadow: false,
     show: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -437,7 +551,9 @@ function pollSpotifyTitle() {
 
   if (fs.existsSync(exePath)) {
     // runtime; client-side extrapolation smooths the bar between snapshots.
-    exec(`"${exePath}"`, { timeout: 8000 }, (err, stdout) => {
+    // execFile: no cmd.exe shell spawn per poll — this runs every 1.5s while
+    // Spotify is open, and the extra shell process per tick cost real CPU.
+    execFile(exePath, [], { timeout: 8000, maxBuffer: 1024 * 512 }, (err, stdout) => {
       if (!mainWindow || !mainWindow.webContents) { done(); return; }
       const raw = (stdout || '').trim();
       if (raw) {
@@ -916,16 +1032,22 @@ let privacyInterval = null;
 let isPollingPrivacy = false;
 let lastPrivacySnapshot = { cameraActive: false, micActive: false, cameraApps: [], micApps: [] };
 
-function parseCapabilityOutput(stdout) {
+function parseCapabilityOutput(stdout, capabilityFilter) {
   if (!stdout) return [];
   const lines = stdout.split(/\r?\n/);
   const activeApps = [];
   let currentKey = '';
+  let currentIsTarget = false;
   let lastUsedStart = 0;
   let lastUsedStop = -1;
 
+  // The combined query dumps the whole ConsentStore (webcam, microphone,
+  // location, ...). Only sections whose path sits under the requested
+  // capability are evaluated.
+  const filter = capabilityFilter ? `\\${capabilityFilter.toLowerCase()}\\` : null;
+
   function evaluate() {
-    if (currentKey && lastUsedStop === 0 && lastUsedStart > 0) {
+    if (currentKey && currentIsTarget && lastUsedStop === 0 && lastUsedStart > 0) {
       let appName = currentKey.split('\\').pop() || currentKey;
       if (appName.includes('#')) {
         appName = appName.split('#').pop().replace('.exe', '');
@@ -940,7 +1062,7 @@ function parseCapabilityOutput(stdout) {
       else if (appName.toLowerCase().includes('spotify')) appName = 'Spotify';
       else if (appName.toLowerCase().includes('skype')) appName = 'Skype';
       else if (appName.toLowerCase().includes('windowscamera') || appName.toLowerCase().includes('camera')) appName = 'Camera';
-      
+
       if (!activeApps.includes(appName)) {
         activeApps.push(appName);
       }
@@ -952,12 +1074,13 @@ function parseCapabilityOutput(stdout) {
     if (trimmed.startsWith('HKEY_')) {
       evaluate();
       currentKey = trimmed;
+      currentIsTarget = filter ? currentKey.toLowerCase().includes(filter) : true;
       lastUsedStart = 0;
       lastUsedStop = -1;
-    } else if (trimmed.startsWith('LastUsedTimeStart')) {
+    } else if (currentIsTarget && trimmed.startsWith('LastUsedTimeStart')) {
       const parts = trimmed.split(/\s+/);
       lastUsedStart = parseInt(parts[parts.length - 1], 16) || 0;
-    } else if (trimmed.startsWith('LastUsedTimeStop')) {
+    } else if (currentIsTarget && trimmed.startsWith('LastUsedTimeStop')) {
       const parts = trimmed.split(/\s+/);
       lastUsedStop = parseInt(parts[parts.length - 1], 16) || 0;
     }
@@ -970,25 +1093,26 @@ function pollPrivacySensors() {
   if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingPrivacy) return;
   isPollingPrivacy = true;
 
-  exec('reg query "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\webcam" /s', { timeout: 1500, maxBuffer: 128 * 1024 }, (err, camStdout) => {
-    exec('reg query "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore\\microphone" /s', { timeout: 1500, maxBuffer: 128 * 1024 }, (err2, micStdout) => {
-      isPollingPrivacy = false;
-      if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
+  // One reg.exe spawn for the whole ConsentStore instead of two sequential
+  // queries (webcam + microphone). Same 2s cadence, half the process churn
+  // for the app's most frequent poller.
+  execFile('reg.exe', ['query', 'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\CapabilityAccessManager\\ConsentStore', '/s'], { timeout: 1500, maxBuffer: 256 * 1024 }, (err, stdout) => {
+    isPollingPrivacy = false;
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
 
-      const cameraApps = parseCapabilityOutput(camStdout);
-      const micApps = parseCapabilityOutput(micStdout);
-      const cameraActive = cameraApps.length > 0;
-      const micActive = micApps.length > 0;
+    const cameraApps = parseCapabilityOutput(stdout, 'webcam');
+    const micApps = parseCapabilityOutput(stdout, 'microphone');
+    const cameraActive = cameraApps.length > 0;
+    const micActive = micApps.length > 0;
 
-      const nextSnapshot = { cameraActive, micActive, cameraApps, micApps };
-      const nextKey = `${cameraActive}|${micActive}|${cameraApps.join(',')}|${micApps.join(',')}`;
-      const prevKey = `${lastPrivacySnapshot.cameraActive}|${lastPrivacySnapshot.micActive}|${lastPrivacySnapshot.cameraApps.join(',')}|${lastPrivacySnapshot.micApps.join(',')}`;
+    const nextSnapshot = { cameraActive, micActive, cameraApps, micApps };
+    const nextKey = `${cameraActive}|${micActive}|${cameraApps.join(',')}|${micApps.join(',')}`;
+    const prevKey = `${lastPrivacySnapshot.cameraActive}|${lastPrivacySnapshot.micActive}|${lastPrivacySnapshot.cameraApps.join(',')}|${lastPrivacySnapshot.micApps.join(',')}`;
 
-      if (nextKey !== prevKey) {
-        lastPrivacySnapshot = nextSnapshot;
-        sendToWindow(mainWindow, 'privacy-sensors-update', nextSnapshot);
-      }
-    });
+    if (nextKey !== prevKey) {
+      lastPrivacySnapshot = nextSnapshot;
+      sendToWindow(mainWindow, 'privacy-sensors-update', nextSnapshot);
+    }
   });
 }
 
@@ -1023,6 +1147,14 @@ let lastFullscreenState = false;
 let isPollingFullscreen = false;
 let fullscreenInterval = null;
 
+// "Hide during fullscreen games" from Settings. Mirrors what SettingsWindow
+// persists (hideInFullscreen). Until now this was written to settings.json
+// but never read — the island always hid, even when the toggle was off.
+function hideInFullscreenEnabled() {
+  const settings = readSettings();
+  return settings.hideInFullscreen !== false;
+}
+
 function pollFullscreen() {
   if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingFullscreen) return;
   isPollingFullscreen = true;
@@ -1036,7 +1168,7 @@ function pollFullscreen() {
 
     if (isFullscreen !== lastFullscreenState) {
       lastFullscreenState = isFullscreen;
-      if (isFullscreen) {
+      if (isFullscreen && hideInFullscreenEnabled()) {
         sendToWindow(mainWindow, 'fullscreen-state', true);
         setTimeout(() => {
           if (mainWindow && !mainWindow.isDestroyed() && lastFullscreenState) {
@@ -1083,7 +1215,7 @@ function emitVolumeUpdate(vol, isUserAction = false) {
 ipcMain.on('set-system-volume', (_event, targetVol) => {
   const vol = Math.max(0, Math.min(100, parseInt(targetVol, 10)));
   if (!isNaN(vol)) {
-    exec(`"${VOLUME_HELPER_EXE}" set ${vol}`, { timeout: 2000 }, (err, stdout) => {
+    execFile(VOLUME_HELPER_EXE, ['set', String(vol)], { timeout: 2000 }, (err, stdout) => {
       const actual = parseInt((stdout || '').trim(), 10);
       const reported = !isNaN(actual) && actual >= 0 ? actual : vol;
       emitVolumeUpdate(reported, false);
@@ -1093,7 +1225,7 @@ ipcMain.on('set-system-volume', (_event, targetVol) => {
 
 ipcMain.handle('get-system-volume', () => {
   return new Promise((resolve) => {
-    exec(`"${VOLUME_HELPER_EXE}" get`, { timeout: 3000 }, (err, stdout) => {
+    execFile(VOLUME_HELPER_EXE, ['get'], { timeout: 3000 }, (err, stdout) => {
       const vol = parseInt((stdout || '').trim(), 10);
       if (!isNaN(vol) && vol >= 0) {
         lastVolumeValue = vol;
@@ -1110,7 +1242,7 @@ let volumePollInterval = null;
 // ── Volume Key Interception ────────────────────────────────────────────────
 function registerVolumeKeys() {
   const pollVolume = (isUserAction = false) => {
-    exec(`"${VOLUME_HELPER_EXE}" get`, { timeout: 3000 }, (err, stdout) => {
+    execFile(VOLUME_HELPER_EXE, ['get'], { timeout: 3000 }, (err, stdout) => {
       const vol = parseInt((stdout || '').trim(), 10);
       if (!isNaN(vol) && vol >= 0) {
         emitVolumeUpdate(vol, isUserAction);
@@ -1135,7 +1267,7 @@ function registerVolumeKeys() {
         globalShortcut.unregister(key);
       }
       globalShortcut.register(key, () => {
-        exec(`cscript //nologo "${VBS_MEDIA}" ${charCode}`, { timeout: 2000 }, () => {
+        execFile('cscript.exe', ['//nologo', VBS_MEDIA, String(charCode)], { timeout: 2000 }, () => {
           setTimeout(() => pollVolume(true), 120);
         });
       });
@@ -1179,7 +1311,7 @@ ipcMain.on('media-control', (event, action) => {
       trackKey: posTracker.trackKey,
     };
     if (fs.existsSync(exePath)) {
-      exec(`"${exePath}" seek ${Math.round(posMs)}`, { timeout: 8000 }, () => {
+      execFile(exePath, ['seek', String(Math.round(posMs))], { timeout: 8000 }, () => {
         forceRefreshMediaInfo();
       });
     }
@@ -1196,7 +1328,7 @@ ipcMain.on('media-control', (event, action) => {
     posTracker = { rawPos: 0, wallClockAtCapture: Date.now(), isPlaying: true, trackKey: '' };
   }
 
-  exec(`cscript //nologo "${VBS_MEDIA}" ${charCode}`, { timeout: 2000 }, () => {
+  execFile('cscript.exe', ['//nologo', VBS_MEDIA, String(charCode)], { timeout: 2000 }, () => {
     forceRefreshMediaInfo();
   });
 });
@@ -1273,6 +1405,7 @@ ipcMain.on('set-ignore-mouse-events', (event, ignore) => {
 ipcMain.handle('read-settings', () => readSettings());
 ipcMain.on('write-settings', (event, data) => writeSettings(data));
 ipcMain.handle('get-initial-config', () => readWinlandConfig());
+ipcMain.handle('get-live-weather', () => fetchLiveWeatherFromNetwork());
 
 // ── USB Hub / Eject Logic ───────────────────────────────────────────────
 let knownUsbDrives = new Set();
@@ -1280,7 +1413,10 @@ let isPollingUsb = false;
 let usbPollInterval = setInterval(() => {
   if (isPollingUsb) return; // Prevent overlapping PowerShell process stacking
   isPollingUsb = true;
-  exec('powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object DriveType -eq 2 | Select-Object -Property DeviceID, VolumeName, Size, FreeSpace, FileSystem | ConvertTo-Json"', { timeout: 4000 }, (err, stdout) => {
+  // execFile + relaxed cadence: a PowerShell spawn every 3s kept a full
+  // powershell.exe process alive back-to-back forever; 8s is imperceptible
+  // for a drive-connect toast and halves the process churn.
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', 'Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object DriveType -eq 2 | Select-Object -Property DeviceID, VolumeName, Size, FreeSpace, FileSystem | ConvertTo-Json'], { timeout: 4000, maxBuffer: 1024 * 512 }, (err, stdout) => {
     isPollingUsb = false;
     if (err || !stdout || !stdout.trim()) {
       knownUsbDrives.clear();
@@ -1308,13 +1444,13 @@ let usbPollInterval = setInterval(() => {
       knownUsbDrives = currentDrives;
     } catch {}
   });
-}, 3000);
+}, 8000);
 
 ipcMain.on('eject-usb', (_event, deviceId) => {
   if (!deviceId || typeof deviceId !== 'string') return;
   const safeId = deviceId.replace(/[^a-zA-Z0-9:]/g, '');
   const script = `$driveEject = New-Object -comObject Shell.Application; $driveEject.Namespace(17).ParseName("${safeId}").InvokeVerb("Eject")`;
-  exec(`powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "${script}"`, (err) => {
+  execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], (err) => {
     if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents) {
       mainWindow.webContents.send('usb-ejected', { deviceId: safeId, success: !err });
     }
@@ -1470,7 +1606,10 @@ ipcMain.handle('take-screenshot', async () => {
       thumbnailSize: { width: 1280, height: 720 },
     });
     if (sources && sources.length > 0) {
-      const primarySource = sources[0];
+      // Multi-monitor: sources[0] is not guaranteed to be the primary display.
+      // Match on the display id the same way get-primary-screen-source does.
+      const display = screen.getPrimaryDisplay();
+      const primarySource = sources.find((s) => s.display_id === display.id.toString()) || sources[0];
       const nativeImg = primarySource.thumbnail;
       if (nativeImg && !nativeImg.isEmpty()) {
         try { clipboard.writeImage(nativeImg); } catch {}
@@ -1535,8 +1674,18 @@ const runFfmpeg = (args) => new Promise((resolve, reject) => {
   });
 });
 
-const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps }) => {
+const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps, width, height }) => {
   const safeFps = Math.max(30, Math.min(120, Number(fps) || 60));
+  const targetW = Number(width);
+  const targetH = Number(height);
+  const hasScale = targetW > 0 && targetH > 0;
+  const scaleFilter = hasScale
+    ? `scale=${targetW}:${targetH}:flags=lanczos,format=yuv420p`
+    : 'format=yuv420p';
+  const hdrToSdrFilter = hasScale
+    ? `zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,scale=${targetW}:${targetH}:flags=lanczos,format=yuv420p`
+    : `zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p`;
+
   const commonArgs = [
     '-y',
     '-hide_banner',
@@ -1557,7 +1706,6 @@ const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps }) => {
     '-movflags', '+faststart',
   ];
 
-  const hdrToSdrFilter = `zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p`;
   try {
     await runFfmpeg([...commonArgs.slice(0, 8), '-vf', hdrToSdrFilter, ...commonArgs.slice(8), outputPath]);
     if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) return;
@@ -1565,7 +1713,7 @@ const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps }) => {
     console.warn('HDR tone-map normalization failed, retrying simple transcode:', err?.message || err);
   }
 
-  await runFfmpeg([...commonArgs, outputPath]);
+  await runFfmpeg([...commonArgs.slice(0, 8), '-vf', scaleFilter, ...commonArgs.slice(8), outputPath]);
   if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
     throw new Error('FFmpeg normalization produced an empty output file.');
   }
@@ -1624,7 +1772,7 @@ const buildGdigrabArgs = (bounds, fps, outW, outH, rawPath, encoder) => {
     '-offset_x', String(physicalX), '-offset_y', String(physicalY),
     '-video_size', physicalWidth + 'x' + physicalHeight,
     '-i', 'desktop',
-    '-vf', 'scale=' + outW + ':' + outH + ':flags=fast_bilinear,format=yuv420p',
+    '-vf', 'scale=' + outW + ':' + outH + ':flags=lanczos,format=yuv420p',
     ...encoder.args(),
     '-pix_fmt', 'yuv420p', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-colorspace', 'bt709',
     '-an', '-movflags', '+faststart', rawPath,
@@ -1678,9 +1826,11 @@ ipcMain.handle('start-native-screen-recording', async (_event, options = {}) => 
   if (!ffmpegPath || !fs.existsSync(ffmpegPath)) return { ok: false, error: 'ffmpeg.exe was not found.' };
   const display = screen.getPrimaryDisplay();
   const bounds = display.bounds || { x: 0, y: 0, width: 1920, height: 1080 };
+  const physicalWidth = Math.round(bounds.width * (display.scaleFactor || 1));
+  const physicalHeight = Math.round(bounds.height * (display.scaleFactor || 1));
   const fps = Math.max(30, Math.min(120, Number(options.fps) || 60));
-  const outW = Math.max(640, Math.min(Number(options.width) || bounds.width, bounds.width));
-  const outH = Math.max(360, Math.min(Number(options.height) || bounds.height, bounds.height));
+  const outW = Math.max(640, Number(options.width) || physicalWidth);
+  const outH = Math.max(360, Number(options.height) || physicalHeight);
   const rawPath = path.join(getRecordingDir(), makeRecordingBaseName() + '.native.mp4');
   const ffmpegDir = path.dirname(ffmpegPath);
 
@@ -1787,6 +1937,8 @@ ipcMain.handle('save-screen-recording', async (_event, recording) => {
         inputPath: rawFilePath,
         outputPath: finalFilePath,
         fps: recording?.fps,
+        width: recording?.width,
+        height: recording?.height,
       });
       if (fs.existsSync(finalFilePath) && fs.statSync(finalFilePath).size > 0) {
         try { fs.unlinkSync(rawFilePath); } catch {}
@@ -1949,26 +2101,41 @@ ipcMain.on('device-prefs-changed', (event, prefs) => {
 });
 
 // ── System-Wide Windows 11 Do Not Disturb (Focus Assist) Manager ─────────────
+// Windows 11 ignores the legacy Win10 registry key
+// (NOC_GLOBAL_SETTING_TOASTS_ENABLED) that the previous implementation wrote —
+// the badge toggled but the OS state never changed. Real DND lives in the
+// undocumented QuietHoursSettings COM service; winland_dnd.exe talks to it
+// (see scripts/winland_dnd.cs).
+const EXE_DND = app.isPackaged
+  ? path.join(process.resourcesPath, 'scripts', 'winland_dnd.exe')
+  : path.join(__dirname, 'scripts', 'winland_dnd.exe');
+
 let isSystemDnd = false;
+let isQueryingDnd = false;
+
+function runDndHelper(args) {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(EXE_DND)) { resolve(null); return; }
+    execFile(EXE_DND, args, { timeout: 5000 }, (err, stdout) => {
+      if (err) { resolve(null); return; }
+      resolve((stdout || '').trim());
+    });
+  });
+}
 
 function querySystemDndState(callback) {
-  exec(
-    'reg query "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings" /v "NOC_GLOBAL_SETTING_TOASTS_ENABLED"',
-    (err, stdout) => {
-      let isDnd = false;
-      if (!err && stdout) {
-        // 0x0 = Notifications disabled (DND ON), 0x1 = Notifications enabled (DND OFF)
-        if (stdout.includes('0x0')) {
-          isDnd = true;
-        }
-      }
-      if (isSystemDnd !== isDnd) {
-        isSystemDnd = isDnd;
-        broadcastDndState(isDnd);
-      }
-      callback?.(isDnd);
+  if (isQueryingDnd) return;
+  isQueryingDnd = true;
+  runDndHelper(['get']).then((state) => {
+    isQueryingDnd = false;
+    if (state === null) return; // helper missing or failed — keep last state
+    const isDnd = state !== 'disabled';
+    if (isSystemDnd !== isDnd) {
+      isSystemDnd = isDnd;
+      broadcastDndState(isDnd);
     }
-  );
+    callback?.(isDnd);
+  });
 }
 
 function broadcastDndState(isDnd) {
@@ -1980,23 +2147,22 @@ function broadcastDndState(isDnd) {
 }
 
 function toggleSystemDnd() {
-  const nextVal = isSystemDnd ? 1 : 0;
-  exec(
-    `reg add "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings" /v "NOC_GLOBAL_SETTING_TOASTS_ENABLED" /t REG_DWORD /d ${nextVal} /f`,
-    (err) => {
-      if (!err) {
-        isSystemDnd = !isSystemDnd;
-        broadcastDndState(isSystemDnd);
-      }
-    }
-  );
+  const next = isSystemDnd ? 'off' : 'on';
+  runDndHelper([next]).then((state) => {
+    if (state === null) return;
+    const isDnd = state !== 'disabled';
+    isSystemDnd = isDnd;
+    broadcastDndState(isDnd);
+  });
 }
 
-// Initial DND query on startup & poll every 3s to stay in sync with Windows OS changes
+// Initial DND query on startup & poll every 10s to stay in sync with Windows
+// OS changes. 3s was spawning reg.exe forever just to detect an occasional
+// manual Settings toggle; 10s is plenty responsive and 3x cheaper.
 querySystemDndState();
 dndPollInterval = setInterval(() => {
   querySystemDndState();
-}, 3000);
+}, 10000);
 
 ipcMain.on('toggle-dnd', () => {
   toggleSystemDnd();
@@ -2118,6 +2284,7 @@ app.on('will-quit', () => {
   if (fullscreenInterval) clearInterval(fullscreenInterval);
   if (bluetoothInterval) clearInterval(bluetoothInterval);
   if (callInterval) clearInterval(callInterval);
+  if (privacyInterval) clearInterval(privacyInterval);
   if (alwaysOnTopInterval) clearInterval(alwaysOnTopInterval);
   if (dndPollInterval) clearInterval(dndPollInterval);
   if (volumePollInterval) clearInterval(volumePollInterval);

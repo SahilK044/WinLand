@@ -21,10 +21,13 @@ import BluetoothWidget from '../Activities/BluetoothWidget';
 import LiveActivitiesWidget from '../Activities/LiveActivitiesWidget';
 import PrivacyIndicator from '../Activities/PrivacyIndicator';
 import { soundEngine } from '../../utils/soundEngine';
+import { driveEq, useEqBars } from '../../utils/eqStore';
 import ThemeCanvas from '../../theme/ThemeCanvas';
 import { themeManager } from '../../theme/ThemeManager';
 import { Moon } from 'lucide-react';
+import { MUSIC_AURA_KEY } from '../../data/devicePrefs';
 import { timerStore } from '../../features/timer/TimerStore';
+import { fetchLiveWeather } from '../../utils/weatherUtils';
 
 
 const IDLE_TRACK = {
@@ -129,26 +132,37 @@ function extractVibrantColor(imageUrl) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Irrational-ratio oscillator bank — 60fps organic visualizer
+// Beat-synced liquid aura. Subscribes to eqStore itself so the island root
+// never re-renders on a beat tick — only this small subtree does.
 // ─────────────────────────────────────────────────────────────────────────────
-const EQ_FREQS   = [1.0000, 1.6180, 2.4142, 3.3166, 4.2361];
-const EQ_PHASES  = [0.00,   1.10,   2.30,   0.70,   3.50 ];
-const EQ_AMPS    = [42,     55,     38,     60,     46   ];
-const EQ_OFFSETS = [30,     28,     32,     25,     34   ];
+function LiquidAura({ isPlaying, isEnabled = true, isLight = false, eqColor, smoothR, smoothG, smoothB }) {
+  const bars = useEqBars();
+  const beatPulse = (isPlaying && isEnabled) ? (bars.reduce((sum, h) => sum + h, 0) / 75) : 0;
+  const maxOpacity = isLight ? (isPlaying ? 0.36 + beatPulse * 0.18 : 0.08) : (isPlaying ? 0.72 + beatPulse * 0.28 : 0.16);
+  const targetOpacity = isEnabled ? maxOpacity : 0;
 
-function computeBarHeightsWithGain(t, gain) {
-  return EQ_FREQS.map((f, i) => {
-    const animatedVal = EQ_OFFSETS[i]
-      + EQ_AMPS[i] * (
-          0.55 * Math.sin(t * f              + EQ_PHASES[i]         ) +
-          0.30 * Math.cos(t * f * 1.7321     + EQ_PHASES[i] * 0.618 ) +
-          0.15 * Math.sin(t * f * 2.2360     + EQ_PHASES[i] * 1.414 )
-        );
-    const val = 3 + (animatedVal - 3) * gain;
-    return Math.max(3, Math.min(100, Math.round(val)));
-  });
+  return (
+    <div
+      className="liquid-aura-container"
+      style={{
+        opacity: targetOpacity,
+        transform: `scale3d(${1 + beatPulse * 0.12}, ${1 + beatPulse * 0.12}, 1)`,
+        pointerEvents: 'none',
+        transition: 'opacity 0.65s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1)',
+      }}
+    >
+      <div className="liquid-blob-1" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.35) 55%, transparent 100%)` }} />
+      <div className="liquid-blob-2" style={{ background: `radial-gradient(circle, rgba(${smoothR},${smoothG},${smoothB},0.9) 0%, rgba(${smoothR},${smoothG},${smoothB},0.25) 50%, transparent 100%)` }} />
+      <div className="liquid-blob-3" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.2) 45%, transparent 100%)` }} />
+    </div>
+  );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Irrational-ratio oscillator bank lives in src/utils/eqStore.js — the bar
+// heights and the gain spring are driven there so only the visualizer
+// components re-render.
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function DynamicIsland({
   activeState,
@@ -160,35 +174,57 @@ export default function DynamicIsland({
   const [trackInfo, setTrackInfo] = useState(IDLE_TRACK);
   const [accentColor, setAccentColor] = useState(DEFAULT_ACCENT);
   const [displayAccentColor, setDisplayAccentColor] = useState(DEFAULT_ACCENT);
-  const [barHeights, setBarHeights] = useState([3, 3, 3, 3, 3]);
+  // Equalizer bars live in eqStore — the visualizer widgets subscribe
+  // themselves, so the island root never re-renders on a bar tick.
   const [battery, setBattery] = useState({ pct: 0, charging: false, minsLeft: -1 });
   const [volume, setVolume] = useState(50);
   const [shelvedItems, setShelvedItems] = useState([]);
   const [sysStats, setSysStats] = useState({ cpu: 22, ram: 54, gpu: 30 });
   const [screenshotData, setScreenshotData] = useState(null);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem('winland_theme_mode') || themeManager.getMode() || 'dark');
-  const [weatherConfig, setWeatherConfig] = useState({ weatherUnit: 'C' });
+  const [weatherConfig, setWeatherConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('winland_live_weather');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { weatherUnit: 'C' };
+  });
+  const [weatherSearchCount, setWeatherSearchCount] = useState(0);
   const [devicePrefs, setDevicePrefs] = useState(() => {
     try {
       const savedDuration = localStorage.getItem('winland_autohide_duration');
       const savedIdle = localStorage.getItem('winland_autohide_idle');
+      const savedAura = localStorage.getItem(MUSIC_AURA_KEY);
       return {
         autoHideIdle: savedIdle !== 'false',
         autoHideDuration: savedDuration ? parseInt(savedDuration, 10) : 10,
+        musicAura: savedAura !== 'false',
       };
     } catch {
-      return { autoHideIdle: true, autoHideDuration: 10 };
+      return { autoHideIdle: true, autoHideDuration: 10, musicAura: true };
     }
   });
 
   useEffect(() => {
-    if (!window.electronAPI?.onDevicePrefsUpdate) return;
+    const handleLocalSettings = (e) => {
+      if (e.detail) {
+        setDevicePrefs((prev) => ({ ...prev, ...e.detail }));
+      }
+    };
+    window.addEventListener('winland-settings-changed', handleLocalSettings);
+
+    if (!window.electronAPI?.onDevicePrefsUpdate) {
+      return () => window.removeEventListener('winland-settings-changed', handleLocalSettings);
+    }
     const unsub = window.electronAPI.onDevicePrefsUpdate((prefs) => {
       if (prefs) {
         setDevicePrefs((prev) => ({ ...prev, ...prefs }));
       }
     });
-    return () => unsub();
+    return () => {
+      window.removeEventListener('winland-settings-changed', handleLocalSettings);
+      unsub();
+    };
   }, []);
 
   const [callData, setCallData] = useState(null);
@@ -221,11 +257,6 @@ export default function DynamicIsland({
 
   const isMusicState = activeState === 'compact-music' || activeState === 'expanded-music' || activeState === 'expanded-lyrics';
 
-  // Compute real-time beat pulse from equalizer heights when music is playing
-  const beatPulse = isMusicState && trackInfo?.isPlaying
-    ? (barHeights.reduce((sum, h) => sum + h, 0) / 75)
-    : 0;
-
   useEffect(() => {
     const unsubManager = themeManager.subscribe((mode) => {
       setThemeMode(mode || 'dark');
@@ -246,18 +277,58 @@ export default function DynamicIsland({
     };
   }, []);
 
-  // ── Config sync (weatherUnit, temperature, autoHide, hideInFullscreen) ──────
+  // ── Config sync & Live Local Weather Fetching ─────────────────────────────
   useEffect(() => {
+    const handleLiveData = (liveData) => {
+      if (liveData && (liveData.temperatureC !== undefined || liveData.weatherCondition)) {
+        setWeatherConfig((prev) => {
+          const updated = { ...prev, ...liveData };
+          try { localStorage.setItem('winland_live_weather', JSON.stringify(updated)); } catch {}
+          return updated;
+        });
+      }
+    };
+
+    // 1. Initial fetch of live local weather via web fetcher
+    fetchLiveWeather().then(handleLiveData).catch(() => {});
+
+    // 2. Fetch via Electron main process IPC
+    if (window.electronAPI?.getLiveWeather) {
+      window.electronAPI.getLiveWeather().then(handleLiveData).catch(() => {});
+    }
+
+    // 3. Periodic weather refresh every 10 minutes
+    const weatherInterval = setInterval(() => {
+      fetchLiveWeather(true).then(handleLiveData).catch(() => {});
+      if (window.electronAPI?.getLiveWeather) {
+        window.electronAPI.getLiveWeather().then(handleLiveData).catch(() => {});
+      }
+    }, 10 * 60 * 1000);
+
+    const handleCustomWeather = (e) => {
+      if (e?.detail) handleLiveData(e.detail);
+    };
+    window.addEventListener('winland-weather-updated', handleCustomWeather);
+
     if (window.electronAPI?.getInitialConfig) {
       window.electronAPI.getInitialConfig().then((data) => {
-        if (data) setWeatherConfig(data);
+        if (data) handleLiveData(data);
       }).catch(() => {});
     }
-    if (!window.electronAPI?.onConfigUpdate) return;
+    if (!window.electronAPI?.onConfigUpdate) {
+      return () => {
+        clearInterval(weatherInterval);
+        window.removeEventListener('winland-weather-updated', handleCustomWeather);
+      };
+    }
     const cleanConfig = window.electronAPI.onConfigUpdate((data) => {
-      if (data) setWeatherConfig(data);
+      if (data) handleLiveData(data);
     });
-    return () => { if (typeof cleanConfig === 'function') cleanConfig(); };
+    return () => {
+      clearInterval(weatherInterval);
+      window.removeEventListener('winland-weather-updated', handleCustomWeather);
+      if (typeof cleanConfig === 'function') cleanConfig();
+    };
   }, []);
 
   const [isDndActive, setIsDndActive]         = useState(false);
@@ -327,8 +398,6 @@ export default function DynamicIsland({
 
   const userToggleLockRef     = useRef(0);
   const lastFetchedTitleRef   = useRef('');
-  const rafRef                = useRef(null);
-  const tRef                  = useRef(0);
   const volumeDismiss         = useRef(null);
   const batteryDismiss        = useRef(null);
   const bluetoothDismiss      = useRef(null);
@@ -418,27 +487,39 @@ export default function DynamicIsland({
     }
   }, [trackInfo.title]);
 
+  const accentEaseRef = useRef(DEFAULT_ACCENT);
+
+  // ── Accent easing without re-render storms ────────────────────────────────
+  // The eased accent commits to React state on a throttled cadence (~8Hz)
+  // instead of every frame: the old setState-per-frame loop forced a full
+  // island-tree re-render at 60fps for the whole track-change transition.
   useEffect(() => {
     let rafId;
+    let lastCommit = 0;
+    const target = accentColor;
     const easeColor = () => {
-      setDisplayAccentColor((prev) => {
-        const next = {
-          r: prev.r + (accentColor.r - prev.r) * 0.075,
-          g: prev.g + (accentColor.g - prev.g) * 0.075,
-          b: prev.b + (accentColor.b - prev.b) * 0.075,
-        };
+      const prev = accentEaseRef.current;
+      const next = {
+        r: prev.r + (target.r - prev.r) * 0.075,
+        g: prev.g + (target.g - prev.g) * 0.075,
+        b: prev.b + (target.b - prev.b) * 0.075,
+      };
+      const converged =
+        Math.abs(next.r - target.r) < 0.5 &&
+        Math.abs(next.g - target.g) < 0.5 &&
+        Math.abs(next.b - target.b) < 0.5;
+      accentEaseRef.current = converged ? target : next;
 
-        if (
-          Math.abs(next.r - accentColor.r) < 0.5 &&
-          Math.abs(next.g - accentColor.g) < 0.5 &&
-          Math.abs(next.b - accentColor.b) < 0.5
-        ) {
-          return accentColor;
-        }
-
-        rafId = requestAnimationFrame(easeColor);
-        return next;
-      });
+      if (converged) {
+        setDisplayAccentColor(target);
+        return;
+      }
+      const now = performance.now();
+      if (now - lastCommit > 120) {
+        lastCommit = now;
+        setDisplayAccentColor({ r: Math.round(next.r), g: Math.round(next.g), b: Math.round(next.b) });
+      }
+      rafId = requestAnimationFrame(easeColor);
     };
 
     rafId = requestAnimationFrame(easeColor);
@@ -782,48 +863,12 @@ export default function DynamicIsland({
     };
   }, [updateTrackData, setActiveState]);
 
-  const gainRef = useRef(0);
-  const eqSettledRef = useRef(true);
-  const barHeightsRef = useRef([3, 3, 3, 3, 3]);
-  const frameCountRef = useRef(0);
-
-  // ── 60fps Equalizer rAF loop (Smooth Gain Decay/Spring) ───────────────────
-  // PERF FIX: this used to call requestAnimationFrame(loop) unconditionally
-  // at the end of every branch, including the "already flat" branch — so once
-  // gain decayed to 0 it kept calling setBarHeights([3,3,3,3,3]) (a new array
-  // every frame) forever, at 60fps, forcing a full DynamicIsland re-render
-  // around the clock even while idle with no music widget on screen. It now
-  // stops scheduling once the decay settles and only restarts when playback
-  // resumes.
+  // ── 60fps Equalizer drive ────────────────────────────────────────────────
+  // The oscillator loop lives in eqStore. The island only flips its play
+  // state; bar updates re-render the visualizer components alone, not the
+  // whole island tree.
   useEffect(() => {
-    if (!trackInfo.isPlaying && eqSettledRef.current) return undefined;
-
-    const loop = () => {
-      const targetGain = trackInfo.isPlaying ? 1.0 : 0.0;
-      gainRef.current += (targetGain - gainRef.current) * 0.12;
-
-      if (gainRef.current < 0.01 && !trackInfo.isPlaying) {
-        if (!eqSettledRef.current) {
-          eqSettledRef.current = true;
-          barHeightsRef.current = [3, 3, 3, 3, 3];
-          setBarHeights([3, 3, 3, 3, 3]);
-        }
-        rafRef.current = null;
-        return; // fully decayed — stop instead of rescheduling forever
-      }
-
-      eqSettledRef.current = false;
-      tRef.current += 0.04;
-      const newHeights = computeBarHeightsWithGain(tRef.current, gainRef.current);
-      barHeightsRef.current = newHeights;
-      frameCountRef.current++;
-      if (frameCountRef.current % 4 === 0) {
-        setBarHeights(newHeights);
-      }
-      rafRef.current = requestAnimationFrame(loop);
-    };
-    rafRef.current = requestAnimationFrame(loop);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    driveEq(!!trackInfo.isPlaying);
   }, [trackInfo.isPlaying]);
 
   // ── Window resize IPC ─────────────────────────────────────────────────────
@@ -832,19 +877,21 @@ export default function DynamicIsland({
   // electron.js) — shrinks are delayed there until the CSS elastic-overshoot
   // transition finishes, so the real OS window never clips the bounce.
   const prevWindowSizeRef = useRef({ w: 250, h: 44 });
+  const prevActiveStateRef = useRef(activeState);
   useEffect(() => {
     if (!window.electronAPI) return;
     const timerHeight = Math.max(82, timers.length * 56 + 26);
     const shelfCount = shelvedItems.length;
     const shelfRows = Math.max(1, Math.min(4, Math.ceil(shelfCount / 3)));
     const shelfHeight = 70 + shelfRows * 95;
+    const weatherHeight = weatherSearchCount > 0 ? Math.min(330, 210 + weatherSearchCount * 36 + 14) : 210;
     const sizeMap = {
       'idle':              [250, 42],
       'compact-music':     [310, 44],
       'compact-timer':     [250, 42],
       'split':             [340, 54],
       'expanded-music':    [356, 156],
-      'expanded-lyrics':   [390, 300],
+      'expanded-lyrics':   [420, 320],
       'expanded-timer':    [480, timerHeight],
       'compact-call':      [270, 54],
       'expanded-call':     [310, 240],
@@ -855,7 +902,7 @@ export default function DynamicIsland({
       'expanded-battery':  [340, 85],
       'volume-osd':        [360, 85],
       'notification':      [400, 110],
-      'expanded-weather':  [370, 210],
+      'expanded-weather':  [370, weatherHeight],
       'expanded-shelf':    [380, shelfHeight],
       'expanded-sysmon':   [370, 150],
       'expanded-launcher': [390, 185],
@@ -868,19 +915,22 @@ export default function DynamicIsland({
     };
     const [w, h] = sizeMap[activeState] || [250, 44];
     const prev = prevWindowSizeRef.current;
+    const isStateChange = prevActiveStateRef.current !== activeState;
+    prevActiveStateRef.current = activeState;
+
     const growing = w > prev.w || h > prev.h;
     const shrinking = w < prev.w || h < prev.h;
     prevWindowSizeRef.current = { w, h };
     window.electronAPI?.resizeWindow?.(w, h, growing);
 
-    if (prev.w > 0 && (growing || shrinking)) {
+    if (isStateChange && prev.w > 0 && (growing || shrinking)) {
       setMorphClass(growing ? 'morph-expand' : 'morph-collapse');
       if (morphTimeoutRef.current) clearTimeout(morphTimeoutRef.current);
       morphTimeoutRef.current = setTimeout(() => {
         setMorphClass('');
       }, 440);
     }
-  }, [activeState, timers.length, shelvedItems.length]);
+  }, [activeState, timers.length, shelvedItems.length, weatherSearchCount]);
 
   // ── State class map ───────────────────────────────────────────────────────
   const getStateClass = () => {
@@ -1281,8 +1331,8 @@ export default function DynamicIsland({
             <div className="activity-fade-content" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
               <MusicWidget
                 isSplit={true}
+                isLight={isLight}
                 trackInfo={trackInfo}
-                barHeights={barHeights}
                 eqColor={eqColor}
                 eqGlow={eqGlow}
                 progressGradient={progGrad}
@@ -1367,7 +1417,10 @@ export default function DynamicIsland({
       />
       <div
         ref={capsuleRef}
-        style={{ '--shelf-dynamic-height': `${70 + Math.max(1, Math.min(4, Math.ceil(shelvedItems.length / 3))) * 95}px` }}
+        style={{
+          '--shelf-dynamic-height': `${70 + Math.max(1, Math.min(4, Math.ceil(shelvedItems.length / 3))) * 95}px`,
+          '--weather-dynamic-height': `${weatherSearchCount > 0 ? Math.min(330, 210 + weatherSearchCount * 36 + 14) : 210}px`,
+        }}
         className={`island-capsule ${getStateClass()} ${morphClass} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''} ${isDraggingOverIsland ? 'shelf-absorption-active' : ''}`}
         onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
         onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
@@ -1393,35 +1446,31 @@ export default function DynamicIsland({
         </div>
         {/* Smooth organic moving liquid aura background — Beat-Synced Equalizer Glow Pulse with 0.75s Silk Fade */}
         {(activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo?.title && (
-          <div
-            className="liquid-aura-container"
-            style={{
-              opacity: trackInfo?.isPlaying ? 0.72 + beatPulse * 0.28 : 0.16,
-              transform: `scale3d(${1 + beatPulse * 0.12}, ${1 + beatPulse * 0.12}, 1)`,
-              pointerEvents: 'none',
-              transition: 'opacity 0.75s cubic-bezier(0.2, 0.9, 0.2, 1), transform 0.6s cubic-bezier(0.2, 0.9, 0.2, 1)',
-            }}
-          >
-            <div className="liquid-blob-1" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.35) 55%, transparent 100%)` }} />
-            <div className="liquid-blob-2" style={{ background: `radial-gradient(circle, rgba(${smoothR},${smoothG},${smoothB},0.9) 0%, rgba(${smoothR},${smoothG},${smoothB},0.25) 50%, transparent 100%)` }} />
-            <div className="liquid-blob-3" style={{ background: `radial-gradient(circle, ${eqColor} 0%, rgba(${smoothR},${smoothG},${smoothB},0.2) 45%, transparent 100%)` }} />
-          </div>
+          <LiquidAura
+            isEnabled={devicePrefs?.musicAura !== false}
+            isLight={isLight}
+            isPlaying={trackInfo?.isPlaying}
+            eqColor={eqColor}
+            smoothR={smoothR}
+            smoothG={smoothG}
+            smoothB={smoothB}
+          />
         )}
 
         <div className="activity-fade-content" key={(activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') ? 'screenrec' : (activeState === 'expanded-music' || activeState === 'compact-music' || activeState === 'expanded-lyrics') ? 'music' : (activeState === 'expanded-call' || activeState === 'compact-call') ? 'call' : activeState}>
 
-          {activeState === 'idle' && <IdleWidget weatherConfig={weatherConfig} />}
+          {activeState === 'idle' && <IdleWidget isLight={isLight} weatherConfig={weatherConfig} />}
 
           {isMusicState && (
             <MusicWidget
               isCompact={activeState === 'compact-music'}
               isExpanded={activeState === 'expanded-music' || activeState === 'expanded-lyrics'}
               isLyricsView={activeState === 'expanded-lyrics'}
+              isLight={isLight}
               isDndActive={isDndActive}
               isDndVisible={isDndVisible}
               onToggleLyrics={() => setActiveState((prev) => prev === 'expanded-lyrics' ? 'expanded-music' : 'expanded-lyrics')}
               trackInfo={trackInfo}
-              barHeights={barHeights}
               eqColor={eqColor}
               eqGlow={eqGlow}
               progressGradient={progGrad}
@@ -1460,7 +1509,22 @@ export default function DynamicIsland({
           {activeState === 'notification' && notification && (
             <NotificationWidget notification={notification} onClose={onClearNotification} />
           )}
-          {activeState === 'expanded-weather' && <WeatherWidget weatherConfig={weatherConfig} />}
+          {activeState === 'expanded-weather' && (
+            <WeatherWidget
+              isLight={isLight}
+              weatherConfig={weatherConfig}
+              onSuggestionsChange={setWeatherSearchCount}
+              onUpdateWeather={(updated) => {
+                if (updated) {
+                  setWeatherConfig((prev) => {
+                    const next = { ...prev, ...updated };
+                    try { localStorage.setItem('winland_live_weather', JSON.stringify(next)); } catch {}
+                    return next;
+                  });
+                }
+              }}
+            />
+          )}
 
           {/* New Filtered Implementation Plan Widgets */}
           {activeState === 'expanded-shelf' && (
@@ -1473,7 +1537,7 @@ export default function DynamicIsland({
           )}
           {activeState === 'expanded-sysmon' && <SystemMonitorWidget stats={sysStats} />}
           {activeState === 'expanded-launcher' && (
-            <LauncherWidget onLaunchApp={handleLaunchApp} isDndActive={isDndActive} onClose={() => setActiveState('idle')} />
+            <LauncherWidget isLight={isLight} onLaunchApp={handleLaunchApp} isDndActive={isDndActive} onClose={() => setActiveState('idle')} />
           )}
           {/* Settings now opens in its own Electron window (see electron.js
               createSettingsWindow / openSettingsWindow) - there is no
@@ -1558,7 +1622,7 @@ export default function DynamicIsland({
             e.currentTarget.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.22)';
           }}
         >
-          <Moon size={11} color="#a5a3ff" fill="#a5a3ff" style={{ filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))' }} />
+          <Moon size={11} color="#a5a3ff" fill="#a5a3ff" />
           {activeState.startsWith('expanded-') && (
             <span
               style={{
@@ -1567,7 +1631,6 @@ export default function DynamicIsland({
                 color: '#e4e3ff',
                 letterSpacing: '-0.2px',
                 fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", system-ui, sans-serif',
-                textShadow: '0 1px 2px rgba(0,0,0,0.4)',
                 whiteSpace: 'nowrap',
               }}
             >

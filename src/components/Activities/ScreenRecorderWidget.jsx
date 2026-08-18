@@ -163,7 +163,9 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         chromeMediaSourceId: source?.id,
         minFrameRate: Math.min(30, targetFps),
         maxFrameRate: targetFps,
+        minWidth: preset.width,
         maxWidth: preset.width,
+        minHeight: preset.height,
         maxHeight: preset.height,
       },
     };
@@ -210,8 +212,8 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
       try {
         const stream = await navigator.mediaDevices.getDisplayMedia({
           video: {
-            width: { ideal: preset.width, max: preset.width },
-            height: { ideal: preset.height, max: preset.height },
+            width: { ideal: preset.width, min: preset.width, max: preset.width },
+            height: { ideal: preset.height, min: preset.height, max: preset.height },
             frameRate: { ideal: targetFps, max: targetFps },
           },
           audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
@@ -533,7 +535,13 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         let saveError = false;
         if (blob.size > 0 && window.electronAPI?.saveScreenRecording) {
           const buffer = await blob.arrayBuffer();
-          const res = await window.electronAPI.saveScreenRecording({ buffer, mimeType: blob.type, fps: getStableCaptureFps(selectedFps) });
+          const res = await window.electronAPI.saveScreenRecording({
+            buffer,
+            mimeType: blob.type,
+            fps: getStableCaptureFps(selectedFps),
+            width: preset.width,
+            height: preset.height,
+          });
           if (res?.ok && res?.filePath) {
             window.electronAPI?.openFileLocation?.(res.filePath);
           } else {
@@ -604,14 +612,25 @@ const ScreenRecorderWidget = React.memo(function ScreenRecorderWidget({ isCompac
         try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch {}
         streamRef.current = null;
       }
+      // The composed canvas stream held its own video track — stopping only
+      // streamRef leaked the canvas capture pipeline (draw loop kept running).
+      if (composedStreamRef.current) {
+        try { composedStreamRef.current.getTracks().forEach((t) => t.stop()); } catch {}
+        composedStreamRef.current = null;
+      }
       if (videoRef.current) {
         videoRef.current.srcObject = null;
         videoRef.current.pause();
         if (videoRef.current.parentNode) {
           videoRef.current.parentNode.removeChild(videoRef.current);
         }
+        videoRef.current = null;
       }
       stopDrawLoop();
+      if (smartFocusRef.current) {
+        smartFocusRef.current.destroy();
+        smartFocusRef.current = null;
+      }
       setStatus('ready');
       onStop?.();
     }

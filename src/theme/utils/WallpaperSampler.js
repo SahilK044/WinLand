@@ -44,7 +44,20 @@ export class WallpaperSampler {
     this.lastSampleTime = now;
 
     try {
-      this.wallpaperCtx.drawImage(sourceElement, 0, 0, 128, 128);
+      // drawImage with an HTMLDivElement throws "the provided value is not of
+      // type '(CSSImageValue or HTMLImageElement or SVGImageElement or ...)'".
+      // The island's container is a div, so the sampler has never successfully
+      // sampled — it just caught the error. Only attempt real sampling for
+      // drawable sources and let the error path keep the sane fallback values.
+      if (typeof HTMLCanvasElement !== 'undefined' && sourceElement instanceof HTMLCanvasElement) {
+        this.wallpaperCtx.drawImage(sourceElement, 0, 0, 128, 128);
+      } else if (typeof HTMLImageElement !== 'undefined' && sourceElement instanceof HTMLImageElement) {
+        this.wallpaperCtx.drawImage(sourceElement, 0, 0, 128, 128);
+      } else if (typeof HTMLVideoElement !== 'undefined' && sourceElement instanceof HTMLVideoElement) {
+        this.wallpaperCtx.drawImage(sourceElement, 0, 0, 128, 128);
+      } else {
+        return;
+      }
       const imgData = this.wallpaperCtx.getImageData(0, 0, 128, 128).data;
 
       let rSum = 0, gSum = 0, bSum = 0;

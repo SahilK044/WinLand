@@ -181,6 +181,7 @@ export default function Earbuds3D({ size = 44, isAnimated = true, isDisconnected
     let startTime = performance.now();
 
     const clamp = (v, min = 0, max = 1) => Math.max(min, Math.min(max, v));
+    const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
     const easeOutQuint = (t) => 1 - Math.pow(1 - t, 5);
     const easeInOutCubic = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     const lerp = (a, b, t) => a + (b - a) * t;

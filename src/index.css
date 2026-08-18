@@ -16,6 +16,11 @@
   --surface: rgba(255, 255, 255, 0.08);
   --surface-hover: rgba(255, 255, 255, 0.16);
   --stroke: rgba(255, 255, 255, 0.12);
+  --text-2: rgba(255, 255, 255, 0.65);
+  --text-3: rgba(255, 255, 255, 0.4);
+  --ok: #30d158;
+  --warn: #ff9f0a;
+  --danger: #ff453a;
 }
 
 * {
@@ -109,33 +114,32 @@ img, canvas {
   margin: 0 auto;
   border-radius: 22px;
   border: none !important;
-  outline: 1px solid transparent; /* Enables GPU sub-pixel edge antialiasing in Chromium */
+  outline: none !important;
   pointer-events: auto;
   cursor: pointer;
   transform-origin: top center;
   will-change: width, height, border-radius;
   overflow: hidden;
   isolation: isolate;
-  transform: translateZ(0);
-  -webkit-transform: translateZ(0);
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  box-shadow:
-    0 20px 48px rgba(0, 0, 0, 0.72),
-    0 6px 16px rgba(0, 0, 0, 0.48),
-    0 0 0.5px rgba(255, 255, 255, 0.1);
-  background: #000000;
+  background: transparent !important;
+  background-clip: padding-box;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: -webkit-radial-gradient(white, black);
+  box-shadow: none !important;
 
   /* Apple Dynamic Island Single-Pass 120Hz Fluid Elastic Spring */
   transition:
-    width 0.42s cubic-bezier(0.32, 1.25, 0.36, 1),
-    height 0.42s cubic-bezier(0.32, 1.25, 0.36, 1),
-    border-radius 0.42s cubic-bezier(0.32, 1.25, 0.36, 1),
-    transform 0.32s cubic-bezier(0.34, 1.56, 0.64, 1),
-    opacity 0.24s ease,
-    box-shadow 0.42s cubic-bezier(0.32, 1.25, 0.36, 1);
+    width 0.44s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.44s cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 0.44s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.24s ease;
 }
 
 .island-capsule:active,
@@ -273,6 +277,13 @@ img, canvas {
   border: none !important;
   z-index: -1;
   pointer-events: none;
+  box-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.72),
+    0 6px 16px rgba(0, 0, 0, 0.48),
+    0 0 1px rgba(255, 255, 255, 0.12);
+  transition:
+    background 0.28s ease,
+    box-shadow 0.28s ease;
 }
 
 /* Hover lifts it very slightly off the desktop rather than lightening it. */
@@ -290,6 +301,7 @@ img, canvas {
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12);
   pointer-events: none;
   z-index: 10;
+  box-sizing: border-box;
 }
 
 /* Secondary label color (Apple's dark-mode secondary-label convention).
@@ -301,30 +313,31 @@ img, canvas {
 
 /* Light Theme Mode Reactivity */
 .island-capsule.theme-light::before {
-  background: rgba(255, 255, 255, 0.92) !important;
-  backdrop-filter: blur(32px) saturate(180%);
-  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(40px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(40px) saturate(190%) !important;
   box-shadow:
-    0 12px 36px rgba(0, 0, 0, 0.14),
-    0 2px 8px rgba(0, 0, 0, 0.08) !important;
+    0 16px 40px rgba(0, 0, 0, 0.12),
+    0 3px 12px rgba(0, 0, 0, 0.06),
+    0 0 1px rgba(0, 0, 0, 0.08) !important;
 }
 
 .island-capsule.theme-light::after {
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: inset 0 1px 1.5px rgba(255, 255, 255, 0.75), inset 0 -1px 1px rgba(0, 0, 0, 0.03) !important;
   background: none !important;
 }
 
 .island-capsule.theme-light {
-  --scrubber-track-bg: rgba(0, 0, 0, 0.12);
+  --scrubber-track-bg: rgba(0, 0, 0, 0.10);
   --launcher-text-color: #000000;
   --terminal-icon-color: #000000;
   color: #000000 !important;
 }
 
-.island-capsule.theme-light span:not([class*="badge"]):not([class*="status"]):not([class*="indicator"]),
-.island-capsule.theme-light p,
-.island-capsule.theme-light div:not([class*="badge"]):not([class*="status"]):not([class*="indicator"]),
-.island-capsule.theme-light button:not([class*="badge"]):not([class*="status"]):not([class*="indicator"]) {
-  color: #000000 !important;
+.island-capsule.theme-light,
+.island-capsule.theme-light * {
+  text-shadow: none !important;
 }
 
 .island-capsule.theme-light .widget-subtitle,
@@ -336,17 +349,16 @@ img, canvas {
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  color: #000000 !important;
+  color: #1d1d1f !important;
 }
 
 .island-capsule.theme-light button:not(.icon-only) {
-  background: rgba(0, 0, 0, 0.06) !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
   color: #000000 !important;
 }
 
-/* The Timer's orange accent must survive the forced-black text override
-   above, or the split capsule loses its own color identity in light mode. */
+/* The Timer's orange accent must survive in light mode */
 .island-capsule.theme-light .timer-accent-text {
   color: #ff9f0a !important;
 }
@@ -364,7 +376,7 @@ img, canvas {
   background-image: none !important;
   -webkit-text-fill-color: #1d1d1f !important;
   color: #1d1d1f !important;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.15) !important;
+  text-shadow: none !important;
   animation: none !important;
 }
 
@@ -513,12 +525,12 @@ img, canvas {
 .state-expanded-music {
   width: 356px;
   height: 156px;
-  border-radius: 40px;
+  border-radius: 44px;
 }
 
 .state-expanded-lyrics {
-  width: 390px;
-  height: 300px;
+  width: 420px;
+  height: 320px;
   border-radius: 46px;
 }
 
@@ -551,13 +563,13 @@ img, canvas {
 .state-expanded-sysmon {
   width: 370px;
   height: 150px;
-  border-radius: 42px;
+  border-radius: 44px;
 }
 
 .state-expanded-launcher {
   width: 360px;
   height: 180px;
-  border-radius: 42px;
+  border-radius: 44px;
 }
 
 .state-expanded-settings {
@@ -569,7 +581,7 @@ img, canvas {
 .state-expanded-screenshot {
   width: 360px;
   height: 90px;
-  border-radius: 36px;
+  border-radius: 45px;
 }
 
 .state-expanded-bluetooth {
@@ -599,7 +611,7 @@ img, canvas {
 .state-expanded-live-activity {
   width: 380px;
   height: 160px;
-  border-radius: 42px;
+  border-radius: 44px;
 }
 
 /* Hide native scrollbar inside lyrics view */
@@ -719,25 +731,25 @@ img, canvas {
 .state-expanded-airdrop {
   width: 380px;
   height: 200px;
-  border-radius: 38px;
+  border-radius: 44px;
 }
 
 .state-expanded-recorder {
   width: 370px;
   height: 205px;
-  border-radius: 38px;
+  border-radius: 44px;
 }
 
 .state-expanded-screenrec {
   width: 400px;
   height: 214px;
-  border-radius: 30px;
+  border-radius: 44px;
 }
 
 .state-compact-screenrec {
   width: 190px;
   height: 36px;
-  border-radius: 20px;
+  border-radius: 18px;
 }
 
 /* Screen recorder REC-dot pulse (compact pill + expanded setup card) */
@@ -750,25 +762,33 @@ img, canvas {
 .state-expanded-battery {
   width: 340px;
   height: 85px;
-  border-radius: 30px;
+  border-radius: 42.5px;
 }
 
 .state-volume-osd {
   width: 360px;
   height: 85px;
-  border-radius: 30px;
+  border-radius: 42.5px;
 }
 
 .state-notification {
   width: 400px;
   height: 110px;
-  border-radius: 32px;
+  border-radius: 44px;
 }
 
 .state-expanded-weather {
   width: 370px;
-  height: 210px;
-  border-radius: 38px;
+  height: var(--weather-dynamic-height, 210px);
+  border-radius: 44px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Activity Fade Content Container */
@@ -781,6 +801,8 @@ img, canvas {
   z-index: 1;
   contain: layout style;
   will-change: opacity, transform;
+  -webkit-mask-image: -webkit-radial-gradient(white, black);
+  mask-image: -webkit-radial-gradient(white, black);
   animation: islandContentSpringFade 0.28s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
@@ -871,45 +893,46 @@ img, canvas {
 
 .lyric-row {
   position: relative;
-  padding: 8px 6px;
+  padding: 10px 8px;
   cursor: pointer;
   transform-origin: left center;
-  will-change: transform, opacity;
+  will-change: transform, opacity, filter;
   transition:
-    transform 0.75s cubic-bezier(0.25, 1, 0.5, 1),
-    filter 0.75s cubic-bezier(0.25, 1, 0.5, 1),
-    opacity 0.75s cubic-bezier(0.25, 1, 0.5, 1);
+    transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    filter 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.55s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .lyric-row.is-past {
-  opacity: 0.35;
-  filter: blur(1.2px);
-  transform: translateY(-2px) scale(0.95);
+  opacity: 0.36;
+  filter: blur(0.8px);
+  transform: translateY(-1px) scale(0.96);
 }
 
 .lyric-row.is-future {
-  opacity: 0.25;
-  filter: blur(1.8px);
-  transform: translateY(2px) scale(0.95);
+  opacity: 0.28;
+  filter: blur(1.1px);
+  transform: translateY(1px) scale(0.96);
 }
 
 .lyric-row.is-active {
   opacity: 1;
   filter: blur(0);
-  transform: translateY(0) scale(1.02);
+  transform: translateY(0) scale(1.03);
 }
 
 .lyric-row:hover {
-  opacity: 0.9;
+  opacity: 0.95;
   filter: blur(0);
+  transform: scale(1.01);
 }
 
 .lyric-text {
   display: inline-block;
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 700;
   line-height: 1.45;
-  letter-spacing: -0.2px;
+  letter-spacing: -0.25px;
   color: rgba(255, 255, 255, 0.45);
   transform-origin: left center;
   white-space: normal;
@@ -917,9 +940,9 @@ img, canvas {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition:
-    color 0.5s ease,
-    opacity 0.5s ease,
-    text-shadow 0.5s ease;
+    color 0.4s ease,
+    opacity 0.4s ease,
+    text-shadow 0.4s ease;
 }
 
 @keyframes lyricPulseGlow {
@@ -1006,19 +1029,13 @@ img, canvas {
 
 
 
-/* Island geometry contract: flush top, fixed bottom radius, opaque cutout. */
+/* Island geometry contract: flush top, fixed bottom radius, anti-aliased cutout. */
 .island-capsule, .island-capsule.primary-split, .island-capsule-secondary {
-  background: #000 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5) !important;
   border: none !important;
   outline: none !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-.island-capsule.theme-light { background: #fff !important; }
-.island-capsule.theme-light::before { background: #fff !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 
 /* ── Luxury USB / Removable Storage Widget ───────────────────────────────── */
 .usb-premium-container {
@@ -1461,4 +1478,40 @@ img, canvas {
     opacity: 1;
     transform: scale(1) translateY(0);
   }
+}
+
+/* ─── Shared Widget Utility Classes ───────────────────────────────────────── */
+.glass-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.glass-btn:hover { background: rgba(255, 255, 255, 0.18); }
+.glass-btn:active { transform: scale(0.9); }
+.glass-btn.btn-danger { background: rgba(255, 69, 58, 0.85); }
+.glass-btn.btn-danger:hover { background: #ff453a; }
+
+.progress-track {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: pulse 1.4s infinite ease-in-out;
 }

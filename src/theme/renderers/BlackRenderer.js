@@ -6,17 +6,17 @@ import { IThemeRenderer } from '../IThemeRenderer.js';
  */
 export class BlackRenderer extends IThemeRenderer {
   DrawBackground(ctx, bounds, _state, options = {}) {
-    const { width, height, radius = 24 } = bounds;
-    ctx.save();
-    
-    // Pure 100% solid matte black fill
-    ctx.fillStyle = options.bgColor || '#000000';
-    ctx.beginPath();
-    ctx.roundRect(0, 0, width, height, radius);
-    ctx.fill();
-
-    ctx.restore();
+    if (options.bgColor) {
+      const { width, height, radius = 24 } = bounds;
+      ctx.save();
+      ctx.fillStyle = options.bgColor;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, width, height, radius);
+      ctx.fill();
+      ctx.restore();
+    }
   }
+
 
   DrawBorder() {
     // No visible border — pure borderless matte black pill

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Settings, Smartphone, Headphones, Disc, Palette, Monitor, Info,
-  Check, X, Sparkles, Gamepad, Speaker, Search, Moon, Sun,
+  Smartphone, Headphones, Disc, Palette, Monitor, Info,
+  Check, X, Gamepad, Speaker, Search, Moon, Sun,
 } from 'lucide-react';
 import { DEVICE_CATALOG, DEVICE_COLOR_VARIANTS, ANIMATION_STYLES } from '../../data/deviceCatalog';
-import { STYLE_KEYS, DEFAULT_STYLES } from '../../data/devicePrefs';
+import { STYLE_KEYS, DEFAULT_STYLES, MUSIC_AURA_KEY } from '../../data/devicePrefs';
 import Canvas3DCard from './Canvas3DCard';
 import MotionPreviewStage from './MotionPreviewStage';
 import { SETTINGS_CSS } from './settingsTheme';
@@ -117,12 +118,13 @@ export default function SettingsWindow() {
     }
   };
 
-  const [autoHide, setAutoHide]             = useState(() => localStorage.getItem('winland_autohide_enabled') === 'true');
+  const [autoHide, setAutoHide]             = useState(() => localStorage.getItem('winland_autohide_enabled') !== 'false');
   const [autoHideIdle, setAutoHideIdle]     = useState(() => localStorage.getItem('winland_autohide_idle') !== 'false');
   const [autoHideDuration, setAutoHideDuration] = useState(() => {
     const saved = localStorage.getItem('winland_autohide_duration');
     return saved ? parseInt(saved, 10) : 10;
   });
+  const [musicAura, setMusicAura]           = useState(() => localStorage.getItem(MUSIC_AURA_KEY) !== 'false');
   const [displays, setDisplays]             = useState([]);
   const [selectedDisplay, setSelectedDisplay] = useState(() => localStorage.getItem('winland_target_display') || '');
   const [hoveredCardId, setHoveredCardId]   = useState(null);
@@ -177,8 +179,9 @@ export default function SettingsWindow() {
     autoHideDuration: autoHideDuration,
     autoHide:       autoHide,
     targetDisplay:  selectedDisplay,
+    musicAura:      musicAura,
   }), [selectedPhone, selectedHeadphones, selectedEarbuds, selectedController,
-       selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay]);
+       selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay, musicAura]);
 
   useEffect(() => {
     localStorage.setItem('winland_phone_id',        selectedPhone);
@@ -191,6 +194,7 @@ export default function SettingsWindow() {
     localStorage.setItem('winland_autohide_enabled', autoHide ? 'true' : 'false');
     localStorage.setItem('winland_autohide_idle',    autoHideIdle ? 'true' : 'false');
     localStorage.setItem('winland_autohide_duration', autoHideDuration.toString());
+    localStorage.setItem(MUSIC_AURA_KEY,            musicAura ? 'true' : 'false');
     localStorage.setItem('winland_xbox_variant',    xboxVariant);
     if (selectedDisplay) localStorage.setItem('winland_target_display', selectedDisplay);
     for (const cat of Object.keys(STYLE_KEYS)) {
@@ -198,16 +202,16 @@ export default function SettingsWindow() {
     }
 
     if (window.electronAPI?.writeSettings) {
-      window.electronAPI.writeSettings({ autoHideIdle, autoHideDuration, hideInFullscreen: autoHide });
+      window.electronAPI.writeSettings({ autoHideIdle, autoHideDuration, hideInFullscreen: autoHide, musicAura });
     }
 
     window.dispatchEvent(new CustomEvent('winland-settings-changed', {
-      detail: { selectedPhone, selectedHeadphones, selectedEarbuds, selectedController, selectedSpeaker, xboxVariant, selectedColor, animStyle, autoHide, autoHideDuration },
+      detail: { selectedPhone, selectedHeadphones, selectedEarbuds, selectedController, selectedSpeaker, xboxVariant, selectedColor, animStyle, autoHide, autoHideDuration, musicAura },
     }));
 
     window.electronAPI?.sendDevicePrefs?.(readDevicePrefs());
   }, [selectedPhone, selectedHeadphones, selectedEarbuds, selectedController,
-      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay, readDevicePrefs]);
+      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, musicAura, selectedDisplay, readDevicePrefs]);
 
   const handleClose = () => window.electronAPI?.closeSettingsWindow?.();
 
@@ -247,100 +251,146 @@ export default function SettingsWindow() {
   const motionStyleList = ANIMATION_STYLES[motionCat] || [];
 
   return (
-    <div className={`wl-root ${appearanceMode === 'light' ? 'theme-light' : 'theme-dark'}`}>
-      <style>{SETTINGS_CSS}</style>
+    <div className="wl-root-container">
+      <div className={`wl-root ${appearanceMode === 'light' ? 'theme-light' : 'theme-dark'}`}>
+        <style>{SETTINGS_CSS}</style>
 
-      {/* ── Title bar (macOS Style without traffic lights) ── */}
-      <div className="wl-titlebar">
-        <div className="wl-title">
-          <div className="wl-title-mark"><Settings size={14} /></div>
-          <span className="wl-title-text">WinLand System Settings</span>
-        </div>
-        <button
-          type="button"
-          className="wl-close"
-          aria-label="Close settings window"
-          onClick={handleClose}
-        >
-          <X size={14} />
-        </button>
-      </div>
-
-      <div className="wl-body">
-        {/* ── Sidebar (1:1 macOS Tahoe System Settings) ── */}
-        <nav className="wl-sidebar" aria-label="Settings categories">
-          {/* macOS Search Box */}
-          <div className="wl-search-box">
-            <Search size={13} className="wl-search-icon" />
-            <input
-              type="text"
-              placeholder="Search"
-              className="wl-search-input"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        {/* ── Title bar (macOS Style without traffic lights) ── */}
+        <div className="wl-titlebar">
+          <div className="wl-title">
+            <div className="wl-title-mark" style={{ background: 'transparent', boxShadow: 'none' }}>
+              <img src="./icon.png" alt="WinLand" style={{ width: 22, height: 22, borderRadius: 5, objectFit: 'contain' }} />
+            </div>
+            <span className="wl-title-text">WinLand System Settings</span>
           </div>
+          <button
+            type="button"
+            className="wl-close"
+            aria-label="Close settings window"
+            onClick={handleClose}
+          >
+            <X size={14} />
+          </button>
+        </div>
 
-          {(() => {
-            let hasResults = false;
-            const lowerQuery = searchQuery.toLowerCase();
-            const groups = SIDEBAR_GROUPS.map((group) => {
-              const filteredTabs = group.tabs.filter(t => {
-                if (t.label.toLowerCase().includes(lowerQuery)) return true;
-                if (t.id === 'phones') return DEVICE_CATALOG.phones?.some(d => d.name.toLowerCase().includes(lowerQuery));
-                if (t.id === 'headphones') return DEVICE_CATALOG.headphones?.some(d => d.name.toLowerCase().includes(lowerQuery));
-                if (t.id === 'earbuds') return DEVICE_CATALOG.earbuds?.some(d => d.name.toLowerCase().includes(lowerQuery));
-                if (t.id === 'speakers') return DEVICE_CATALOG.speakers?.some(d => d.name.toLowerCase().includes(lowerQuery));
-                if (t.id === 'controllers') return 'playstation 5 dualsense xbox wireless controller gamepad'.includes(lowerQuery);
-                if (t.id === 'system') return 'auto-hide focus mode do not disturb timer display placement smart docking fullscreen'.includes(lowerQuery);
-                if (t.id === 'style') return 'motion finish physics color variant'.includes(lowerQuery);
-                if (t.id === 'appearance') return 'dark light theme mode'.includes(lowerQuery);
-                return false;
+        <div className="wl-body">
+          {/* ── Sidebar (1:1 macOS Tahoe System Settings) ── */}
+          <nav className="wl-sidebar" aria-label="Settings categories">
+            {/* macOS Search Box */}
+            <div className="wl-search-box">
+              <Search size={13} className="wl-search-icon" />
+              <input
+                type="text"
+                placeholder="Search"
+                className="wl-search-input"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {(() => {
+              let hasResults = false;
+              const lowerQuery = searchQuery.toLowerCase();
+              const groups = SIDEBAR_GROUPS.map((group) => {
+                const filteredTabs = group.tabs.filter(t => {
+                  if (t.label.toLowerCase().includes(lowerQuery)) return true;
+                  if (t.id === 'phones') return DEVICE_CATALOG.phones?.some(d => d.name.toLowerCase().includes(lowerQuery));
+                  if (t.id === 'headphones') return DEVICE_CATALOG.headphones?.some(d => d.name.toLowerCase().includes(lowerQuery));
+                  if (t.id === 'earbuds') return DEVICE_CATALOG.earbuds?.some(d => d.name.toLowerCase().includes(lowerQuery));
+                  if (t.id === 'speakers') return DEVICE_CATALOG.speakers?.some(d => d.name.toLowerCase().includes(lowerQuery));
+                  if (t.id === 'controllers') return 'playstation 5 dualsense xbox wireless controller gamepad'.includes(lowerQuery);
+                  if (t.id === 'system') return 'auto-hide focus mode do not disturb timer display placement smart docking fullscreen'.includes(lowerQuery);
+                  if (t.id === 'style') return 'motion finish physics color variant'.includes(lowerQuery);
+                  if (t.id === 'appearance') return 'dark light theme mode'.includes(lowerQuery);
+                  return false;
+                });
+                if (filteredTabs.length > 0) hasResults = true;
+                return { ...group, filteredTabs };
               });
-              if (filteredTabs.length > 0) hasResults = true;
-              return { ...group, filteredTabs };
-            });
 
-            if (searchQuery && !hasResults) {
-              return (
-                <div style={{ padding: '20px 10px', textAlign: 'center', color: 'var(--label-2)', fontSize: 12 }}>
-                  No matching settings
-                </div>
-              );
-            }
+              if (searchQuery && !hasResults) {
+                return (
+                  <div style={{ padding: '20px 10px', textAlign: 'center', color: 'var(--label-2)', fontSize: 12 }}>
+                    No matching settings
+                  </div>
+                );
+              }
 
-            return groups.map((group) => {
-              if (searchQuery && group.filteredTabs.length === 0) return null;
-              return (
-                <React.Fragment key={group.label}>
-                  <div className="wl-side-group">{group.label}</div>
-                  {group.filteredTabs.map((tab) => {
-                    const Icon = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        className="wl-tab"
-                        aria-current={activeTab === tab.id}
-                        onClick={() => handleTabChange(tab.id)}
-                      >
-                        <div className="wl-tab-badge" style={{ background: tab.bg }}>
-                          <Icon size={13} color="#fff" />
-                        </div>
-                        <span>{tab.label}</span>
-                      </button>
-                    );
-                  })}
-                </React.Fragment>
-              );
-            });
-          })()}
-        </nav>
+              return groups.map((group) => {
+                if (searchQuery && group.filteredTabs.length === 0) return null;
+                return (
+                  <React.Fragment key={group.label}>
+                    <div className="wl-side-group">{group.label}</div>
+                    {group.filteredTabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const isSelected = activeTab === tab.id;
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          className={`wl-tab ${isSelected ? 'is-active' : ''}`}
+                          aria-current={isSelected}
+                          onClick={(e) => {
+                            handleTabChange(tab.id);
+                            e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                          }}
+                        >
+                          {isSelected && (
+                            <motion.div
+                              layoutId="activeSidebarIndicator"
+                              transition={{ type: 'spring', stiffness: 500, damping: 38 }}
+                              style={{
+                                position: 'absolute',
+                                inset: 0,
+                                borderRadius: 7,
+                                background: 'var(--accent)',
+                                boxShadow: '0 2px 10px var(--accent-glow)',
+                                zIndex: 0,
+                              }}
+                            />
+                          )}
+                          <div
+                            className="wl-tab-badge"
+                            style={{
+                              background: isSelected ? 'rgba(255, 255, 255, 0.25)' : tab.bg,
+                              zIndex: 1,
+                              position: 'relative',
+                            }}
+                          >
+                            <Icon size={13} color="#fff" />
+                          </div>
+                          <span
+                            style={{
+                              zIndex: 1,
+                              position: 'relative',
+                              fontWeight: isSelected ? 600 : 450,
+                              color: isSelected ? '#ffffff' : 'var(--label)',
+                            }}
+                          >
+                            {tab.label}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </React.Fragment>
+                );
+              });
+            })()}
+          </nav>
 
         {/* ── Main Content Area ── */}
         <main className="wl-content">
-          {/* ── Appearance & Theme Tab (macOS Dark / Light Selector) ── */}
-          {activeTab === 'appearance' && (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              style={{ width: '100%' }}
+            >
+              {/* ── Appearance & Theme Tab (macOS Dark / Light Selector) ── */}
+              {activeTab === 'appearance' && (
             <>
               <Header
                 title="Appearance & Theme"
@@ -375,6 +425,33 @@ export default function SettingsWindow() {
                   </div>
                   <div style={{ fontSize: 11.5, color: 'var(--label-2)', marginTop: 4, textAlign: 'center' }}>
                     Translucent frosted glass with crisp macOS light material.
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Music Player Visual Effects ── */}
+              <div style={{ marginTop: 24 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--label-3)', marginBottom: 8, paddingLeft: 4 }}>
+                  Music Player Visual Effects
+                </div>
+                <div className="wl-card-group">
+                  <div className="wl-row">
+                    <div>
+                      <div className="wl-row-title">Background Aura Effect</div>
+                      <div className="wl-row-sub">
+                        Liquid beat-synced ambient aura glow behind the expanded music player and lyrics.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={musicAura}
+                      aria-label="Music Background Aura Effect"
+                      className="wl-switch"
+                      onClick={() => setMusicAura((v) => !v)}
+                    >
+                      <span className="wl-switch-knob" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -573,6 +650,7 @@ export default function SettingsWindow() {
                 animStyle={activeStyleId}
                 deviceName={catalogNameFor(motionDeviceId)}
                 styleName={activeStyleName}
+                tintHex={currentColorHex}
               />
 
               <div className="wl-style-list" style={{ marginTop: 16 }}>
@@ -767,19 +845,34 @@ export default function SettingsWindow() {
             </>
           )}
 
-          {activeTab === 'about' && (
-            <div className="wl-about">
-              <div className="wl-about-mark"><Sparkles size={32} /></div>
-              <div className="wl-about-name">WinLand</div>
-              <div className="wl-about-ver">Version 1.0.0</div>
-              <p className="wl-about-copy">
-                A Dynamic Island for Windows with 1:1 macOS Tahoe System Settings.
-                Shows what is playing, what just connected, and how much battery it has left.
-              </p>
-            </div>
-          )}
+              {activeTab === 'about' && (
+                <div className="wl-about">
+                  <div className="wl-about-mark" style={{ background: 'transparent', boxShadow: 'none' }}>
+                    <img
+                      src="./icon.png"
+                      alt="WinLand Logo"
+                      style={{
+                        width: 76,
+                        height: 76,
+                        borderRadius: 18,
+                        boxShadow: '0 8px 24px rgba(0, 122, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.4)',
+                        objectFit: 'contain',
+                      }}
+                    />
+                  </div>
+                  <div className="wl-about-name">WinLand</div>
+                  <div className="wl-about-ver">Version 1.0.0</div>
+                  <p className="wl-about-copy">
+                    A Dynamic Island for Windows with 1:1 macOS Tahoe System Settings.
+                    Shows what is playing, what just connected, and how much battery it has left.
+                  </p>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>
+  </div>
   );
 }

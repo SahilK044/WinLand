@@ -132,7 +132,7 @@ const PINNED_APPS = [
   },
 ];
 
-const LauncherButton = React.memo(function LauncherButton({ app, onLaunch }) {
+const LauncherButton = React.memo(function LauncherButton({ app, onLaunch, isLight = false }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
 
@@ -150,8 +150,12 @@ const LauncherButton = React.memo(function LauncherButton({ app, onLaunch }) {
         onLaunch?.(app.cmd);
       }}
       style={{
-        background: isHovered ? 'rgba(255, 255, 255, 0.1)' : 'transparent',
-        border: isHovered ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid transparent',
+        background: isHovered
+          ? (isLight ? 'rgba(0, 0, 0, 0.06)' : 'rgba(255, 255, 255, 0.1)')
+          : (isLight ? 'rgba(0, 0, 0, 0.03)' : 'transparent'),
+        border: isHovered
+          ? (isLight ? '1px solid rgba(0, 0, 0, 0.1)' : '1px solid rgba(255, 255, 255, 0.15)')
+          : (isLight ? '1px solid rgba(0, 0, 0, 0.04)' : '1px solid transparent'),
         borderRadius: 12,
         display: 'flex',
         flexDirection: 'column',
@@ -202,7 +206,9 @@ const LauncherButton = React.memo(function LauncherButton({ app, onLaunch }) {
         style={{
           fontSize: 10,
           fontWeight: 600,
-          color: isHovered ? '#ffffff' : 'rgba(255, 255, 255, 0.82)',
+          color: isLight
+            ? (isHovered ? '#000000' : 'rgba(0, 0, 0, 0.78)')
+            : (isHovered ? '#ffffff' : 'rgba(255, 255, 255, 0.82)'),
           letterSpacing: '0.2px',
           transition: 'color 0.15s ease',
         }}
@@ -213,12 +219,12 @@ const LauncherButton = React.memo(function LauncherButton({ app, onLaunch }) {
   );
 });
 
-const LauncherWidget = React.memo(function LauncherWidget({ onLaunchApp }) {
+const LauncherWidget = React.memo(function LauncherWidget({ onLaunchApp, isLight = false }) {
   return (
-    <div style={{ width: '100%', minWidth: 366, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 12px', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px 14px', boxSizing: 'border-box', overflow: 'hidden' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, width: '100%' }}>
         {PINNED_APPS.map((app) => (
-          <LauncherButton key={app.cmd} app={app} onLaunch={onLaunchApp} />
+          <LauncherButton key={app.cmd} app={app} onLaunch={onLaunchApp} isLight={isLight} />
         ))}
       </div>
     </div>

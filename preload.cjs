@@ -104,6 +104,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // WinDock config sync (theme, weather, island preferences)
   getInitialConfig: () => ipcRenderer.invoke('get-initial-config'),
+  getLiveWeather: () => ipcRenderer.invoke('get-live-weather'),
   onConfigUpdate: (callback) => {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on('config-update', handler);

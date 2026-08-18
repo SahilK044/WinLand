@@ -128,17 +128,17 @@ export const MODEL_CONFIGS = {
   airpodsmax:     { baseRotY: 0,              baseRotX: 0, scaleFactor: 1.45 },
   // Earbuds. The AirPods scan is authored Y-up (matches Three's axes, baseRotX
   // 0) so its buds rise along local Y. The Galaxy GLB is authored Z-up, and
-  // baseRotX â‰ˆ -90Â° rotates that local Z onto world-up â€” which is also why its
+  // baseRotX ≈ -90° rotates that local Z onto world-up — which is also why its
   // buds must travel along local Z and nudge along local Y instead.
   //
   // budsAuthoredOut: the AirPods scan poses its earbuds ALREADY lifted clear of
   // the case, so their authored spot is the END of the animation and they must
   // be sunk into the case first. The Galaxy buds are modelled seated inside.
-  // lidAuthoredOpen: this scan poses the CASE open too â€” its lid node sits
+  // lidAuthoredOpen: this scan poses the CASE open too — its lid node sits
   // behind the body with no rotation of its own, so leaving the hinge at zero
   // (the resting state) showed a permanently open case. Like the buds, the
   // authored pose is the END of the animation, not the start.
-  airpodspro:     { baseRotY: 0, baseRotX: 0, scaleFactor: 1.60, riseAxis: 'y', secondaryAxis: 'z', secondarySign: 1, riseMult: 0.55, budsAuthoredOut: true, lidAuthoredOpen: true, hingeZUseMax: true, openNudgeY: 0.10 },
+  airpodspro:     { baseRotY: 0, baseRotX: 0, scaleFactor: 1.60, riseAxis: 'y', secondaryAxis: 'z', secondarySign: 1, riseMult: 0.55, budsAuthoredOut: true, lidAuthoredOpen: true, hingeZUseMax: true, fixedLidClosedAngle: 1.55, openNudgeY: 0.10 },
   galaxybuds:     { baseRotY: 0, baseRotX: -Math.PI / 2 - 0.15, scaleFactor: 1.60, riseAxis: 'z', secondaryAxis: 'y', secondarySign: -1, riseMult: 0.85, lidOpenAngle: Math.PI / 2, openNudgeY: 0.38, preRiggedLid: true, splitBuds: true },
   soundbar:       { baseRotY: Math.PI,        baseRotX: 0, scaleFactor: 1.35 },
   sonos_soundbar: { baseRotY: 0,              baseRotX: 0.12, scaleFactor: 1.45 },
@@ -161,7 +161,7 @@ export const SPIN_MODELS = new Set([
 export const OPEN_TILT_X = -0.20;
 
 const EARBUD_NODES = {
-  airpodspro: { lid: 'uzpdkgqkIIWTYxJ', left: 'DprZyuuKYVGeqRc', right: 'RTZiZFLcZlxaClC' },
+  airpodspro: { lid: 'uzpdkgqkIIWTYxJ', left: 'RTZiZFLcZlxaClC', right: 'DprZyuuKYVGeqRc' },
   galaxybuds: { lid: 'Case_Lid_Pivot', left: 'Earbud_Left', right: 'Earbud_Right' },
 };
 
@@ -358,6 +358,58 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
     });
   }
 
+  // AirPods Pro Material Enhancement & Duplicate Ghost Proxy Mesh Removal
+  if (modelId === 'airpodspro') {
+    // Remove black duplicate proxy meshes from scan (including stationary aperture proxy and duplicate shells)
+    ['OQUywkShUFTTvZv', 'eURoUelNkeWEPWy', 'ovvBCJtLtXvnMKD', 'rfmqyaJLfjAyTkY', 'WPywCKzwFYPbAIO'].forEach((name) => {
+      const node = root.getObjectByName(name);
+      if (node) node.parent?.remove(node);
+    });
+
+    // Apply glossy white Apple plastic to the ENTIRE model as the default material.
+    // The scan ships with dark/flat materials; rather than whitelisting individual
+    // mesh names (which is fragile and leaves un-named parts dark), paint everything
+    // white first, then selectively override the few parts that need a different finish.
+    const appleGlossyWhite = new THREE.MeshPhysicalMaterial({
+      color: 0xfafafa,
+      roughness: 0.12,
+      metalness: 0.04,
+      clearcoat: 1.0,
+      clearcoatRoughness: 0.1,
+      envMapIntensity: 1.4,
+      side: THREE.DoubleSide,
+    });
+    appleGlossyWhite.__isCloned = true;
+
+    root.traverse((child) => {
+      if (child.isMesh) child.material = appleGlossyWhite;
+    });
+
+    // Selectively override silicone ear tips (matte, softer look)
+    const siliconeTipMat = new THREE.MeshStandardMaterial({
+      color: 0xe8e8e8,
+      roughness: 0.55,
+      metalness: 0.0,
+      side: THREE.DoubleSide,
+    });
+    siliconeTipMat.__isCloned = true;
+    ['KPqSOEgJkfoJWgS', 'bPjepBAPhlWUSRe'].forEach((name) => {
+      root.getObjectByName(name)?.traverse((c) => { if (c.isMesh) c.material = siliconeTipMat; });
+    });
+
+    // Selectively override chrome stem contacts (metallic finish)
+    const chromeStemMat = new THREE.MeshStandardMaterial({
+      color: 0xe0e0e0,
+      roughness: 0.15,
+      metalness: 0.9,
+      side: THREE.DoubleSide,
+    });
+    chromeStemMat.__isCloned = true;
+    ['gxCqFEWJNRsnkPj', 'zQWewWOGCZBobQa'].forEach((name) => {
+      root.getObjectByName(name)?.traverse((c) => { if (c.isMesh) c.material = chromeStemMat; });
+    });
+  }
+
   // The Galaxy GLB is authored graphite; WinLand shows the silver finish.
   //
   // A flat white repaint left it reading as a featureless blob â€” with almost no
@@ -385,25 +437,28 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
   // panels toward the chosen finish while leaving the dark parts (screens,
   // grilles, rubber) alone, otherwise a phone turns into a solid slab of
   // colour with no screen. Materials are cloned first: they are shared with
-  // the cached master, so tinting in place would repaint every other card too.
   if (tintHex) {
     const tint = new THREE.Color(tintHex);
     const seen = new Map();
     root.traverse((child) => {
-      if (!child.isMesh || !child.material || Array.isArray(child.material)) return;
-      const src = child.material;
-      if (!src.color) return;
-      // Skip near-black surfaces â€” those read as screen/trim, not bodywork.
-      const luma = 0.2126 * src.color.r + 0.7152 * src.color.g + 0.0722 * src.color.b;
-      if (luma < 0.16) return;
-      let cloned = seen.get(src.uuid);
-      if (!cloned) {
-        cloned = src.clone();
-        cloned.color = src.color.clone().lerp(tint, 0.5);
-        cloned.__isCloned = true;
-        seen.set(src.uuid, cloned);
-      }
-      child.material = cloned;
+      if (!child.isMesh || !child.material) return;
+      const mats = Array.isArray(child.material) ? child.material : [child.material];
+      const updated = mats.map((src) => {
+        if (!src || !src.color) return src;
+        // Skip near-black surfaces — those read as screen/trim, not bodywork.
+        const luma = 0.2126 * src.color.r + 0.7152 * src.color.g + 0.0722 * src.color.b;
+        if (luma < 0.08) return src;
+        let cloned = seen.get(src.uuid);
+        if (!cloned) {
+          cloned = src.clone();
+          cloned.color = src.color.clone().lerp(tint, 0.75);
+          if (cloned.roughness !== undefined) cloned.roughness = Math.min(cloned.roughness, 0.28);
+          cloned.__isCloned = true;
+          seen.set(src.uuid, cloned);
+        }
+        return cloned;
+      });
+      child.material = Array.isArray(child.material) ? updated : updated[0];
     });
   }
 
@@ -455,83 +510,67 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
   let lidClosedAngle = 0; // hinge angle that shuts a case authored open
   let targetWorldRise = 0; // same travel, in world units, for framing the shot
   if (category === 'earbud') {
-
-    // Bud travel is chosen in WORLD units â€” a fraction of the case's on-screen
-    // height â€” then converted into the bud nodes' own units. That conversion
-    // matters: the Galaxy buds hang off the root, but the AirPods buds sit deep
-    // under parents carrying their own scale, so a distance measured in root
-    // units moved them about a seventh as far as intended.
-    const riseAxisKey = config.riseAxis || 'y';
-    root.updateWorldMatrix(true, true);
-    const caseWorldHeight =
-      new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()).y || 1;
-    targetWorldRise = caseWorldHeight * (config.riseMult ?? 0.45);
-    const budParentScale = new THREE.Vector3(1, 1, 1);
-    (budLeftNode?.parent || root).getWorldScale(budParentScale);
-    budRise = targetWorldRise / (Math.abs(budParentScale[riseAxisKey]) || 1);
-
     if (lidNode && !config.preRiggedLid) {
-      // Re-parent the lid into a pivot at its back-bottom edge so it swings
-      // around the real hinge instead of the model origin.
       root.updateWorldMatrix(true, true);
       const lidBox = new THREE.Box3().setFromObject(lidNode);
       const hingeZ = config.hingeZUseMax ? lidBox.max.z : lidBox.min.z;
       const hingeWorld = new THREE.Vector3(
         (lidBox.min.x + lidBox.max.x) * 0.5, lidBox.min.y, hingeZ
       );
+      if (budLeftNode) {
+        const leftBox = new THREE.Box3().setFromObject(budLeftNode);
+        const leftCenter = leftBox.getCenter(new THREE.Vector3());
+        root.worldToLocal(leftCenter);
+        const leftPivot = new THREE.Group();
+        leftPivot.position.copy(leftCenter);
+        root.add(leftPivot);
+        budLeftNode.visible = true;
+        leftPivot.attach(budLeftNode);
+        budLeftNode = leftPivot;
+        budLeftInitialX = leftPivot.position.x;
+        budLeftInitialY = leftPivot.position.y;
+        budLeftInitialZ = leftPivot.position.z;
+        budLeftNode.visible = false;
+      }
+      if (budRightNode) {
+        const rightBox = new THREE.Box3().setFromObject(budRightNode);
+        const rightCenter = rightBox.getCenter(new THREE.Vector3());
+        root.worldToLocal(rightCenter);
+        const rightPivot = new THREE.Group();
+        rightPivot.position.copy(rightCenter);
+        root.add(rightPivot);
+        budRightNode.visible = true;
+        rightPivot.attach(budRightNode);
+        budRightNode = rightPivot;
+        budRightInitialX = rightPivot.position.x;
+        budRightInitialY = rightPivot.position.y;
+        budRightInitialZ = rightPivot.position.z;
+        budRightNode.visible = false;
+      }
       const lidParent = lidNode.parent;
       if (lidParent) {
         lidParent.worldToLocal(hingeWorld);
         const lidPivot = new THREE.Group();
         lidPivot.position.copy(hingeWorld);
         lidParent.add(lidPivot);
-        lidPivot.attach(lidNode); // preserve world transform
+        lidPivot.attach(lidNode);
         lidNode = lidPivot;
-
-        // For a case authored OPEN, work out the angle that actually shuts it.
-        //
-        // A guessed constant cannot do this: the lid is parked at whatever
-        // angle the artist left it, and swinging it by some arbitrary amount
-        // around the hinge leaves it floating beside the case rather than
-        // seated on it. Instead, sweep the hinge and keep the angle that best
-        // lands the lid's underside on the case rim, centred over it. One
-        // sweep at load, and only for models that need it.
-        if (config.fixedLidClosedAngle !== undefined) {
-          lidClosedAngle = config.fixedLidClosedAngle;
-          lidPivot.rotation.x = lidClosedAngle;
-          lidPivot.updateMatrixWorld(true);
-        } else if (config.lidAuthoredOpen) {
-          const bodyBox = new THREE.Box3();
-          root.traverse((c) => {
-            if (!c.isMesh) return;
-            for (let q = c; q; q = q.parent) {
-              if (q === lidPivot || q === budLeftNode || q === budRightNode) return;
-            }
-            bodyBox.union(new THREE.Box3().setFromObject(c));
-          });
-          if (!bodyBox.isEmpty()) {
-            const bodyCentre = bodyBox.getCenter(new THREE.Vector3());
-            let best = 0;
-            let bestScore = Infinity;
-            for (let deg = -180; deg <= 180; deg += 1) {
-              const a = (deg * Math.PI) / 180;
-              lidPivot.rotation.x = a;
-              lidPivot.updateMatrixWorld(true);
-              const b = new THREE.Box3().setFromObject(lidPivot);
-              if (b.isEmpty()) continue;
-              const c = b.getCenter(new THREE.Vector3());
-              // Seated means: underside meets the rim, and it sits over the
-              // body rather than in front of or behind it.
-              const score = Math.abs(b.min.y - bodyBox.max.y) * 2
-                          + Math.abs(c.z - bodyCentre.z);
-              if (score < bestScore) { bestScore = score; best = a; }
-            }
-            lidClosedAngle = best;
-            lidPivot.rotation.x = best; // start shut
-            lidPivot.updateMatrixWorld(true);
-          }
-        }
+        lidClosedAngle = Math.PI / 2;
+        lidPivot.rotation.x = lidClosedAngle;
       }
+    }
+
+    const riseAxisKey = config.riseAxis || 'y';
+    const budParentScale = new THREE.Vector3(1, 1, 1);
+    (budLeftNode?.parent || root).getWorldScale(budParentScale);
+
+    if (modelId === 'airpodspro') {
+      budRise = 0.028;
+    } else {
+      root.updateWorldMatrix(true, true);
+      const caseWorldHeight = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()).y || 1;
+      targetWorldRise = caseWorldHeight * (config.riseMult ?? 0.45);
+      budRise = targetWorldRise / (Math.abs(budParentScale[riseAxisKey]) || 1);
     }
   }
 

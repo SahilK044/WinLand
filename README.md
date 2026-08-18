@@ -1,6 +1,6 @@
 # WinLand — Ultra-Fluid Dynamic Island for Windows 🏝️
 
-**WinLand** is a high-performance, hardware-accelerated Dynamic Island desktop experience for Windows, built with React 19, Three.js (WebGL), Vite, and Electron. It brings fluid macOS/iOS-inspired live activities, real-time 3D device hardware connection popups, system telemetry, ambient media controls, camera and microphone privacy indicators, phone call notifications, Focus Assist integration, screen recording, and live weather directly to your desktop.
+**WinLand** is a high-performance, hardware-accelerated Dynamic Island desktop experience for Windows, built with React 19, Three.js (WebGL), Vite, and Electron. It brings fluid macOS/iOS-inspired live activities, real-time 3D device hardware connection popups, system telemetry, ambient media controls, camera and microphone privacy indicators, phone call notifications, Focus Assist integration, screen recording, live weather with place search, and a native macOS Tahoe-style System Settings suite directly to your desktop.
 
 ---
 
@@ -15,24 +15,28 @@
 
 ## 🌟 Key Features
 
-### 🟢 macOS Sequoia Camera & Microphone Privacy Indicators
+### 🌤️ Live Weather & Geocoding Search Suite
+- **Ground-Truth METAR Surface Observations**: Real-time physical weather station observations powered by high-precision surface meteorological stations and NOAA GFS global models.
+- **Interactive Place Search & Autocomplete**: Click the weather widget to search any city, region, or locality globally with instant debounced autocompletion and clean glassmorphism dropdowns.
+- **Auto-Expanding Spring Capsule**: The Dynamic Island capsule smoothly expands vertically via Apple fluid spring physics (`cubic-bezier(0.16, 1, 0.3, 1)`) to display search suggestions without clipping or scrollbars.
+- **Permanent Location Pinning**: Automatically remembers your chosen location in persistent configuration storage (`settings.json` & `localStorage`), keeping it locked indefinitely across app restarts.
+- **Crisp Static Vector Icons**: High-contrast, authentic Apple iOS weather palette with static Lucide vector glyphs (`Sun`, `Moon`, `Cloud`, `CloudRain`, `CloudSnow`, `CloudLightning`, `CloudFog`, `CloudSun`).
+
+### ⚙️ macOS Tahoe System Settings Suite
+- **Gliding Spring Indicator**: Sidebar categories feature a fluid Framer Motion spring indicator (`stiffness: 500, damping: 38`) that smoothly glides and morphs between selected tabs.
+- **Smooth Sidebar Scrolling**: Auto-scrolls categories smoothly into view as you navigate or filter through settings.
+- **Animated Content Transitions**: Seamless page fade and subtle vertical slide transitions across all category panes.
+- **Crisp Anti-Aliased Window Borders**: Native border-radius styling with zero corner blur or DWM clipping artifacts.
+- **Branded Identity**: Displays the official high-resolution WinLand logo in the settings titlebar and About view.
+
+### 🟢 macOS Camera & Microphone Privacy Indicators
 - **Hardware Status Dots**: Vibrant Apple emerald (`#30D158`) and warm amber (`#FF9F0A`) luminous indicator dots that illuminate dynamically whenever any application accesses your webcam or microphone.
-- **Interactive Control Center Privacy Card**: Clicking on the privacy indicators blossoms a macOS-styled frosted-glass privacy card displaying active applications accessing your sensors (e.g., *OBS Studio*, *Discord*, *Zoom*, *Google Chrome*) with real-time status badges.
+- **Interactive Control Center Privacy Card**: Clicking on privacy indicators displays active applications accessing your sensors (e.g., *OBS Studio*, *Discord*, *Zoom*, *Google Chrome*) with real-time status badges.
 - **Native Windows Sensor Telemetry**: Continuously queries the Windows `CapabilityAccessManager` subsystem to provide instantaneous detection with zero CPU overhead.
 
-### 🌊 Fluid "Squish & Stretch" Mass Conservation Spring Physics
-- **Volume-Conserving Elastic Dynamics**: When morphing between compact (`310×44`) and expanded activity views (`356×156` / `480×120`), the capsule conserves physical volume by momentarily compressing vertically as it stretches horizontally, followed by cushioned spring settling (`cubic-bezier(0.32, 1.25, 0.36, 1)`).
+### 🌊 Fluid "Squish & Stretch" Spring Physics
+- **Volume-Conserving Elastic Dynamics**: When morphing between compact (`310×44`) and expanded activity views (`356×156` / `480×120`), the capsule conserves physical volume by momentarily compressing vertically as it stretches horizontally, followed by cushioned spring settling (`cubic-bezier(0.16, 1, 0.3, 1)`).
 - **Synchronized Content Spring Fade**: Internal widgets smoothly scale (`0.96 -> 1.0`) with synchronized alpha crossfading to eliminate layout jitter.
-
-### 🎛️ Tactile Glass Button Recoil & Play/Pause Fluid Morphing
-- **Tactile Haptic Recoil**: Transport buttons compress dynamically on `:active` clicks (`scale(0.88)` - `scale(0.90)`) with spring release curves.
-- **Specular Glass Sheen Sweep**: Interactive button hover states trigger an angled specular light refraction sheen gliding across the circular glass face.
-- **Glyph Morphing**: Play and Pause glyphs smoothly transition into one another with a 35° rotational arc and scaling morph.
-
-### 📁 Shelf Drop Zone Fluid Absorption & 3D Tilt Card Grid
-- **Fluid Ingestion Aura**: Dragging desktop files or shortcuts over the Dynamic Island triggers an energetic blue glass absorption aura (`scale(1.025)`) with ambient edge glow.
-- **Magnetic 3D Perspective Card Tilt**: Shelved applications track your cursor in real time with 3D perspective tilt (`rotateX` / `rotateY`) and dynamic radial specular follow spots.
-- **High-Definition Icon Extraction**: Extracts authentic application icons from target executables and `.lnk` shortcuts.
 
 ### 🎧 3D WebGL Device Connection Popups & Hardware Adaptation
 - **Real-Time Bluetooth & 2.4GHz Detection**: Instantaneous connection and disconnection pop-up notifications for wireless headsets, earbuds, speakers, controllers, and smartphones.
@@ -51,6 +55,11 @@
 - **Dual-Layer Track Crossfades**: Exiting songs dissolve smoothly over 650ms while incoming artwork fades in with a micro-zoom ease.
 - **Multi-Provider Synced Lyrics**: 5-stage karaoke word-wipe lyrics engine with LRCLIB, Lyrics.ovh, and NetEase Cloud fallback.
 - **System Master Volume Control**: Integrated inline volume slider with mousewheel support and quick mute toggle.
+
+### 📁 Shelf Drop Zone Fluid Absorption & 3D Tilt Card Grid
+- **Fluid Ingestion Aura**: Dragging desktop files or shortcuts over the Dynamic Island triggers an energetic blue glass absorption aura (`scale(1.025)`) with ambient edge glow.
+- **Magnetic 3D Perspective Card Tilt**: Shelved applications track your cursor in real time with 3D perspective tilt (`rotateX` / `rotateY`) and dynamic radial specular follow spots.
+- **High-Definition Icon Extraction**: Extracts authentic application icons from target executables and `.lnk` shortcuts.
 
 ### 📞 Phone Link & WhatsApp Call Integration
 - **Real-Time Call Detection**: Instantaneous detection of incoming and active phone calls from Windows Phone Link (`PhoneExperienceHost`) and WhatsApp.
@@ -71,11 +80,6 @@
 - **High-Fidelity 48kHz Stereo System Audio**: Captures desktop audio loopback without WebRTC echo cancellation ducking or mono downmixing.
 - **Smart Focus & Cinematic Camera**: Cursor-following zoom with hotkey overrides (`P` for pan-out, `Z` for zoom-in).
 - **Compact Island Controls**: Live timer, pause/resume toggle, and stop controls embedded directly in the notch pill.
-
-### 🌤️ Weather, Battery & System Monitoring
-- **Live Weather Sync**: Real-time local temperature and weather status synced automatically via IP geolocation & Open-Meteo API.
-- **Battery & Volume OSDs**: Real-time battery status with charging indicator and clean typography.
-- **Fullscreen Auto-Hide**: Detects fullscreen games and media playback to automatically hide the island so it never obstructs your screen.
 
 ---
 

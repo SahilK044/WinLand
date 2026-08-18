@@ -18,16 +18,16 @@ export default function MotionPreviewStage({
   animStyle,
   deviceName,
   styleName,
+  tintHex,
 }) {
   const [runId, setRunId] = useState(0);
   const mountedRef = useRef(false);
 
-  // Replay when the device or its motion changes — but not on first mount,
-  // where the entry animation is already about to play.
+  // Replay when the device, motion, or tint changes
   useEffect(() => {
     if (!mountedRef.current) { mountedRef.current = true; return; }
     setRunId((n) => n + 1);
-  }, [modelId, animStyle]);
+  }, [modelId, animStyle, tintHex]);
 
   return (
     <div className="wl-stage">
@@ -38,7 +38,7 @@ export default function MotionPreviewStage({
         <div className="wl-stage-floor" aria-hidden="true" />
         {modelId ? (
           <DeviceModel3D
-            key={`${modelId}-${animStyle}-${runId}`}
+            key={`${modelId}-${animStyle}-${tintHex}-${runId}`}
             modelId={modelId}
             category={engineCategoryFor(prefCategory)}
             styleCategory={prefCategory}
@@ -46,6 +46,7 @@ export default function MotionPreviewStage({
             size={210}
             loop
             fit={0.68}
+            tintHex={tintHex}
           />
         ) : (
           <div className="wl-stage-empty">Pick a device to preview it here.</div>
