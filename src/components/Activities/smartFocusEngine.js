@@ -40,17 +40,26 @@ export function createSmartFocusEngine(userConfig = {}) {
   };
 
   function setBounds(newBounds) {
-    bounds.x = newBounds.x ?? bounds.x;
-    bounds.y = newBounds.y ?? bounds.y;
-    bounds.width = newBounds.width ?? bounds.width;
-    bounds.height = newBounds.height ?? bounds.height;
+    if (!newBounds) return;
+    bounds.x = Number.isFinite(newBounds.x) ? newBounds.x : bounds.x;
+    bounds.y = Number.isFinite(newBounds.y) ? newBounds.y : bounds.y;
+    bounds.width = Number.isFinite(newBounds.width) && newBounds.width > 0 ? newBounds.width : bounds.width;
+    bounds.height = Number.isFinite(newBounds.height) && newBounds.height > 0 ? newBounds.height : bounds.height;
   }
 
-  function normalizeX(gx) { return Math.max(0, Math.min(1, (gx - bounds.x) / (bounds.width || 1))); }
-  function normalizeY(gy) { return Math.max(0, Math.min(1, (gy - bounds.y) / (bounds.height || 1))); }
+  function normalizeX(gx) {
+    if (!Number.isFinite(gx)) return 0.5;
+    return Math.max(0, Math.min(1, (gx - bounds.x) / (bounds.width || 1)));
+  }
+
+  function normalizeY(gy) {
+    if (!Number.isFinite(gy)) return 0.5;
+    return Math.max(0, Math.min(1, (gy - bounds.y) / (bounds.height || 1)));
+  }
 
   function handlePointerEvent(event) {
-    const { t, globalX, globalY, type, button } = event;
+    if (!event) return;
+    const { t = performance.now(), globalX, globalY, type, button } = event;
     const nx = normalizeX(globalX);
     const ny = normalizeY(globalY);
 

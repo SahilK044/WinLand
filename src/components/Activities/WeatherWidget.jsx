@@ -47,19 +47,21 @@ export default function WeatherWidget({
 
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     setIsSearching(true);
+    let isMounted = true;
 
     searchTimeoutRef.current = setTimeout(async () => {
       try {
         const results = await searchPlaces(cityInput.trim());
-        setSuggestions((results || []).slice(0, 3));
+        if (isMounted) setSuggestions((results || []).slice(0, 3));
       } catch {
-        setSuggestions([]);
+        if (isMounted) setSuggestions([]);
       } finally {
-        setIsSearching(false);
+        if (isMounted) setIsSearching(false);
       }
     }, 180);
 
     return () => {
+      isMounted = false;
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, [cityInput, isEditing]);

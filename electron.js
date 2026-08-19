@@ -130,7 +130,7 @@ const BLUETOOTH_DISCONNECT_CONFIRM_POLLS = 2;
 // world-writable shared temp dir, so another process can't swap them out from
 // under us between launches.
 const SCRIPT_DIR = path.join(app.getPath('userData'), 'scripts');
-fs.mkdirSync(SCRIPT_DIR, { recursive: true });
+try { fs.mkdirSync(SCRIPT_DIR, { recursive: true }); } catch {}
 
 // ── WinDock config bridge (theme / weather / island prefs) ─────────────────
 // WinDock (the .NET host) writes this file every time it refreshes the
@@ -252,10 +252,12 @@ function readWinlandConfig() {
 
 function broadcastWinlandConfig() {
   const data = readWinlandConfig();
-  if (!data || !mainWindow || !mainWindow.webContents) return;
+  if (!data || !mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
   sendToWindow(mainWindow, 'config-update', data);
   if (data.theme) sendToWindow(mainWindow, 'theme-update', { theme: data.theme });
 }
+
+let weatherBroadcastInterval = null;
 
 function watchWinlandConfig() {
   fs.unwatchFile(WINLAND_THEME_PATH);
@@ -264,7 +266,10 @@ function watchWinlandConfig() {
   });
   // Auto-fetch live weather on startup and every 10 minutes
   broadcastLiveWeather();
-  setInterval(broadcastLiveWeather, 10 * 60 * 1000);
+  if (weatherBroadcastInterval) {
+    clearInterval(weatherBroadcastInterval);
+  }
+  weatherBroadcastInterval = setInterval(broadcastLiveWeather, 10 * 60 * 1000);
 }
 
 function getSpotifyExePath() {
@@ -278,13 +283,16 @@ function getSpotifyExePath() {
 }
 
 const PS1_SPOTIFY = path.join(SCRIPT_DIR, 'winland_spotify_poll.ps1');
+try {
 fs.writeFileSync(PS1_SPOTIFY, [
   '$procs = Get-Process -Name Spotify -ErrorAction SilentlyContinue',
   '$main = $procs | Where-Object { $_.MainWindowTitle -ne "" } | Select-Object -First 1',
   'if ($main) { Write-Output $main.MainWindowTitle }',
 ].join('\n'), 'utf8');
+} catch {}
 
 const PS1_BATTERY = path.join(SCRIPT_DIR, 'winland_battery_poll.ps1');
+try {
 fs.writeFileSync(PS1_BATTERY, [
   '$b = Get-WmiObject Win32_Battery -ErrorAction SilentlyContinue | Select-Object -First 1',
   'if ($b) {',
@@ -302,6 +310,7 @@ fs.writeFileSync(PS1_BATTERY, [
   '  Write-Output "$pct|$charging|$mins"',
   '}',
 ].join('\n'), 'utf8');
+} catch {}
 
 // ── Multi-Monitor Pinning ────────────────────────────────────────────────
 // Resolves the display the island should live on: the pinned display if it
@@ -408,7 +417,7 @@ function createWindow() {
   // Log renderer console messages to file for crash debugging. Batched + async:
   // appendFileSync per message blocked the main process on every renderer log.
   const logPath = path.join(os.tmpdir(), 'winland_renderer.log');
-  fs.writeFileSync(logPath, `=== WinLand Renderer Log ${new Date().toISOString()} ===\n`);
+  try { fs.writeFileSync(logPath, `=== WinLand Renderer Log ${new Date().toISOString()} ===\n`); } catch {}
   let logBuffer = [];
   let logFlushTimer = null;
   const flushLog = () => {
@@ -535,7 +544,7 @@ function createSettingsWindow() {
 }
 
 function pollSpotifyTitle() {
-  if (!mainWindow || !mainWindow.webContents || isPollingSpotify) return;
+  if ((!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingSpotify)) return;
   isPollingSpotify = true;
   let doneCalled = false;
   const done = () => {
@@ -554,7 +563,7 @@ function pollSpotifyTitle() {
     // execFile: no cmd.exe shell spawn per poll — this runs every 1.5s while
     // Spotify is open, and the extra shell process per tick cost real CPU.
     execFile(exePath, [], { timeout: 8000, maxBuffer: 1024 * 512 }, (err, stdout) => {
-      if (!mainWindow || !mainWindow.webContents) { done(); return; }
+      if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) { done(); return; }
       const raw = (stdout || '').trim();
       if (raw) {
         let posMs = 0;
@@ -670,7 +679,7 @@ function pollSpotifyTitle() {
 function fallbackSpotifyPoll(onDone) {
   execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', PS1_SPOTIFY], { timeout: 5000 }, (err, stdout) => {
     if (onDone) onDone();
-    if (!mainWindow || !mainWindow.webContents) return;
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
     const title = (stdout || '').trim();
     const isPlaying = title.length > 0 && title !== 'Spotify' && title !== 'Spotify Free' && title !== 'Spotify Premium';
 
@@ -699,12 +708,12 @@ function startSpotifyPoller() {
 let isPollingBattery = false;
 
 function pollBattery() {
-  if (!mainWindow || !mainWindow.webContents || isPollingBattery) return;
+  if ((!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingBattery)) return;
   isPollingBattery = true;
 
   execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', PS1_BATTERY], { timeout: 8000 }, (err, stdout) => {
     isPollingBattery = false;
-    if (!mainWindow || !mainWindow.webContents) return;
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
     const raw = (stdout || '').trim();
     if (!raw) return;
 
@@ -732,6 +741,7 @@ function startBatteryPoller() {
 
 // ── Bluetooth Connect/Disconnect Poller ─────────────────────────────────────
 const PS1_BLUETOOTH = path.join(SCRIPT_DIR, 'winland_bluetooth_poll.ps1');
+try {
 fs.writeFileSync(PS1_BLUETOOTH, [
   '$systemIgnore = "Realtek|NVIDIA|Intel\\(R\\)|Microsoft|Surround Sound|Virtual Audio|DisplayAudio|High Definition|Stereo Mix|Streaming Service|Enumerator|Service|Protocol|Transport|Attribute|Adapter|Hub|Root|Interface|Composite|Gateway|Push|Access|Serial|RFCOMM|Generic Attribute|Generic Access|Device Identification|Object Push|Phonebook Access|Personal Area Network"',
   '$phonePattern = "Galaxy|S2[0-9]|S1[0-9]|iPhone|Pixel|OnePlus|Xiaomi|Redmi|Poco|Realme|Vivo|OPPO|Motorola|Moto|Fold|Flip|Ultra|Phone|Mobile|Android"',
@@ -764,6 +774,7 @@ fs.writeFileSync(PS1_BLUETOOTH, [
   '    }',
   '}',
 ].join('\n'), 'utf8');
+} catch {}
 
 function parseBluetoothOutput(stdout) {
   const devices = new Map();
@@ -786,12 +797,12 @@ function parseBluetoothOutput(stdout) {
 let isPollingBluetooth = false;
 
 function pollBluetooth() {
-  if (!mainWindow || !mainWindow.webContents || isPollingBluetooth) return;
+  if ((!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingBluetooth)) return;
   isPollingBluetooth = true;
 
   execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', PS1_BLUETOOTH], { timeout: 6000, maxBuffer: 1024 * 512 }, (err, stdout) => {
     isPollingBluetooth = false;
-    if (!mainWindow || !mainWindow.webContents) return;
+    if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
     if (err) return;
 
     const raw = parseBluetoothOutput(stdout);
@@ -854,7 +865,6 @@ function pollBluetooth() {
       if (missed < BLUETOOTH_DISCONNECT_CONFIRM_POLLS) continue;
       bluetoothMissingStreaks.delete(id);
       confirmed.delete(id);
-      lastBluetoothDevices = confirmed;
       sendToWindow(mainWindow, 'bluetooth-update', {
         deviceName: info.name,
         batteryPct: null,
@@ -867,7 +877,6 @@ function pollBluetooth() {
         forceShow: true,
         timestamp: Date.now(),
       });
-      return;
     }
 
     lastBluetoothDevices = confirmed;
@@ -875,7 +884,7 @@ function pollBluetooth() {
 }
 
 ipcMain.on('request-bluetooth-status', (_event, options) => {
-  if (!mainWindow || !mainWindow.webContents) return;
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
   const forceShow = typeof options === 'boolean' ? options : (options && options.forceShow);
   if (lastBluetoothDevices && lastBluetoothDevices.size > 0) {
     let dev = Array.from(lastBluetoothDevices.values()).find(d => d.typeStr === 'phone') || Array.from(lastBluetoothDevices.values())[0];
@@ -898,7 +907,7 @@ ipcMain.on('request-bluetooth-status', (_event, options) => {
 });
 
 ipcMain.on('trigger-phone-notification', () => {
-  if (!mainWindow || !mainWindow.webContents) return;
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
   let phoneName = "Galaxy S24 Ultra";
   if (lastBluetoothDevices && lastBluetoothDevices.size > 0) {
     for (const [, info] of lastBluetoothDevices) {
@@ -984,7 +993,7 @@ function startCallPoller() {
 
 // The renderer asks for the current call state once it has mounted
 ipcMain.on('request-call-status', () => {
-  if (!mainWindow || !mainWindow.webContents || mainWindow.isDestroyed()) return;
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
   if (lastCallSnapshot) {
     sendToWindow(mainWindow, 'call-update', lastCallSnapshot);
   }
@@ -1289,15 +1298,19 @@ try {
   fs.writeFileSync(VBS_MEDIA, 'Set w = CreateObject("WScript.Shell")\nw.SendKeys Chr(WScript.Arguments(0))\n', 'utf8');
 } catch {}
 
+let _mediaRefreshTimers = [];
 function forceRefreshMediaInfo() {
   isPollingSpotify = false;
   lastSpotifyTrack = '';
+  // Clear any previously scheduled refresh batch
+  for (const t of _mediaRefreshTimers) clearTimeout(t);
+  _mediaRefreshTimers = [];
   const delays = [150, 400, 800, 1400, 2200];
-  delays.forEach((delay) => {
-    setTimeout(() => {
+  for (const delay of delays) {
+    _mediaRefreshTimers.push(setTimeout(() => {
       pollSpotifyTitle();
-    }, delay);
-  });
+    }, delay));
+  }
 }
 
 ipcMain.on('media-control', (event, action) => {
@@ -1762,7 +1775,7 @@ let nativeScreenRecorder = null;
 
 const getRecordingDir = () => {
   const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Recordings');
-  if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
+  if (!fs.existsSync(videosDir)) try { fs.mkdirSync(videosDir, { recursive: true }); } catch {}
   return videosDir;
 };
 
@@ -1839,12 +1852,13 @@ async function tryStartWithEncoder(ffmpegPath, ffmpegDir, bounds, fps, outW, out
 
   const alive = await new Promise((resolve) => {
     let settled = false;
-    const finish = (v) => { if (!settled) { settled = true; resolve(v); } };
+    let pollTimer = null;
+    const finish = (v) => { if (!settled) { settled = true; if (pollTimer) clearInterval(pollTimer); resolve(v); } };
     proc.on('error', () => finish(false));
     proc.on('close', () => finish(false));
     if (encoder.strict) {
-      const pollTimer = setInterval(() => { if (sawFrame) { clearInterval(pollTimer); finish(true); } }, 60);
-      setTimeout(() => { clearInterval(pollTimer); finish(sawFrame); }, 1200);
+      pollTimer = setInterval(() => { if (sawFrame) { finish(true); } }, 60);
+      setTimeout(() => { finish(sawFrame); }, 1200);
     } else {
       setTimeout(() => finish(proc.exitCode === null), 600);
     }
@@ -1858,8 +1872,11 @@ async function tryStartWithEncoder(ffmpegPath, ffmpegDir, bounds, fps, outW, out
   return { ok: true, proc, stderr };
 }
 
+let _nativeRecStarting = false;
 ipcMain.handle('start-native-screen-recording', async (_event, options = {}) => {
-  if (nativeScreenRecorder?.proc) return { ok: false, error: 'A native recording is already running.' };
+  if (nativeScreenRecorder?.proc || _nativeRecStarting) return { ok: false, error: 'A native recording is already running.' };
+  _nativeRecStarting = true;
+  try {
   const ffmpegPath = getBundledFfmpegPath();
   if (!ffmpegPath || !fs.existsSync(ffmpegPath)) return { ok: false, error: 'ffmpeg.exe was not found.' };
   const display = screen.getPrimaryDisplay();
@@ -1899,6 +1916,9 @@ ipcMain.handle('start-native-screen-recording', async (_event, options = {}) => 
     lastError = attempt.stderr.trim() || lastError;
   }
   return { ok: false, error: lastError || 'ffmpeg could not start screen capture with any available encoder.' };
+  } finally {
+    _nativeRecStarting = false;
+  }
 });
 
 ipcMain.handle('stop-native-screen-recording', async () => {
@@ -1957,7 +1977,7 @@ ipcMain.handle('save-screen-recording', async (_event, recording) => {
 
     const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Recordings');
     if (!fs.existsSync(videosDir)) {
-      fs.mkdirSync(videosDir, { recursive: true });
+      try { fs.mkdirSync(videosDir, { recursive: true }); } catch {}
     }
 
     const dateStr = new Date().toISOString().slice(0, 10);
@@ -2004,7 +2024,7 @@ ipcMain.handle('save-screen-recording', async (_event, recording) => {
 });
 
 ipcMain.on('toggle-screenrec', () => {
-  if (!mainWindow || !mainWindow.webContents) return;
+  if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) return;
   sendToWindow(mainWindow, 'screenrec-update', {
     state: 'open',
     startTime: Date.now(),
@@ -2016,7 +2036,7 @@ ipcMain.on('open-file-location', (_event, filePath) => {
     shell.showItemInFolder(filePath);
   } else {
     const videosDir = path.join(os.homedir(), 'Videos', 'WinLand Recordings');
-    if (!fs.existsSync(videosDir)) fs.mkdirSync(videosDir, { recursive: true });
+    if (!fs.existsSync(videosDir)) try { fs.mkdirSync(videosDir, { recursive: true }); } catch {}
     shell.openPath(videosDir);
   }
 });
@@ -2327,6 +2347,7 @@ app.on('will-quit', () => {
   if (dndPollInterval) clearInterval(dndPollInterval);
   if (volumePollInterval) clearInterval(volumePollInterval);
   if (usbPollInterval) clearInterval(usbPollInterval);
+  if (weatherBroadcastInterval) { clearInterval(weatherBroadcastInterval); weatherBroadcastInterval = null; }
   if (rpcClient) { try { rpcClient.destroy(); } catch {} rpcClient = null; }
   stopRecorderMouseTracking();
   destroyRecordingControlsPillWindow();

@@ -10,17 +10,23 @@ class SoundEngine {
   }
 
   init() {
-    if (!this.audioCtx) {
-      const AudioContext = window.AudioContext || window.webkitAudioContext;
-      if (AudioContext) {
-        this.audioCtx = new AudioContext();
-        this.analyser = this.audioCtx.createAnalyser();
-        this.analyser.fftSize = 64;
-        this.analyser.connect(this.audioCtx.destination);
+    if (!this.audioCtx && typeof window !== 'undefined') {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          this.audioCtx = new AudioContext();
+          this.analyser = this.audioCtx.createAnalyser();
+          this.analyser.fftSize = 64;
+          this.analyser.connect(this.audioCtx.destination);
+        }
+      } catch (e) {
+        console.warn('AudioContext initialization failed:', e);
       }
     }
     if (this.audioCtx && this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
+      try {
+        this.audioCtx.resume().catch(() => {});
+      } catch {}
     }
   }
 

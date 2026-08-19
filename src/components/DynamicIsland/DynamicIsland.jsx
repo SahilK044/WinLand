@@ -356,6 +356,13 @@ export default function DynamicIsland({
   const morphTimeoutRef = useRef(null);
   const dragDepthRef = useRef(0);
   const idleTimerRef = useRef(null);
+  const dragTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+    };
+  }, []);
 
   // Listen to Focus Mode / DND state updates
   useEffect(() => {
@@ -373,13 +380,16 @@ export default function DynamicIsland({
   useEffect(() => {
     if (isDndActive) {
       setShouldRenderDnd(true);
+      let raf2;
       const raf1 = requestAnimationFrame(() => {
-        const raf2 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
           setIsDndVisible(true);
         });
-        return () => cancelAnimationFrame(raf2);
       });
-      return () => cancelAnimationFrame(raf1);
+      return () => {
+        cancelAnimationFrame(raf1);
+        if (raf2) cancelAnimationFrame(raf2);
+      };
     } else {
       setIsDndVisible(false);
       const timer = setTimeout(() => {
@@ -1309,7 +1319,8 @@ export default function DynamicIsland({
         resetIdleTimer();
       }}
       onDragEnd={() => {
-        setTimeout(() => {
+        if (dragTimeoutRef.current) clearTimeout(dragTimeoutRef.current);
+        dragTimeoutRef.current = setTimeout(() => {
           isDraggingRef.current = false;
         }, 80);
         resetIdleTimer();

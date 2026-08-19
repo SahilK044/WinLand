@@ -9,6 +9,14 @@ import { DEVICE_COLOR_VARIANTS } from '../../data/deviceCatalog';
 
 const MAC_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif';
 
+const safeGetItem = (key, fallback = '') => {
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
 // ── Keyframe Animations ──────────────────────────────────────────────────────
 const ANIMATION_STYLES = `
 @keyframes caseLidOpen {
@@ -354,7 +362,7 @@ export default function BluetoothWidget({
     // their chosen motion style. Mice and keyboards have no model in the
     // catalog, so they keep their vector icons below.
     if (prefCategory && chosenModelId) {
-      const colorKey = localStorage.getItem('winland_color_variant') || 'space-grey';
+      const colorKey = safeGetItem('winland_color_variant', 'space-grey');
       const tintHex = DEVICE_COLOR_VARIANTS[colorKey]?.hex;
       return (
         <DeviceModel3D
@@ -384,15 +392,15 @@ export default function BluetoothWidget({
             isAnimated={true}
             isDisconnected={isDisconnected}
             deviceName={deviceName}
-            colorVariant={localStorage.getItem('winland_color_variant') || 'space-grey'}
-            pulseColorHex={localStorage.getItem('winland_pulse_color') || '#30d158'}
+            colorVariant={safeGetItem('winland_color_variant', 'space-grey')}
+            pulseColorHex={safeGetItem('winland_pulse_color', '#30d158')}
             animationStyle={prefs?.styles?.phone || 'amoled'}
           />
         );
       case 'speaker': {
         const speakerModelId = (deviceName && deviceName.toLowerCase().includes('sonos'))
           ? 'sonos_soundbar'
-          : (localStorage.getItem('winland_speaker_id') || 'sonos_soundbar');
+          : safeGetItem('winland_speaker_id', 'sonos_soundbar');
         return (
           <DeviceModel3D
             key={`speaker-${deviceName}-${connectionState}`}
@@ -402,8 +410,8 @@ export default function BluetoothWidget({
             isAnimated={true}
             isDisconnected={isDisconnected}
             deviceName={deviceName}
-            colorVariant={localStorage.getItem('winland_color_variant') || 'black'}
-            pulseColorHex={localStorage.getItem('winland_pulse_color') || '#30d158'}
+            colorVariant={safeGetItem('winland_color_variant', 'black')}
+            pulseColorHex={safeGetItem('winland_pulse_color', '#30d158')}
             animationStyle={prefs?.styles?.speaker || 'smooth'}
           />
         );
@@ -534,7 +542,7 @@ export default function BluetoothWidget({
               {hasValidBat ? `${batteryPct}%` : 'Low'}
             </span>
           </div>
-        ) : leftPct !== null && rightPct !== null ? (
+        ) : leftPct != null && rightPct != null ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: MAC_FONT }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: statusColor, letterSpacing: '-0.2px' }}>L {leftPct}%</span>
             <span style={{ fontSize: 12, fontWeight: 600, color: statusColor, letterSpacing: '-0.2px' }}>R {rightPct}%</span>

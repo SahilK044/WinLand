@@ -8,8 +8,6 @@ export class WallpaperSampler {
   constructor() {
     this.wallpaperCanvas = null;
     this.wallpaperCtx = null;
-    this.blurredCanvas = null;
-    this.blurredCtx = null;
 
     this.dominantColor = { r: 240, g: 240, b: 245 };
     this.brightness = 0.5; // 0 = dark wallpaper, 1 = light wallpaper
@@ -26,11 +24,6 @@ export class WallpaperSampler {
     this.wallpaperCanvas.width = 128;
     this.wallpaperCanvas.height = 128;
     this.wallpaperCtx = this.wallpaperCanvas.getContext('2d', { willReadFrequently: true });
-
-    this.blurredCanvas = document.createElement('canvas');
-    this.blurredCanvas.width = 128;
-    this.blurredCanvas.height = 128;
-    this.blurredCtx = this.blurredCanvas.getContext('2d');
   }
 
   /**
@@ -41,7 +34,6 @@ export class WallpaperSampler {
 
     const now = Date.now();
     if (now - this.lastSampleTime < 2000) return;
-    this.lastSampleTime = now;
 
     try {
       // drawImage with an HTMLDivElement throws "the provided value is not of
@@ -58,6 +50,7 @@ export class WallpaperSampler {
       } else {
         return;
       }
+      this.lastSampleTime = now;
       const imgData = this.wallpaperCtx.getImageData(0, 0, 128, 128).data;
 
       let rSum = 0, gSum = 0, bSum = 0;
@@ -83,43 +76,9 @@ export class WallpaperSampler {
     } catch {
       // Fallback if cross-origin or canvas read fails
       this.dominantColor = { r: 220, g: 225, b: 235 };
-      this.brightness = 0.5;
     }
-  }
-
-  /**
-   * Dual Kawase GPU blur implementation via multi-pass downsample/upsample on offscreen canvas.
-   */
-  applyDualKawaseBlur(sourceCanvas, passes = 3) {
-    if (!this.blurredCtx || !sourceCanvas) return null;
-
-    let w = 128;
-    let h = 128;
-    this.blurredCanvas.width = w;
-    this.blurredCanvas.height = h;
-
-    this.blurredCtx.clearRect(0, 0, w, h);
-    this.blurredCtx.filter = `blur(${passes * 4}px)`;
-    this.blurredCtx.drawImage(sourceCanvas, 0, 0, w, h);
-    this.blurredCtx.filter = 'none';
-
-    return this.blurredCanvas;
-  }
-
-  getDominantTintRGBA(alpha = 0.12) {
-    const { r, g, b } = this.dominantColor;
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-
-  getAutoContrastTextColor() {
-    // If background is bright, return dark text; if dark background, return crisp white
-    return this.brightness > 0.65 ? '#0F172A' : '#FFFFFF';
-  }
-
-  getAutoContrastGlassAlpha() {
-    // Dynamic glass opacity compensation: lighter background needs slightly denser glass fill
-    return this.brightness > 0.65 ? 0.45 : 0.22;
   }
 }
 
 export const wallpaperSampler = new WallpaperSampler();
+

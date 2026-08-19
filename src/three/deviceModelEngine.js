@@ -346,6 +346,7 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
     const whiteAppleMat = new THREE.MeshPhysicalMaterial({
       color: 0xf5f5f7, roughness: 0.15, metalness: 0.2, clearcoat: 1.0, side: THREE.DoubleSide,
     });
+    whiteAppleMat.__isCloned = true;
     root.traverse((child) => { if (child.isMesh) child.material = whiteAppleMat; });
   } else {
     root.traverse((child) => {
@@ -419,15 +420,19 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
   // lid seam, and the clearcoat adds the lacquered sheen the real case has. The
   // lid is kept a touch brighter than the base so the two halves read apart.
   if (modelId === 'galaxybuds') {
-    const silver = (tone) => new THREE.MeshPhysicalMaterial({
-      color: tone,
-      metalness: 0.92,
-      roughness: 0.19,
-      clearcoat: 0.7,
-      clearcoatRoughness: 0.14,
-      envMapIntensity: 1.35,
-      side: THREE.DoubleSide,
-    });
+    const silver = (tone) => {
+      const mat = new THREE.MeshPhysicalMaterial({
+        color: tone,
+        metalness: 0.92,
+        roughness: 0.19,
+        clearcoat: 0.7,
+        clearcoatRoughness: 0.14,
+        envMapIntensity: 1.35,
+        side: THREE.DoubleSide,
+      });
+      mat.__isCloned = true;
+      return mat;
+    };
     root.getObjectByName('Case_Base')?.traverse((c) => { if (c.isMesh) c.material = silver(0xc9ccd2); });
     root.getObjectByName('Case_Lid')?.traverse((c) => { if (c.isMesh) c.material = silver(0xdfe2e7); });
   }
@@ -493,10 +498,12 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3());
   const maxDim = Math.max(size.x, size.y, size.z);
-  const s = maxDim > 0 ? (config.scaleFactor || 1.6) / maxDim : 1;
+  const s = (Number.isFinite(maxDim) && maxDim > 0) ? (config.scaleFactor || 1.6) / maxDim : 1;
 
   root.scale.set(s, s, s);
-  root.position.sub(center.multiplyScalar(s));
+  if (Number.isFinite(center.x)) {
+    root.position.sub(center.multiplyScalar(s));
+  }
   root.rotation.y = config.baseRotY;
   root.rotation.x = config.baseRotX;
 
@@ -504,7 +511,9 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
   root.updateWorldMatrix(true, true);
   const postBox = new THREE.Box3().setFromObject(root);
   const postCenter = postBox.getCenter(new THREE.Vector3());
-  root.position.sub(postCenter);
+  if (Number.isFinite(postCenter.x)) {
+    root.position.sub(postCenter);
+  }
 
   let budRise = 1;
   let lidClosedAngle = 0; // hinge angle that shuts a case authored open
@@ -568,7 +577,8 @@ export function prepareDeviceModel(gltf, { modelId, category, tintHex }) {
       budRise = 0.028;
     } else {
       root.updateWorldMatrix(true, true);
-      const caseWorldHeight = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()).y || 1;
+      const rawCaseH = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3()).y;
+      const caseWorldHeight = (Number.isFinite(rawCaseH) && rawCaseH > 0) ? rawCaseH : 1;
       targetWorldRise = caseWorldHeight * (config.riseMult ?? 0.45);
       budRise = targetWorldRise / (Math.abs(budParentScale[riseAxisKey]) || 1);
     }

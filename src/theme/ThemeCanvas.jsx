@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { themeManager } from './ThemeManager';
-import { wallpaperSampler } from './utils/WallpaperSampler';
 
 /**
  * WinLand - ThemeCanvas.jsx
@@ -22,7 +21,6 @@ export default function ThemeCanvas({
   });
   const mousePosRef = useRef({ x: undefined, y: undefined });
   const sizeRef = useRef({ width: 250, height: 44 });
-  const isDirtyRef = useRef(true);
   const animIdRef = useRef(null);
   const isTransitioningRef = useRef(false);
   const renderLoopRef = useRef(null);
@@ -33,8 +31,14 @@ export default function ThemeCanvas({
   const accentColorRef = useRef(accentColor);
   const themeStateRef = useRef(themeState);
 
+  // Sync refs synchronously during render to avoid stale closures
+  isHoveredRef.current = isHovered;
+  isPressedRef.current = isPressed;
+  isDraggingRef.current = isDragging;
+  accentColorRef.current = accentColor;
+  themeStateRef.current = themeState;
+
   const requestRender = useCallback(() => {
-    isDirtyRef.current = true;
     if (!animIdRef.current && renderLoopRef.current) {
       animIdRef.current = requestAnimationFrame(renderLoopRef.current);
     }
@@ -50,10 +54,9 @@ export default function ThemeCanvas({
     if (!ctx) return;
 
     const dpr = Math.max(window.devicePixelRatio || 1, 2);
-    const rect = container.getBoundingClientRect();
     const { width: currentW, height: currentH } = sizeRef.current;
-    const width = Math.max(rect.width || container.clientWidth || currentW, 10);
-    const height = Math.max(rect.height || container.clientHeight || currentH, 10);
+    const width = Math.max(currentW, 10);
+    const height = Math.max(currentH, 10);
 
     const targetWidth = Math.round(width * dpr);
     const targetHeight = Math.round(height * dpr);
@@ -68,8 +71,6 @@ export default function ThemeCanvas({
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     ctx.clearRect(0, 0, width, height);
-
-    wallpaperSampler.sampleSource(container);
 
     const renderer = themeManager.getRenderer();
     const options = {
@@ -110,42 +111,17 @@ export default function ThemeCanvas({
 
     ctx.restore();
 
-    isDirtyRef.current = false;
-
-    // Keep running RAF while transitioning or when interactive effects require active per-frame rendering
-    if (isTransitioningRef.current || hovered || pressed || dragging) {
+    // Keep running RAF only while actively transitioning; static states sleep when rendered
+    if (isTransitioningRef.current) {
       animIdRef.current = requestAnimationFrame(renderLoop);
     }
   }, [containerRef]);
 
-  useEffect(() => {
-    renderLoopRef.current = renderLoop;
-  }, [renderLoop]);
+  renderLoopRef.current = renderLoop;
 
   useEffect(() => {
-    isHoveredRef.current = isHovered;
     requestRender();
-  }, [isHovered, requestRender]);
-
-  useEffect(() => {
-    isPressedRef.current = isPressed;
-    requestRender();
-  }, [isPressed, requestRender]);
-
-  useEffect(() => {
-    isDraggingRef.current = isDragging;
-    requestRender();
-  }, [isDragging, requestRender]);
-
-  useEffect(() => {
-    accentColorRef.current = accentColor;
-    requestRender();
-  }, [accentColor, requestRender]);
-
-  useEffect(() => {
-    themeStateRef.current = themeState;
-    requestRender();
-  }, [themeState, requestRender]);
+  }, [isHovered, isPressed, isDragging, accentColor, themeState, requestRender]);
 
   useEffect(() => {
     const unsubscribe = themeManager.subscribe((mode, options) => {
@@ -153,19 +129,6 @@ export default function ThemeCanvas({
     });
     return unsubscribe;
   }, []);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && window.electronAPI?.onAppearancePrefsUpdate) {
-      const unsub = window.electronAPI.onAppearancePrefsUpdate((prefs) => {
-        if (prefs) {
-          if (prefs.mode) themeManager.setMode(prefs.mode);
-          themeManager.setOptions(prefs);
-          requestRender();
-        }
-      });
-      return () => { if (typeof unsub === 'function') unsub(); };
-    }
-  }, [requestRender]);
 
   // Dimension & Transition Tracking with zero layout reflow
   useEffect(() => {
@@ -265,4 +228,3 @@ export default function ThemeCanvas({
     />
   );
 }
-

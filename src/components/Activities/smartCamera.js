@@ -73,17 +73,24 @@ export function createSmartCamera(config = {}) {
   function setDecision(decision) {
     if (!decision) return;
 
-    state.lastDecisionState = decision.state;
+    state.lastDecisionState = decision.state || FOCUS_STATES.IDLE;
+
+    const normX = Number.isFinite(decision.targetX) ? Math.max(0, Math.min(1, decision.targetX)) : 0.5;
+    const normY = Number.isFinite(decision.targetY) ? Math.max(0, Math.min(1, decision.targetY)) : 0.5;
+    const zoomVal = Number.isFinite(decision.targetZoom) && decision.targetZoom > 0 ? decision.targetZoom : 1.0;
+
+    const canvasW = state.canvasSize.width > 0 ? state.canvasSize.width : 1920;
+    const canvasH = state.canvasSize.height > 0 ? state.canvasSize.height : 1080;
 
     // Convert normalized (0-1) coords to canvas pixel coordinates
-    let targetPixelX = decision.targetX * state.canvasSize.width;
-    let targetPixelY = decision.targetY * state.canvasSize.height;
-    let targetZoom = decision.targetZoom;
+    let targetPixelX = normX * canvasW;
+    let targetPixelY = normY * canvasH;
+    let targetZoom = zoomVal;
 
     // Apply active override
     if (state.override === 'pan-out') {
-      targetPixelX = state.canvasSize.width / 2;
-      targetPixelY = state.canvasSize.height / 2;
+      targetPixelX = canvasW / 2;
+      targetPixelY = canvasH / 2;
       targetZoom = 1.0;
     } else if (state.override === 'zoom-in') {
       targetZoom = options.manualZoomIn;
@@ -123,26 +130,27 @@ export function createSmartCamera(config = {}) {
    * @private
    */
   function _getClampedPosition(x, y, zoom) {
-    if (state.canvasSize.width === 0 || state.canvasSize.height === 0 || zoom <= 0) {
-      return { x, y, zoom };
-    }
+    const safeW = state.canvasSize.width > 0 ? state.canvasSize.width : 1920;
+    const safeH = state.canvasSize.height > 0 ? state.canvasSize.height : 1080;
+    const safeZoom = Number.isFinite(zoom) && zoom > 0 ? zoom : 1.0;
+    const safeX = Number.isFinite(x) ? x : safeW / 2;
+    const safeY = Number.isFinite(y) ? y : safeH / 2;
 
-    const halfW = (state.canvasSize.width / 2) / zoom;
-    const halfH = (state.canvasSize.height / 2) / zoom;
-    
-    // If zoom is exactly 1 or less, we want to center it exactly
-    if (zoom <= 1.0) {
+    if (safeZoom <= 1.0) {
       return {
-        x: state.canvasSize.width / 2,
-        y: state.canvasSize.height / 2,
-        zoom
+        x: safeW / 2,
+        y: safeH / 2,
+        zoom: safeZoom
       };
     }
 
-    const clampedX = Math.max(halfW, Math.min(x, state.canvasSize.width - halfW));
-    const clampedY = Math.max(halfH, Math.min(y, state.canvasSize.height - halfH));
+    const halfW = (safeW / 2) / safeZoom;
+    const halfH = (safeH / 2) / safeZoom;
 
-    return { x: clampedX, y: clampedY, zoom };
+    const clampedX = Math.max(halfW, Math.min(safeX, safeW - halfW));
+    const clampedY = Math.max(halfH, Math.min(safeY, safeH - halfH));
+
+    return { x: clampedX, y: clampedY, zoom: safeZoom };
   }
 
   /**
@@ -156,7 +164,7 @@ export function createSmartCamera(config = {}) {
       return getState();
     }
 
-    const dt = now - state.lastUpdateTime;
+    const dt = Math.max(0, Math.min(now - state.lastUpdateTime, 1000));
     state.lastUpdateTime = now;
 
     // Auto-expire override if stale

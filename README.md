@@ -8,8 +8,8 @@
 
 | Package | Format | Direct Download |
 | :--- | :--- | :--- |
-| **WinLand Setup 1.0.0** | Windows Setup Installer Wizard | 🚀 **[Download WinLand Setup 1.0.0.exe](https://github.com/SahilK044/WinLand/raw/main/release/WinLand%20Setup%201.0.0.exe)** |
-| **WinLand Portable 1.0.0** | Single Standalone Executable | 📦 **[Download WinLand 1.0.0.exe](https://github.com/SahilK044/WinLand/raw/main/release/WinLand%201.0.0.exe)** |
+| **WinLand Setup 1.1.0** | Windows Setup Installer Wizard | 🚀 **[Download WinLand Setup 1.1.0.exe](https://github.com/SahilK044/WinLand/raw/main/release/WinLand%20Setup%201.1.0.exe)** |
+| **WinLand Portable 1.1.0** | Single Standalone Executable | 📦 **[Download WinLand 1.1.0.exe](https://github.com/SahilK044/WinLand/raw/main/release/WinLand%201.1.0.exe)** |
 
 ---
 
@@ -134,7 +134,7 @@ npm run build
 # Package unpacked standalone executable (release/win-unpacked/WinLand.exe)
 npm run dist
 
-# Build Windows NSIS Setup Installer Wizard (release/WinLand Setup 1.0.0.exe)
+# Build Windows NSIS Setup Installer Wizard (release/WinLand Setup 1.1.0.exe)
 npm run dist:setup
 
 # Build all distribution formats (Installer, Portable, Unpacked)

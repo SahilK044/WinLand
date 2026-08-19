@@ -6,6 +6,10 @@ import { TIMER_COLORS } from '../../features/timer/timer.constants';
 
 const SF_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", system-ui, sans-serif';
 
+const DEFAULT_FALLBACK_TIMERS = [
+  { id: 'default', label: 'Timer', durationMs: 300000, remainingMs: 300000, status: 'paused', createdAt: 0 },
+];
+
 function formatTimeMs(ms) {
   const totalSeconds = Math.max(0, Math.floor((ms || 0) / 1000));
   const h = Math.floor(totalSeconds / 3600);
@@ -23,7 +27,7 @@ export default function TimerWidget({
   isExpanded,
   onExpand,
 }) {
-  const [timers, setTimers] = useState([]);
+  const [timers, setTimers] = useState(() => timerStore.getTimers());
   const handleResetTimer = (id) => timerStore.resetTimer(id);
 
   useEffect(() => {
@@ -33,16 +37,7 @@ export default function TimerWidget({
     return unsubscribe;
   }, []);
 
-  const activeTimers = timers.length > 0 ? timers : [
-    {
-      id: 'default',
-      label: 'Timer',
-      durationMs: 300000,
-      remainingMs: 300000,
-      status: 'paused',
-      createdAt: Date.now(),
-    },
-  ];
+  const activeTimers = timers.length > 0 ? timers : DEFAULT_FALLBACK_TIMERS;
 
   const primaryTimer = activeTimers[0];
   const isPrimaryRunning = primaryTimer.status === 'running';

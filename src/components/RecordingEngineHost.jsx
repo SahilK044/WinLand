@@ -53,6 +53,7 @@ export default function RecordingEngineHost() {
 
   const isDiscardingRef = useRef(false);
   const statusRef = useRef('idle'); // 'idle' | 'recording' | 'paused' | 'stopping'
+  const unmountedRef = useRef(false);
   const currentOptionsRef = useRef({ resolutionId: '1080p', fps: 60, mode: 'normal' });
 
   const stopDrawLoop = () => {
@@ -93,11 +94,17 @@ export default function RecordingEngineHost() {
       videoRef.current = null;
     }
     stopDrawLoop();
+    if (canvasRef.current) {
+      canvasRef.current.width = 0;
+      canvasRef.current.height = 0;
+      canvasRef.current = null;
+    }
     if (smartFocusRef.current) {
       try { smartFocusRef.current.destroy(); } catch {}
       smartFocusRef.current = null;
     }
     smartCameraRef.current = null;
+    mediaRecorderRef.current = null;
   };
 
   const createDesktopStream = async (source, targetFps, preset) => {
@@ -322,12 +329,21 @@ export default function RecordingEngineHost() {
     const opts = payload.options || {};
     currentOptionsRef.current = opts;
     isDiscardingRef.current = false;
+
+    // Clean up any dangling state from a previous session
+    cleanupStreamsAndEngines();
     statusRef.current = 'recording';
 
     try {
       const preset = RESOLUTION_OPTIONS.find((p) => p.id === opts.resolutionId) || RESOLUTION_OPTIONS[0];
       const captureFps = getStableCaptureFps(opts.fps);
       const source = await window.electronAPI?.getPrimaryScreenSource?.();
+
+      // Abort if a stop/discard command arrived during the await
+      if (statusRef.current === 'stopping' || statusRef.current === 'idle') {
+        cleanupStreamsAndEngines();
+        return;
+      }
 
       let screenStream = null;
       if (source && source.id) {
@@ -345,6 +361,15 @@ export default function RecordingEngineHost() {
           },
           audio: HIGH_QUALITY_AUDIO_CONSTRAINTS,
         });
+      }
+
+      // Abort if a stop/discard command arrived during the await
+      if (statusRef.current === 'stopping' || statusRef.current === 'idle') {
+        if (screenStream) {
+          try { screenStream.getTracks().forEach((t) => t.stop()); } catch {}
+        }
+        cleanupStreamsAndEngines();
+        return;
       }
 
       if (!screenStream || screenStream.getVideoTracks().length === 0) {
@@ -417,6 +442,9 @@ export default function RecordingEngineHost() {
         chunksRef.current = [];
 
         cleanupStreamsAndEngines();
+
+        // If the component unmounted (app closing), skip file operations
+        if (unmountedRef.current) return;
 
         if (wasDiscarded) {
           window.electronAPI?.reportRecordingStatus?.({ status: 'idle' });
@@ -557,6 +585,7 @@ export default function RecordingEngineHost() {
     });
 
     return () => {
+      unmountedRef.current = true;
       if (typeof unsub === 'function') unsub();
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
         try { mediaRecorderRef.current.stop(); } catch {}

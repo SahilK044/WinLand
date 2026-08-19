@@ -133,6 +133,15 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
   const scrollRef = useRef(null);
   const activeRef = useRef(null);
 
+  useEffect(() => {
+    const el = scrollRef.current;
+    return () => {
+      if (el && el.__lyricScrollRaf) {
+        cancelAnimationFrame(el.__lyricScrollRaf);
+      }
+    };
+  }, []);
+
   // Sub-millisecond continuous timekeeper for 60 FPS real-time vocal tracking
   const [smoothMs, setSmoothMs] = useState(progressMs);
   const syncRef = useRef({ baseMs: progressMs, baseTime: performance.now() });
@@ -183,7 +192,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
 
     const cleanTitle = cleanTrackTitle(title);
     const cleanArtist = cleanArtistName(artist);
-    const isStale = () => lyricsRequestIdRef.current !== requestId;
+    const isStale = () => lyricsRequestIdRef.current !== requestId || signal.aborted;
 
     const isArtistMatch = (resArtist, targetArtist) => {
       if (!targetArtist) return true;

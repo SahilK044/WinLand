@@ -367,8 +367,11 @@ export default function Canvas3DCard({
       invalidateRef.current = null;
       if (animId != null) cancelAnimationFrame(animId);
       scene.traverse((child) => {
-        if (child.isMesh && child.material && child.material.__isCloned) {
-          child.material.dispose();
+        if (child.isMesh && child.material) {
+          const mats = Array.isArray(child.material) ? child.material : [child.material];
+          for (const mat of mats) {
+            if (mat.__isCloned) mat.dispose();
+          }
         }
       });
       disposeEnv();

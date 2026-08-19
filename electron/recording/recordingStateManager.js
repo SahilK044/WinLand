@@ -112,8 +112,8 @@ class RecordingStateManager extends EventEmitter {
 
   // Action methods
   startRecording(options = {}) {
-    if (this.state.status === 'recording' || this.state.status === 'starting') {
-      return { ok: false, error: 'Recording is already running.' };
+    if (this.state.status !== 'idle' && this.state.status !== 'error') {
+      return { ok: false, error: 'Recording is already running or busy.' };
     }
 
     this.state.status = 'starting';
@@ -249,7 +249,9 @@ class RecordingStateManager extends EventEmitter {
     this.state.status = 'error';
     this.stopTick();
     this.broadcastState();
-    setTimeout(() => {
+    if (this._errorResetTimeout) clearTimeout(this._errorResetTimeout);
+    this._errorResetTimeout = setTimeout(() => {
+      this._errorResetTimeout = null;
       if (this.state.status === 'error') {
         this.state.status = 'idle';
         this.broadcastState();
@@ -259,8 +261,17 @@ class RecordingStateManager extends EventEmitter {
   }
 
   initIpc() {
+    const registerSender = (sender) => {
+      if (!sender || sender.isDestroyed()) return;
+      if (this.subscribedWebContents.has(sender)) return;
+      this.subscribedWebContents.add(sender);
+      sender.once('destroyed', () => {
+        this.subscribedWebContents.delete(sender);
+      });
+    };
+
     ipcMain.handle('recording:get-state', (event) => {
-      this.subscribedWebContents.add(event.sender);
+      registerSender(event.sender);
       return this.getState();
     });
 
@@ -298,13 +309,14 @@ class RecordingStateManager extends EventEmitter {
 
     // Renderer reporting back pipeline events
     ipcMain.on('recording:status-update', (_event, payload = {}) => {
-      if (payload.status === 'recording') {
+      const cur = this.state.status;
+      if (payload.status === 'recording' && (cur === 'starting' || cur === 'paused')) {
         this.onRecordingStarted();
-      } else if (payload.status === 'completed' || payload.status === 'idle') {
+      } else if ((payload.status === 'completed' || payload.status === 'idle') && cur !== 'idle') {
         this.onRecordingCompleted(payload);
       } else if (payload.status === 'error') {
         this.onRecordingError(payload.error || 'Recording error');
-      } else if (payload.status === 'paused') {
+      } else if (payload.status === 'paused' && cur === 'recording') {
         this.state.status = 'paused';
         this.pauseTick();
         this.broadcastState();
@@ -312,7 +324,7 @@ class RecordingStateManager extends EventEmitter {
     });
 
     ipcMain.on('recording:subscribe', (event) => {
-      this.subscribedWebContents.add(event.sender);
+      registerSender(event.sender);
       event.sender.send('recording:state-changed', this.getState());
     });
   }

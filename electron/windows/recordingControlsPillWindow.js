@@ -14,18 +14,22 @@ const CONTROLS_WIN_WIDTH = 420;
 const CONTROLS_WIN_HEIGHT = 120;
 
 function computeAnchorPosition(targetDisplay) {
-  const display = targetDisplay || screen.getPrimaryDisplay();
-  const { x: workX, y: workY, width: workW } = display.workArea;
+  let display = targetDisplay;
+  if (!display) {
+    try { display = screen.getPrimaryDisplay(); } catch {}
+  }
+  const workArea = display?.workArea || { x: 0, y: 0, width: 1920, height: 1080 };
+  const { x: workX, y: workY, width: workW, height: workH } = workArea;
 
   // Center horizontally, dock just underneath the Dynamic Island top capsule (~48px down)
   const defaultX = Math.round(workX + (workW - CONTROLS_WIN_WIDTH) / 2);
   const defaultY = Math.round(workY + 48);
 
-  if (detachedPosition) {
+  if (detachedPosition && Number.isFinite(detachedPosition.x) && Number.isFinite(detachedPosition.y)) {
     // Keep user's custom dragged location within display bounds
     return {
       x: Math.max(workX, Math.min(detachedPosition.x, workX + workW - CONTROLS_WIN_WIDTH)),
-      y: Math.max(workY, Math.min(detachedPosition.y, workY + display.workArea.height - CONTROLS_WIN_HEIGHT)),
+      y: Math.max(workY, Math.min(detachedPosition.y, workY + workH - CONTROLS_WIN_HEIGHT)),
     };
   }
 
@@ -97,10 +101,12 @@ export function createRecordingControlsPillWindow(targetDisplayId = null) {
 
     if (isDev) {
       controlsPillWindow.loadURL('http://localhost:5173?route=recording-controls#recording-controls').catch(() => {
-        controlsPillWindow.loadFile(indexPath, { search: 'route=recording-controls', hash: 'recording-controls' });
+        if (controlsPillWindow && !controlsPillWindow.isDestroyed()) {
+          controlsPillWindow.loadFile(indexPath, { search: 'route=recording-controls', hash: 'recording-controls' }).catch(() => {});
+        }
       });
     } else {
-      controlsPillWindow.loadFile(indexPath, { search: 'route=recording-controls', hash: 'recording-controls' });
+      controlsPillWindow.loadFile(indexPath, { search: 'route=recording-controls', hash: 'recording-controls' }).catch(() => {});
     }
 
     controlsPillWindow.once('ready-to-show', () => {
@@ -120,10 +126,12 @@ export function createRecordingControlsPillWindow(targetDisplayId = null) {
 }
 
 export function destroyRecordingControlsPillWindow() {
-  if (controlsPillWindow && !controlsPillWindow.isDestroyed()) {
-    try {
-      controlsPillWindow.close();
-    } catch {}
+  if (controlsPillWindow) {
+    if (!controlsPillWindow.isDestroyed()) {
+      try {
+        controlsPillWindow.close();
+      } catch {}
+    }
     controlsPillWindow = null;
   }
   // Reset detached position on recording completion so next session re-anchors nicely
@@ -136,20 +144,25 @@ export function getRecordingControlsPillWindow() {
 
 export function repositionControlsPill(targetDisplay) {
   if (controlsPillWindow && !controlsPillWindow.isDestroyed()) {
-    const { x, y } = computeAnchorPosition(targetDisplay);
-    controlsPillWindow.setPosition(x, y, false);
+    try {
+      const { x, y } = computeAnchorPosition(targetDisplay);
+      controlsPillWindow.setPosition(x, y, false);
+    } catch {}
   }
 }
 
 // Window resize helper from renderer
-ipcMain.on('resize-controls-pill-window', (event, { width, height }) => {
+ipcMain.on('resize-controls-pill-window', (event, payload = {}) => {
+  const { width, height } = payload || {};
   const win = BrowserWindow.fromWebContents(event.sender);
   if (win && win === controlsPillWindow && !win.isDestroyed()) {
     const bounds = win.getBounds();
     const newW = Math.max(width || CONTROLS_WIN_WIDTH, CONTROLS_WIN_WIDTH);
     const newH = Math.max(height || CONTROLS_WIN_HEIGHT, CONTROLS_WIN_HEIGHT);
     if (bounds.width !== newW || bounds.height !== newH) {
-      win.setSize(newW, newH, false);
+      try {
+        win.setSize(newW, newH, false);
+      } catch {}
     }
   }
 });

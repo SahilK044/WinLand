@@ -69,23 +69,57 @@ export function readDevicePrefs() {
 
 /** Map a detected bluetooth device category to the pref category. */
 export function prefCategoryFor(deviceCategory) {
-  switch (deviceCategory) {
-    case 'earbuds': return 'earbuds';
-    case 'headphones': return 'headphones';
-    case 'controller': return 'controller';
-    case 'speaker': return 'speaker';
-    case 'phone': return 'phone';
-    default: return null; // mouse/keyboard have no 3D model; keep the vector icon
+  if (!deviceCategory || typeof deviceCategory !== 'string') return null;
+  const cat = deviceCategory.toLowerCase().trim();
+  switch (cat) {
+    case 'earbud':
+    case 'earbuds':
+    case 'audio':
+      return 'earbuds';
+    case 'headphone':
+    case 'headphones':
+    case 'headset':
+      return 'headphones';
+    case 'controller':
+    case 'controllers':
+    case 'gamepad':
+      return 'controller';
+    case 'speaker':
+    case 'speakers':
+    case 'soundbar':
+      return 'speaker';
+    case 'phone':
+    case 'phones':
+    case 'smartphone':
+      return 'phone';
+    default:
+      return null; // mouse/keyboard have no 3D model; keep the vector icon
   }
 }
 
 /** Engine category (how the model is rigged) for a pref category. */
 export function engineCategoryFor(prefCategory) {
-  switch (prefCategory) {
-    case 'earbuds': return 'earbud';
-    case 'headphones': return 'headphone';
-    case 'controller': return 'controller';
-    case 'speaker': return 'speaker';
-    default: return 'phone';
+  if (!prefCategory || typeof prefCategory !== 'string') return 'phone';
+  const cat = prefCategory.toLowerCase().trim();
+  switch (cat) {
+    case 'earbud':
+    case 'earbuds':
+      return 'earbud';
+    case 'headphone':
+    case 'headphones':
+    case 'headset':
+      return 'headphone';
+    case 'controller':
+    case 'controllers':
+    case 'gamepad':
+      return 'controller';
+    case 'speaker':
+    case 'speakers':
+    case 'soundbar':
+      return 'speaker';
+    case 'phone':
+    case 'phones':
+    default:
+      return 'phone';
   }
 }

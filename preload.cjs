@@ -1,42 +1,37 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+const on = (channel) => (callback) => {
+  if (typeof callback !== 'function') return () => {};
+  const handler = (_event, data) => callback(data);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
+};
+
 contextBridge.exposeInMainWorld('electronAPI', {
-  getPathForFile: (file) => (webUtils ? webUtils.getPathForFile(file) : (file?.path || '')),
+  getPathForFile: (file) => {
+    if (!file) return '';
+    try {
+      if (webUtils && typeof webUtils.getPathForFile === 'function') {
+        return webUtils.getPathForFile(file) || file.path || '';
+      }
+    } catch {}
+    return file?.path || '';
+  },
   getFileIcon: (filePath) => ipcRenderer.invoke('get-file-icon', filePath),
 
   // USB Connect / Eject Hub
-  onUsbConnected: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('usb-connected', handler);
-    return () => ipcRenderer.removeListener('usb-connected', handler);
-  },
-  onUsbEjected: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('usb-ejected', handler);
-    return () => ipcRenderer.removeListener('usb-ejected', handler);
-  },
+  onUsbConnected: on('usb-connected'),
+  onUsbEjected: on('usb-ejected'),
   ejectUsb: (deviceId) => ipcRenderer.send('eject-usb', deviceId),
 
   // Discord Voice Call Integration
-  onDiscordVoiceUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('discord-voice-update', handler);
-    return () => ipcRenderer.removeListener('discord-voice-update', handler);
-  },
+  onDiscordVoiceUpdate: on('discord-voice-update'),
 
   // Spotify now-playing updates
-  onSystemMediaUpdate: (callback) => {
-    const handler = (_event, value) => callback(value);
-    ipcRenderer.on('system-media-update', handler);
-    return () => ipcRenderer.removeListener('system-media-update', handler);
-  },
+  onSystemMediaUpdate: on('system-media-update'),
 
   // Fullscreen app state updates (macOS Tahoe auto-hide)
-  onFullscreenState: (callback) => {
-    const handler = (_event, isFullscreen) => callback(isFullscreen);
-    ipcRenderer.on('fullscreen-state', handler);
-    return () => ipcRenderer.removeListener('fullscreen-state', handler);
-  },
+  onFullscreenState: on('fullscreen-state'),
 
   // Media transport controls
   sendMediaControl: (action) => {
@@ -55,18 +50,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // Real-time battery status
-  onBatteryUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('battery-update', handler);
-    return () => ipcRenderer.removeListener('battery-update', handler);
-  },
+  onBatteryUpdate: on('battery-update'),
 
   // System volume OSD & control
-  onVolumeUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('volume-update', handler);
-    return () => ipcRenderer.removeListener('volume-update', handler);
-  },
+  onVolumeUpdate: on('volume-update'),
   setSystemVolume: (vol) => ipcRenderer.send('set-system-volume', vol),
   getSystemVolume: () => ipcRenderer.invoke('get-system-volume'),
 
@@ -74,18 +61,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getBluetoothState: () => ipcRenderer.invoke('get-bluetooth-state'),
   requestBluetoothStatus: () => ipcRenderer.send('request-bluetooth-status'),
   triggerPhoneNotification: () => ipcRenderer.send('trigger-phone-notification'),
-  onBluetoothUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('bluetooth-update', handler);
-    return () => ipcRenderer.removeListener('bluetooth-update', handler);
-  },
+  onBluetoothUpdate: on('bluetooth-update'),
 
   // Windows/Phone Link call state updates
-  onCallUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('call-update', handler);
-    return () => ipcRenderer.removeListener('call-update', handler);
-  },
+  onCallUpdate: on('call-update'),
   requestCallStatus: () => ipcRenderer.send('request-call-status'),
   sendCallAction: (action) => ipcRenderer.send('send-call-action', action),
   triggerDemoCall: () => ipcRenderer.send('trigger-demo-call'),
@@ -96,25 +75,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Chosen devices / animation styles, relayed from Settings to the island
   sendDevicePrefs: (prefs) => ipcRenderer.send('device-prefs-changed', prefs),
-  onDevicePrefsUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('device-prefs-update', handler);
-    return () => ipcRenderer.removeListener('device-prefs-update', handler);
-  },
+  onDevicePrefsUpdate: on('device-prefs-update'),
 
   // WinDock config sync (theme, weather, island preferences)
   getInitialConfig: () => ipcRenderer.invoke('get-initial-config'),
   getLiveWeather: () => ipcRenderer.invoke('get-live-weather'),
-  onConfigUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('config-update', handler);
-    return () => ipcRenderer.removeListener('config-update', handler);
-  },
-  onThemeUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('theme-update', handler);
-    return () => ipcRenderer.removeListener('theme-update', handler);
-  },
+  onConfigUpdate: on('config-update'),
+  onThemeUpdate: on('theme-update'),
 
   // App launching & file opening
   launchApp: (cmd) => ipcRenderer.send('launch-app', cmd),
@@ -125,28 +92,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Appearance & Telemetry IPC
   getSystemTelemetry: () => ipcRenderer.invoke('get-system-telemetry'),
   sendAppearancePrefs: (prefs) => ipcRenderer.send('appearance-prefs-changed', prefs),
-  onAppearancePrefsUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('appearance-prefs-update', handler);
-    return () => ipcRenderer.removeListener('appearance-prefs-update', handler);
-  },
+  onAppearancePrefsUpdate: on('appearance-prefs-update'),
 
   // Multi-Monitor Pinning & Focus Mode / DND Sync
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   setTargetDisplay: (displayId) => ipcRenderer.send('set-target-display', displayId),
   getDndState: () => ipcRenderer.invoke('get-dnd-state'),
-  onDndStateUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('dnd-state-update', handler);
-    return () => ipcRenderer.removeListener('dnd-state-update', handler);
-  },
+  onDndStateUpdate: on('dnd-state-update'),
   toggleDnd: () => ipcRenderer.send('toggle-dnd'),
 
-  onEscapePressed: (callback) => {
-    const handler = () => callback();
-    ipcRenderer.on('escape-pressed', handler);
-    return () => ipcRenderer.removeListener('escape-pressed', handler);
-  },
+  onEscapePressed: on('escape-pressed'),
 
   takeScreenshot: () => ipcRenderer.invoke('take-screenshot'),
   toggleScreenRec: () => ipcRenderer.send('toggle-screenrec'),
@@ -159,26 +114,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopScreenRecMouseTracking: () => ipcRenderer.send('stop-screenrec-mouse-tracking'),
   startScreenRecHotkeys: () => ipcRenderer.send('start-screenrec-hotkeys'),
   stopScreenRecHotkeys: () => ipcRenderer.send('stop-screenrec-hotkeys'),
-  onScreenRecHotkey: (callback) => {
-    const handler = (_event, key) => callback(key);
-    ipcRenderer.on('screenrec-hotkey', handler);
-    return () => ipcRenderer.removeListener('screenrec-hotkey', handler);
-  },
-  onScreenRecMouseUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('screenrec-mouse-update', handler);
-    return () => ipcRenderer.removeListener('screenrec-mouse-update', handler);
-  },
-  onScreenshotCaptured: (callback) => {
-    const handler = (_event, dataUrl) => callback(dataUrl);
-    ipcRenderer.on('screenshot-captured', handler);
-    return () => ipcRenderer.removeListener('screenshot-captured', handler);
-  },
-  onScreenRecUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('screenrec-update', handler);
-    return () => ipcRenderer.removeListener('screenrec-update', handler);
-  },
+  onScreenRecHotkey: on('screenrec-hotkey'),
+  onScreenRecMouseUpdate: on('screenrec-mouse-update'),
+  onScreenshotCaptured: on('screenshot-captured'),
+  onScreenRecUpdate: on('screenrec-update'),
   openFileLocation: (filePath) => ipcRenderer.send('open-file-location', filePath),
 
   // Recording State Manager & Companion Controls Pill IPC
@@ -193,29 +132,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getRecordingState: () => ipcRenderer.invoke('recording:get-state'),
   subscribeRecordingState: () => ipcRenderer.send('recording:subscribe'),
   reportRecordingStatus: (payload) => ipcRenderer.send('recording:status-update', payload),
-  onRecordingStateChanged: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('recording:state-changed', handler);
-    return () => ipcRenderer.removeListener('recording:state-changed', handler);
-  },
-  onRecordingTick: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('recording:tick', handler);
-    return () => ipcRenderer.removeListener('recording:tick', handler);
-  },
-  onRecordingCommand: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('recording:command', handler);
-    return () => ipcRenderer.removeListener('recording:command', handler);
-  },
+  onRecordingStateChanged: on('recording:state-changed'),
+  onRecordingTick: on('recording:tick'),
+  onRecordingCommand: on('recording:command'),
   resizeControlsPillWindow: (width, height) => ipcRenderer.send('resize-controls-pill-window', { width, height }),
 
   // macOS Privacy Indicators (Camera & Microphone Status)
   getPrivacySensors: () => ipcRenderer.invoke('get-privacy-sensors'),
-  onPrivacySensorsUpdate: (callback) => {
-    const handler = (_event, data) => callback(data);
-    ipcRenderer.on('privacy-sensors-update', handler);
-    return () => ipcRenderer.removeListener('privacy-sensors-update', handler);
-  },
+  onPrivacySensorsUpdate: on('privacy-sensors-update'),
   simulatePrivacySensors: (state) => ipcRenderer.send('simulate-privacy-sensors', state),
 });

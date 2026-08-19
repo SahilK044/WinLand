@@ -7,9 +7,18 @@ import { LightRenderer } from './renderers/LightRenderer.js';
  * Supports Dark Mode and Light Mode with 1:1 Apple-inspired visuals.
  */
 
+const readMode = () => {
+  try {
+    const val = typeof window !== 'undefined' ? localStorage.getItem('winland_theme_mode') : null;
+    return val === 'light' || val === 'dark' ? val : 'dark';
+  } catch {
+    return 'dark';
+  }
+};
+
 export class ThemeManager {
   constructor() {
-    this.mode = typeof window !== 'undefined' && localStorage.getItem('winland_theme_mode') ? localStorage.getItem('winland_theme_mode') : 'dark';
+    this.mode = readMode();
     this.blackRenderer = new BlackRenderer();
     this.lightRenderer = new LightRenderer();
 
@@ -39,6 +48,20 @@ export class ThemeManager {
         }
       }).catch(() => {});
     }
+
+    if (typeof window !== 'undefined' && window.electronAPI?.onAppearancePrefsUpdate) {
+      this.unsubAppearance = window.electronAPI.onAppearancePrefsUpdate((prefs) => {
+        if (prefs) {
+          const { mode, ...cleanPrefs } = prefs;
+          if (mode === 'dark' || mode === 'light') {
+            this.mode = mode;
+            try { localStorage.setItem('winland_theme_mode', mode); } catch {}
+          }
+          this.options = { ...this.options, ...cleanPrefs };
+          this.notifyListeners();
+        }
+      });
+    }
   }
 
   updateTelemetry(data) {
@@ -56,7 +79,7 @@ export class ThemeManager {
       this.telemetry.isTransparencyDisabled;
 
     if (shouldFallback !== this.options.performanceMode) {
-      this.options.performanceMode = shouldFallback;
+      this.options = { ...this.options, performanceMode: shouldFallback };
       this.notifyListeners();
     }
   }
@@ -65,7 +88,7 @@ export class ThemeManager {
     if (mode !== 'dark' && mode !== 'light') return;
     this.mode = mode;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('winland_theme_mode', mode);
+      try { localStorage.setItem('winland_theme_mode', mode); } catch {}
     }
     this.notifyListeners();
   }
@@ -88,7 +111,11 @@ export class ThemeManager {
   }
 
   subscribe(listener) {
+    if (typeof listener !== 'function') return () => {};
     this.listeners.add(listener);
+    try {
+      listener(this.getMode(), this.getOptions());
+    } catch {}
     return () => this.listeners.delete(listener);
   }
 
@@ -100,6 +127,14 @@ export class ThemeManager {
         console.error('ThemeManager listener error:', e);
       }
     });
+  }
+
+  destroy() {
+    if (typeof this.unsubAppearance === 'function') {
+      this.unsubAppearance();
+      this.unsubAppearance = null;
+    }
+    this.listeners.clear();
   }
 }
 
