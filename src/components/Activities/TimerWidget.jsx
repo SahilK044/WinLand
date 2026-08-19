@@ -137,6 +137,7 @@ export default function TimerWidget({
           </span>
         </div>
         <button
+          aria-label={isPrimaryRunning ? 'Pause Timer' : 'Start Timer'}
           onClick={(e) => {
             e.stopPropagation();
             timerStore.toggleTimer(primaryTimer.id);

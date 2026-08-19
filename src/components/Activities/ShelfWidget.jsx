@@ -230,7 +230,7 @@ export default function ShelfWidget({ isCompact, shelvedItems = [], onRemoveItem
         }}>
           {shelvedItems.map((item, idx) => (
             <ShelfTileItem
-              key={item.path || idx}
+              key={item.path || item.name || `shelf-item-${idx}`}
               item={item}
               idx={idx}
               onOpenItem={onOpenItem}

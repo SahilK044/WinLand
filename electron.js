@@ -5,6 +5,8 @@ import fs from 'fs';
 import { execFile, spawn } from 'child_process';
 import DiscordRPC from 'discord-rpc';
 import os from 'os';
+import recordingStateManager from './electron/recording/recordingStateManager.js';
+import { repositionControlsPill, destroyRecordingControlsPillWindow } from './electron/windows/recordingControlsPillWindow.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -317,12 +319,14 @@ function getTargetDisplay() {
 // targeted (called after set-target-display, and after display topology
 // changes so an unplugged monitor doesn't strand the island off-screen).
 function repositionOnTargetDisplay() {
-  if (!mainWindow || mainWindow.isDestroyed()) return;
-  const display = getTargetDisplay();
-  const bounds = mainWindow.getBounds();
-  const x = Math.round(display.workArea.x + (display.workAreaSize.width - bounds.width) / 2);
-  const y = display.workArea.y;
-  mainWindow.setBounds({ x, y, width: bounds.width, height: bounds.height });
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    const display = getTargetDisplay();
+    const bounds = mainWindow.getBounds();
+    const x = Math.round(display.workArea.x + (display.workAreaSize.width - bounds.width) / 2);
+    const y = display.workArea.y;
+    mainWindow.setBounds({ x, y, width: bounds.width, height: bounds.height });
+  }
+  repositionControlsPill(getTargetDisplay());
 }
 
 // ── Window ─────────────────────────────────────────────────────────────────
@@ -355,15 +359,11 @@ function createWindow() {
       // Sandboxed renderer: preload only needs contextBridge + ipcRenderer, both
       // of which work under the sandbox, so there's no reason to weaken it.
       sandbox: true,
-      // This overlay is always-on-top and never focused, so Chromium's default
-      // background throttling can cap its animation loops well below the
-      // display's refresh rate. Disabling it lets the island, visualizer and
-      // 3D previews run at the monitor's full rate (120/144Hz where available)
-      // instead of being held down. The render loops are time-normalized, so a
-      // higher frame rate makes them smoother, not faster.
       backgroundThrottling: false,
     },
   });
+
+  recordingStateManager.setMainWindow(mainWindow);
 
   // The island only ever displays its own local bundle — block any attempt to
   // navigate away or pop a new window (defense-in-depth behind the CSP).
@@ -1674,28 +1674,66 @@ const runFfmpeg = (args) => new Promise((resolve, reject) => {
   });
 });
 
+const tryHwNormalize = async (inputPath, outputPath, filter, fps) => {
+  const hwCandidates = [
+    { name: 'h264_nvenc', args: ['-c:v', 'h264_nvenc', '-preset', 'p4', '-tune', 'hq', '-cq', '18', '-b:v', '0'] },
+    { name: 'h264_qsv', args: ['-c:v', 'h264_qsv', '-preset', 'veryfast', '-global_quality', '18'] },
+    { name: 'h264_amf', args: ['-c:v', 'h264_amf', '-usage', 'transcoding', '-quality', 'speed', '-rc', 'cqp', '-qp_i', '18', '-qp_p', '18'] },
+  ];
+  for (const cand of hwCandidates) {
+    try {
+      const args = [
+        '-y', '-hide_banner', '-loglevel', 'error',
+        '-i', inputPath,
+        '-map', '0:v:0', '-map', '0:a?',
+        '-vf', filter,
+        ...cand.args,
+        '-r:v', String(fps),
+        '-fps_mode', 'cfr',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '192k',
+        '-movflags', '+faststart',
+        outputPath,
+      ];
+      await runFfmpeg(args);
+      if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) return true;
+    } catch {}
+  }
+  return false;
+};
+
 const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps, width, height }) => {
-  const safeFps = Math.max(30, Math.min(120, Number(fps) || 60));
+  const safeFps = Math.max(30, Math.min(240, Number(fps) || 60));
   const targetW = Number(width);
   const targetH = Number(height);
   const hasScale = targetW > 0 && targetH > 0;
-  const scaleFilter = hasScale
-    ? `scale=${targetW}:${targetH}:flags=lanczos,format=yuv420p`
-    : 'format=yuv420p';
-  const hdrToSdrFilter = hasScale
-    ? `zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,scale=${targetW}:${targetH}:flags=lanczos,format=yuv420p`
-    : `zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p`;
+  const isHighFps = safeFps >= 120;
 
+  const scaleFilter = hasScale
+    ? `fps=fps=${safeFps}:round=near,setpts=PTS-STARTPTS,scale=${targetW}:${targetH}:flags=lanczos,format=yuv420p`
+    : `fps=fps=${safeFps}:round=near,setpts=PTS-STARTPTS,format=yuv420p`;
+  const hdrToSdrFilter = hasScale
+    ? `fps=fps=${safeFps}:round=near,setpts=PTS-STARTPTS,zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,scale=${targetW}:${targetH}:flags=lanczos,format=yuv420p`
+    : `fps=fps=${safeFps}:round=near,setpts=PTS-STARTPTS,zscale=t=linear:npl=100,format=gbrpf32le,tonemap=hable:desat=0,zscale=t=bt709:m=bt709:r=tv,format=yuv420p`;
+
+  // 1. Try GPU Hardware Accelerated Normalization first (NVENC / Intel QSV / AMD AMF)
+  const hwSuccess = await tryHwNormalize(inputPath, outputPath, scaleFilter, safeFps);
+  if (hwSuccess) return;
+
+  // 2. High-Performance Multi-Threaded CPU Fallback (libx264 ultrafast)
   const commonArgs = [
     '-y',
     '-hide_banner',
     '-loglevel', 'error',
+    '-threads', '0',
     '-i', inputPath,
     '-map', '0:v:0',
     '-map', '0:a?',
     '-c:v', 'libx264',
-    '-preset', 'veryfast',
+    '-preset', isHighFps ? 'ultrafast' : 'veryfast',
+    '-tune', 'zerolatency',
     '-crf', '18',
+    '-fps_mode', 'cfr',
     '-r:v', String(safeFps),
     '-pix_fmt', 'yuv420p',
     '-color_primaries', 'bt709',
@@ -1707,13 +1745,13 @@ const normalizeRecordingToMp4 = async ({ inputPath, outputPath, fps, width, heig
   ];
 
   try {
-    await runFfmpeg([...commonArgs.slice(0, 8), '-vf', hdrToSdrFilter, ...commonArgs.slice(8), outputPath]);
+    await runFfmpeg([...commonArgs.slice(0, 9), '-vf', hdrToSdrFilter, ...commonArgs.slice(9), outputPath]);
     if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0) return;
   } catch (err) {
     console.warn('HDR tone-map normalization failed, retrying simple transcode:', err?.message || err);
   }
 
-  await runFfmpeg([...commonArgs.slice(0, 8), '-vf', scaleFilter, ...commonArgs.slice(8), outputPath]);
+  await runFfmpeg([...commonArgs.slice(0, 9), '-vf', scaleFilter, ...commonArgs.slice(9), outputPath]);
   if (!fs.existsSync(outputPath) || fs.statSync(outputPath).size === 0) {
     throw new Error('FFmpeg normalization produced an empty output file.');
   }
@@ -1828,7 +1866,7 @@ ipcMain.handle('start-native-screen-recording', async (_event, options = {}) => 
   const bounds = display.bounds || { x: 0, y: 0, width: 1920, height: 1080 };
   const physicalWidth = Math.round(bounds.width * (display.scaleFactor || 1));
   const physicalHeight = Math.round(bounds.height * (display.scaleFactor || 1));
-  const fps = Math.max(30, Math.min(120, Number(options.fps) || 60));
+  const fps = Math.max(30, Math.min(240, Number(options.fps) || 60));
   const outW = Math.max(640, Number(options.width) || physicalWidth);
   const outH = Math.max(360, Number(options.height) || physicalHeight);
   const rawPath = path.join(getRecordingDir(), makeRecordingBaseName() + '.native.mp4');
@@ -2291,6 +2329,7 @@ app.on('will-quit', () => {
   if (usbPollInterval) clearInterval(usbPollInterval);
   if (rpcClient) { try { rpcClient.destroy(); } catch {} rpcClient = null; }
   stopRecorderMouseTracking();
+  destroyRecordingControlsPillWindow();
   fs.unwatchFile(WINLAND_THEME_PATH);
 });
 

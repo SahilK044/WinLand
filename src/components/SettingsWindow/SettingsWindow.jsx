@@ -281,6 +281,7 @@ export default function SettingsWindow() {
               <Search size={13} className="wl-search-icon" />
               <input
                 type="text"
+                aria-label="Search Settings"
                 placeholder="Search"
                 className="wl-search-input"
                 value={searchQuery}
@@ -555,10 +556,7 @@ export default function SettingsWindow() {
                 />
 
                 <div
-                  className="wl-card"
-                  role="button"
-                  tabIndex={0}
-                  aria-pressed={selectedController === 'xbox_controller'}
+                  className={`wl-card ${selectedController === 'xbox_controller' ? 'is-selected' : ''}`}
                   onClick={() => setSelectedController('xbox_controller')}
                   onMouseEnter={() => setHoveredCardId('xbox_controller')}
                   onMouseLeave={() => setHoveredCardId(null)}
@@ -711,6 +709,7 @@ export default function SettingsWindow() {
                     </div>
                   </div>
                   <select
+                    aria-label="Active Monitor Placement"
                     value={selectedDisplay}
                     onChange={(e) => {
                       const dispId = e.target.value;
@@ -764,6 +763,7 @@ export default function SettingsWindow() {
                       </div>
                     </div>
                     <select
+                      aria-label="Auto-Hide Timer Duration"
                       value={autoHideDuration}
                       onChange={(e) => setAutoHideDuration(Number(e.target.value))}
                       style={{
@@ -813,6 +813,8 @@ export default function SettingsWindow() {
                   </div>
                   <button
                     type="button"
+                    role="switch"
+                    aria-label="Toggle Focus Mode / Do Not Disturb"
                     className={`wl-switch ${isDndActive ? 'is-on' : ''}`}
                     aria-checked={isDndActive}
                     onClick={() => {

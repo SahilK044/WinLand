@@ -46,11 +46,11 @@ export default function Canvas3DCard({
   const selectRef    = useRef(isSelected);
   const activateRef  = useRef(isActivated);
   const invalidateRef = useRef(null);
-  hoverRef.current   = isHovered;
-  selectRef.current  = isSelected;
-  activateRef.current = isActivated;
 
   useEffect(() => {
+    hoverRef.current = isHovered;
+    selectRef.current = isSelected;
+    activateRef.current = isActivated;
     invalidateRef.current?.();
   }, [isHovered, isSelected, isActivated]);
 

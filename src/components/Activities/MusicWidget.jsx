@@ -445,7 +445,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
       <div className="lyric-ambient-glow" style={{ '--lyric-glow-color': glowColor }} />
 
       {/* Header: mini album art + song title + artist + sync adjuster */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, paddingBottom: 6, borderBottom: isLight ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.08)', flexShrink: 0, position: 'relative', zIndex: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginLeft: 6, marginRight: 2, marginBottom: 8, paddingBottom: 6, borderBottom: isLight ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.08)', flexShrink: 0, position: 'relative', zIndex: 10 }}>
         {/* Mini album art */}
         <div
           className="album-art-spring interactive-child"
@@ -578,7 +578,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
                 const rowClass = `lyric-row ${isActive ? 'is-active' : isPast ? 'is-past' : 'is-future'}`;
                 return (
                   <div
-                    key={idx}
+                    key={`lyric-${item.timeMs}-${idx}`}
                     ref={isActive ? activeRef : null}
                     className={rowClass}
                     onClick={(e) => { e.stopPropagation(); onSeek?.(item.timeMs); }}
@@ -597,7 +597,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
           ) : plainLyrics ? (
             <div style={{ padding: '24px 10px', display: 'flex', flexDirection: 'column', gap: 10 }}>
               {plainLyrics.split('\n').filter(Boolean).map((line, idx) => (
-                <div key={idx} className="lyric-plain-row" style={{ fontSize: 13.5, fontWeight: 600, color: isLight ? '#1d1d1f' : 'rgba(255,255,255,0.85)', lineHeight: '20px' }}>
+                <div key={`plain-line-${idx}-${line.slice(0, 12)}`} className="lyric-plain-row" style={{ fontSize: 13.5, fontWeight: 600, color: isLight ? '#1d1d1f' : 'rgba(255,255,255,0.85)', lineHeight: '20px' }}>
                   {line}
                 </div>
               ))}
@@ -878,6 +878,7 @@ const SystemVolumeControl = ({ isLight = false }) => {
   return (
     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <button
+        aria-label={isMuted ? 'Unmute volume' : 'Mute volume'}
         onClick={toggleMute}
         onWheel={handleWheel}
         onMouseEnter={() => setShowBadge(true)}
@@ -1425,6 +1426,7 @@ export default function MusicWidget({
           <SystemVolumeControl isLight={isLight} />
 
           <button
+            aria-label="Previous Track"
             className="icon-only tactile-skip-prev tactile-btn"
             onClick={(e) => { e.stopPropagation(); onPrev?.(); }}
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: isLight ? '#1d1d1f' : '#ffffff', display: 'flex', alignItems: 'center' }}
@@ -1433,6 +1435,7 @@ export default function MusicWidget({
           </button>
 
           <button
+            aria-label={isPlaying ? 'Pause Track' : 'Play Track'}
             className="tactile-play-btn"
             onClick={(e) => { e.stopPropagation(); onTogglePlay?.(); }}
             style={{
@@ -1477,6 +1480,7 @@ export default function MusicWidget({
           </button>
 
           <button
+            aria-label="Next Track"
             className="icon-only tactile-skip-next tactile-btn"
             onClick={(e) => { e.stopPropagation(); onNext?.(); }}
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 5, color: isLight ? '#1d1d1f' : '#ffffff', display: 'flex', alignItems: 'center' }}
@@ -1485,6 +1489,7 @@ export default function MusicWidget({
           </button>
 
           <button
+            aria-label="Show Live Lyrics"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();

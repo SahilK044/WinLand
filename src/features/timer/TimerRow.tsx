@@ -276,6 +276,7 @@ export const TimerRow: React.FC<TimerRowProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <input
           type="text"
+          aria-label="Timer Label"
           value={localLabel}
           onChange={handleLabelChange}
           onBlur={handleLabelBlur}

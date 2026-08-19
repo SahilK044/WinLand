@@ -201,9 +201,9 @@ export default function PrivacyIndicator({ isLight = false, onExpandChange = nul
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {/* Camera Items */}
             {privacyState.cameraActive ? (
-              (privacyState.cameraApps.length > 0 ? privacyState.cameraApps : ['Camera']).map((app, idx) => (
+              (privacyState.cameraApps.length > 0 ? privacyState.cameraApps : ['Camera']).map((app) => (
                 <div
-                  key={`cam-${idx}`}
+                  key={`cam-${app}`}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -244,9 +244,9 @@ export default function PrivacyIndicator({ isLight = false, onExpandChange = nul
 
             {/* Microphone Items */}
             {privacyState.micActive ? (
-              (privacyState.micApps.length > 0 ? privacyState.micApps : ['Microphone']).map((app, idx) => (
+              (privacyState.micApps.length > 0 ? privacyState.micApps : ['Microphone']).map((app) => (
                 <div
-                  key={`mic-${idx}`}
+                  key={`mic-${app}`}
                   style={{
                     display: 'flex',
                     alignItems: 'center',

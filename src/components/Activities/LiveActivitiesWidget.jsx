@@ -49,11 +49,17 @@ export default function LiveActivitiesWidget({
 
   // Micro pulse simulator for live feel
   useEffect(() => {
-    const interval = setInterval(() => {
+    let timeoutId = null;
+    const intervalId = setInterval(() => {
       setPulseScore(true);
-      setTimeout(() => setPulseScore(false), 800);
+      timeoutId = setTimeout(() => {
+        setPulseScore(false);
+      }, 800);
     }, 12000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
   /* ─── SPLIT PILL (Secondary Left Component) ─── */
@@ -122,6 +128,7 @@ export default function LiveActivitiesWidget({
           {gameData.map((g, idx) => (
             <button
               key={g.id}
+              aria-label={`Switch to ${g.home.name} vs ${g.away.name}`}
               onClick={(e) => { e.stopPropagation(); setActiveGameIdx(idx); }}
               style={{
                 width: 7, height: 7, borderRadius: 3.5, border: 'none', padding: 0,

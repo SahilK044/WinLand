@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import UsbWidget from '../Activities/UsbWidget';
 import DiscordWidget from '../Activities/DiscordWidget';
 import MusicWidget from '../Activities/MusicWidget';
@@ -8,6 +8,7 @@ import CallWidget from '../Activities/CallWidget';
 import AirDropWidget from '../Activities/AirDropWidget';
 import VoiceMemoWidget from '../Activities/VoiceMemoWidget';
 import ScreenRecorderWidget from '../Activities/ScreenRecorderWidget';
+import useRecordingState from '../RecordingControlsPill/useRecordingState.js';
 import BatteryWidget from '../Activities/BatteryWidget';
 import VolumeOSDWidget from '../Activities/VolumeOSDWidget';
 import NotificationWidget from '../Activities/NotificationWidget';
@@ -24,7 +25,7 @@ import { soundEngine } from '../../utils/soundEngine';
 import { driveEq, useEqBars } from '../../utils/eqStore';
 import ThemeCanvas from '../../theme/ThemeCanvas';
 import { themeManager } from '../../theme/ThemeManager';
-import { Moon } from 'lucide-react';
+import { Moon, Play, Pause, Square } from 'lucide-react';
 import { MUSIC_AURA_KEY } from '../../data/devicePrefs';
 import { timerStore } from '../../features/timer/TimerStore';
 import { fetchLiveWeather } from '../../utils/weatherUtils';
@@ -244,6 +245,21 @@ export default function DynamicIsland({
   useEffect(() => {
     isCapsulePressedRef.current = isCapsulePressed || isSecondaryPressed;
   }, [isCapsulePressed, isSecondaryPressed]);
+
+  const {
+    isRecording: isScreenRecordingActive,
+    isPaused: isScreenRecordingPaused,
+    formattedTime,
+    pauseRecording,
+    resumeRecording,
+    stopRecording,
+  } = useRecordingState();
+  const isScreenRecordingOngoing = isScreenRecordingActive || isScreenRecordingPaused;
+  const isScreenRecordingOngoingRef = useRef(isScreenRecordingOngoing);
+  useEffect(() => {
+    isScreenRecordingOngoingRef.current = isScreenRecordingOngoing;
+  }, [isScreenRecordingOngoing]);
+
   const [bluetoothData, setBluetoothData] = useState({
     deviceName: 'AirPods Pro',
     batteryPct: 88,
@@ -547,42 +563,32 @@ export default function DynamicIsland({
 
   // ── Automatic smooth state morphing when Spotify starts/stops or Timer runs ────
   useEffect(() => {
-    // BUGFIX: compact-screenrec (and compact-call) are transient overlay states
-    // that must not be reconciled by this effect. Previously only `expanded-*`,
-    // volume-osd and notification were excluded, so the instant the recorder
-    // minimized to the compact pill (setActiveState('compact-screenrec')),
-    // activeState changing re-ran this effect, saw a state it didn't recognize,
-    // and immediately forced it back to split/compact-music/compact-timer/idle -
-    // the pill snapping shut the moment recording started, even though the
-    // MediaRecorder kept running invisibly in the background.
     if (
       activeState.startsWith('expanded-') ||
       activeState === 'volume-osd' ||
       activeState === 'notification' ||
-      activeState === 'compact-screenrec' ||
       activeState === 'compact-call'
     ) {
       return;
     }
 
-    if (trackInfo.title && isTimerActive) {
+    if (isScreenRecordingOngoing || isTimerActive) {
       if (activeState !== 'split') {
         setActiveState('split');
       }
-    } else if (trackInfo.title) {
+      return;
+    }
+
+    if (trackInfo.title) {
       if (activeState !== 'compact-music') {
         setActiveState('compact-music');
-      }
-    } else if (isTimerActive) {
-      if (activeState !== 'compact-timer') {
-        setActiveState('compact-timer');
       }
     } else {
       if (activeState !== 'idle') {
         setActiveState('idle');
       }
     }
-  }, [trackInfo.title, isTimerActive, activeState, setActiveState]);
+  }, [trackInfo.title, isTimerActive, activeState, setActiveState, isScreenRecordingOngoing]);
 
   // ── Monotonic Media Progress Tracker ─────────────────────────────────────
 
@@ -672,6 +678,7 @@ export default function DynamicIsland({
     const resumeFromOverlay = () => {
       const resumeState = preOverlayStateRef.current;
       preOverlayStateRef.current = null;
+      if (isScreenRecordingOngoingRef.current) return 'split';
       if (resumeState === 'expanded-lyrics' || resumeState === 'expanded-music') return resumeState;
       const isTimerRunning = timerStore.getTimers().some((t) => t.status === 'running');
       return trackInfoRef.current.title && isTimerRunning ? 'split' : (trackInfoRef.current.title ? 'compact-music' : (isTimerRunning ? 'compact-timer' : 'idle'));
@@ -869,6 +876,9 @@ export default function DynamicIsland({
   // whole island tree.
   useEffect(() => {
     driveEq(!!trackInfo.isPlaying);
+    return () => {
+      driveEq(false);
+    };
   }, [trackInfo.isPlaying]);
 
   // ── Window resize IPC ─────────────────────────────────────────────────────
@@ -889,7 +899,7 @@ export default function DynamicIsland({
       'idle':              [250, 42],
       'compact-music':     [310, 44],
       'compact-timer':     [250, 42],
-      'split':             [340, 54],
+      'split':             [isScreenRecordingOngoing ? 410 : 340, 54],
       'expanded-music':    [356, 156],
       'expanded-lyrics':   [420, 320],
       'expanded-timer':    [480, timerHeight],
@@ -898,7 +908,7 @@ export default function DynamicIsland({
       'expanded-airdrop':  [380, 200],
       'expanded-recorder': [370, 205],
       'expanded-screenrec':[400, 214],
-      'compact-screenrec': [230, 36],
+      'compact-screenrec': [110, 36],
       'expanded-battery':  [340, 85],
       'volume-osd':        [360, 85],
       'notification':      [400, 110],
@@ -923,14 +933,18 @@ export default function DynamicIsland({
     prevWindowSizeRef.current = { w, h };
     window.electronAPI?.resizeWindow?.(w, h, growing);
 
-    if (isStateChange && prev.w > 0 && (growing || shrinking)) {
+    if (isStateChange && prev.w > 0 && (growing || shrinking) && activeState !== 'split') {
       setMorphClass(growing ? 'morph-expand' : 'morph-collapse');
       if (morphTimeoutRef.current) clearTimeout(morphTimeoutRef.current);
       morphTimeoutRef.current = setTimeout(() => {
         setMorphClass('');
       }, 440);
     }
-  }, [activeState, timers.length, shelvedItems.length, weatherSearchCount]);
+
+    return () => {
+      if (morphTimeoutRef.current) clearTimeout(morphTimeoutRef.current);
+    };
+  }, [activeState, timers.length, shelvedItems.length, weatherSearchCount, isScreenRecordingOngoing]);
 
   // ── State class map ───────────────────────────────────────────────────────
   const getStateClass = () => {
@@ -1072,9 +1086,8 @@ export default function DynamicIsland({
         if (prev === 'idle') return prev;
         if (prev === 'expanded-call') return 'compact-call';
         if (prev === 'compact-call') return prev;
-        if (trackInfo.title && isTimerActive) return 'split';
+        if (isScreenRecordingOngoing || isTimerActive) return 'split';
         if (trackInfo.title) return 'compact-music';
-        if (isTimerActive) return 'compact-timer';
         return 'idle';
       });
       if (window.electronAPI?.setIgnoreMouseEvents) {
@@ -1098,7 +1111,7 @@ export default function DynamicIsland({
       window.removeEventListener('keydown', handleKeyDown);
       unsubIPC();
     };
-  }, [trackInfo.title, isTimerActive, setActiveState]);
+  }, [trackInfo.title, isTimerActive, setActiveState, isScreenRecordingOngoing]);
 
   const handleContextMenu = (e) => {
     e.preventDefault();
@@ -1204,19 +1217,19 @@ export default function DynamicIsland({
       if (window.electronAPI?.openSettingsWindow) {
         window.electronAPI.openSettingsWindow();
       }
-      setActiveState(trackInfo.title && isTimerActive ? 'split' : (trackInfo.title ? 'compact-music' : (isTimerActive ? 'compact-timer' : 'idle')));
+      setActiveState(isScreenRecordingOngoing || isTimerActive ? 'split' : (trackInfo.title ? 'compact-music' : 'idle'));
       return;
     }
     if (window.electronAPI?.launchApp) {
       window.electronAPI.launchApp(cmd);
     }
-    setActiveState(trackInfo.title && isTimerActive ? 'split' : (trackInfo.title ? 'compact-music' : (isTimerActive ? 'compact-timer' : 'idle')));
+    setActiveState(isScreenRecordingOngoing || isTimerActive ? 'split' : (trackInfo.title ? 'compact-music' : 'idle'));
   };
 
   const handleIslandClick = (e) => {
     if (isDraggingRef.current) return;
     if (e.defaultPrevented) return;
-    if (activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') return;
+    if (activeState === 'expanded-screenrec') return;
     if (e.target && (e.target.closest('button') || e.target.closest('input') || e.target.closest('svg') || e.target.closest('.interactive-child'))) {
       return;
     }
@@ -1230,14 +1243,12 @@ export default function DynamicIsland({
       if (activeState === 'expanded-call') {
         setActiveState('compact-call');
       } else {
-        setActiveState(trackInfo.title && isTimerActive ? 'split' : (trackInfo.title ? 'compact-music' : (isTimerActive ? 'compact-timer' : 'idle')));
+        setActiveState(isScreenRecordingOngoing || isTimerActive ? 'split' : (trackInfo.title ? 'compact-music' : 'idle'));
       }
     } else if (activeState === 'compact-call') {
       setActiveState('expanded-call');
     } else if (activeState === 'compact-timer') {
       setActiveState('expanded-timer');
-    } else if (trackInfo.title && isTimerActive) {
-      setActiveState('expanded-music');
     } else if (trackInfo.title) {
       setActiveState('expanded-music');
     } else if (isTimerActive) {
@@ -1278,101 +1289,9 @@ export default function DynamicIsland({
   const eqGlow   = `rgba(${smoothR},${smoothG},${smoothB},0.42)`;
   const progGrad = `linear-gradient(90deg, rgb(${smoothR},${smoothG},${smoothB}), rgba(${smoothR},${smoothG},${smoothB},0.75))`;
 
-  if (activeState === 'split') {
-    return (
-      <motion.div 
-        className="island-anchor" 
-        onMouseEnter={(e) => { handleMouseEnter(e); setIsCapsuleHovered(true); }} 
-        onMouseLeave={(e) => { setIsCapsuleHovered(false); handleMouseLeave(e); }}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.45}
-        dragSnapToOrigin={true}
-        dragTransition={{ bounceStiffness: 600, bounceDamping: 28, power: 0.12 }}
-        onDragStart={() => {
-          isDraggingRef.current = true;
-          setIsDocked(false);
-          resetIdleTimer();
-        }}
-        onDragEnd={() => {
-          setTimeout(() => {
-            isDraggingRef.current = false;
-          }, 80);
-          resetIdleTimer();
-        }}
-      >
-        <div className="island-split-container">
-          {/* Primary Capsule: Music / Call */}
-          <div
-            ref={capsuleRef}
-            className={`island-capsule primary-split ${getStateClass()} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              resetIdleTimer();
-              setActiveState('expanded-music');
-            }}
-            onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
-            onMouseLeave={(e) => { handleMouseLeave(e); setIsCapsuleHovered(false); }}
-            onMouseMove={resetIdleTimer}
-            onMouseDown={() => setIsCapsulePressed(true)}
-            onMouseUp={() => setIsCapsulePressed(false)}
-            onContextMenu={handleContextMenu}
-          >
-            <ThemeCanvas
-              containerRef={capsuleRef}
-              isHovered={isCapsuleHovered}
-              isPressed={isCapsulePressed}
-              accentColor={eqColor}
-            />
-            {/* macOS Privacy Indicator (Camera & Mic Active Dots) */}
-            <div style={{ position: 'absolute', top: 5, right: 8, zIndex: 99, pointerEvents: 'auto' }}>
-              <PrivacyIndicator isLight={isLight} />
-            </div>
-            <div className="activity-fade-content" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center' }}>
-              <MusicWidget
-                isSplit={true}
-                isLight={isLight}
-                trackInfo={trackInfo}
-                eqColor={eqColor}
-                eqGlow={eqGlow}
-                progressGradient={progGrad}
-              />
-            </div>
-          </div>
-
-          {/* Secondary Floating Capsule: Timer */}
-          <div
-            ref={secondaryCapsuleRef}
-            className={`island-capsule island-capsule-secondary ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              resetIdleTimer();
-              setActiveState('expanded-timer');
-            }}
-            onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsSecondaryHovered(true); }}
-            onMouseLeave={(e) => { handleMouseLeave(e); setIsSecondaryHovered(false); }}
-            onMouseMove={resetIdleTimer}
-            onMouseDown={() => setIsSecondaryPressed(true)}
-            onMouseUp={() => setIsSecondaryPressed(false)}
-            title="Click to expand Timer"
-          >
-            <ThemeCanvas
-              containerRef={secondaryCapsuleRef}
-              isHovered={isSecondaryHovered}
-              isPressed={isSecondaryPressed}
-              accentColor="#ff9f0a"
-            />
-            <div className="activity-fade-content" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <TimerWidget
-                isSplit={true}
-                onExpand={() => setActiveState('expanded-timer')}
-              />
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    );
-  }
+  const isSplitLayout = activeState === 'split';
+  const isRecordingSidePill = isScreenRecordingOngoing;
+  const isPrimaryMusicInSplit = isSplitLayout && Boolean(trackInfo.title);
 
   return (
     <motion.div 
@@ -1415,51 +1334,68 @@ export default function DynamicIsland({
         }}
         onMouseMove={resetIdleTimer}
       />
-      <div
-        ref={capsuleRef}
-        style={{
-          '--shelf-dynamic-height': `${70 + Math.max(1, Math.min(4, Math.ceil(shelvedItems.length / 3))) * 95}px`,
-          '--weather-dynamic-height': `${weatherSearchCount > 0 ? Math.min(330, 210 + weatherSearchCount * 36 + 14) : 210}px`,
-        }}
-        className={`island-capsule ${getStateClass()} ${morphClass} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''} ${isDraggingOverIsland ? 'shelf-absorption-active' : ''}`}
-        onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
-        onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
-        onMouseLeave={(e) => { handleMouseLeave(e); setIsCapsuleHovered(false); }}
-        onMouseMove={resetIdleTimer}
-        onMouseDown={() => setIsCapsulePressed(true)}
-        onMouseUp={() => setIsCapsulePressed(false)}
-        onContextMenu={handleContextMenu}
-        onDragEnter={handleDragEnter}
-        onDragLeave={handleDragLeave}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
-      >
-        <ThemeCanvas
-          containerRef={capsuleRef}
-          isHovered={isCapsuleHovered}
-          isPressed={isCapsulePressed}
-          accentColor={eqColor}
-        />
-        {/* macOS Privacy Indicator (Camera & Mic Active Dots) */}
-        <div style={{ position: 'absolute', top: 5, right: 8, zIndex: 99, pointerEvents: 'auto' }}>
-          <PrivacyIndicator isLight={isLight} />
-        </div>
-        {/* Smooth organic moving liquid aura background — Beat-Synced Equalizer Glow Pulse with 0.75s Silk Fade */}
-        {(activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo?.title && (
-          <LiquidAura
-            isEnabled={devicePrefs?.musicAura !== false}
-            isLight={isLight}
-            isPlaying={trackInfo?.isPlaying}
-            eqColor={eqColor}
-            smoothR={smoothR}
-            smoothG={smoothG}
-            smoothB={smoothB}
+
+      <div className="island-split-container">
+        {/* Primary Capsule */}
+        <div
+          ref={capsuleRef}
+          style={{
+            '--shelf-dynamic-height': `${70 + Math.max(1, Math.min(4, Math.ceil(shelvedItems.length / 3))) * 95}px`,
+            '--weather-dynamic-height': `${weatherSearchCount > 0 ? Math.min(330, 210 + weatherSearchCount * 36 + 14) : 210}px`,
+          }}
+          className={`island-capsule ${isSplitLayout ? 'primary-split' : ''} ${getStateClass()} ${morphClass} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''} ${isCapsulePressed ? 'is-pressed' : ''} ${isDraggingOverIsland ? 'shelf-absorption-active' : ''}`}
+          onClick={(e) => { resetIdleTimer(); handleIslandClick(e); }}
+          onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsCapsuleHovered(true); }}
+          onMouseLeave={(e) => { handleMouseLeave(e); setIsCapsuleHovered(false); }}
+          onMouseMove={resetIdleTimer}
+          onMouseDown={() => setIsCapsulePressed(true)}
+          onMouseUp={() => setIsCapsulePressed(false)}
+          onContextMenu={handleContextMenu}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          <ThemeCanvas
+            containerRef={capsuleRef}
+            isHovered={isCapsuleHovered}
+            isPressed={isCapsulePressed}
+            accentColor={isPrimaryMusicInSplit ? eqColor : (trackInfo.title ? eqColor : '#ffffff')}
           />
-        )}
+          {/* macOS Privacy Indicator (Camera & Mic Active Dots) */}
+          <div style={{ position: 'absolute', top: 5, right: 8, zIndex: 99, pointerEvents: 'auto' }}>
+            <PrivacyIndicator isLight={isLight} />
+          </div>
+          {/* Smooth organic moving liquid aura background — Beat-Synced Equalizer Glow Pulse with 0.75s Silk Fade */}
+          {(activeState === 'expanded-music' || activeState === 'expanded-lyrics') && !!trackInfo?.title && (
+            <LiquidAura
+              isEnabled={devicePrefs?.musicAura !== false}
+              isLight={isLight}
+              isPlaying={trackInfo?.isPlaying}
+              eqColor={eqColor}
+              smoothR={smoothR}
+              smoothG={smoothG}
+              smoothB={smoothB}
+            />
+          )}
 
-        <div className="activity-fade-content" key={(activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') ? 'screenrec' : (activeState === 'expanded-music' || activeState === 'compact-music' || activeState === 'expanded-lyrics') ? 'music' : (activeState === 'expanded-call' || activeState === 'compact-call') ? 'call' : activeState}>
+          <div className="activity-fade-content" key={isSplitLayout ? 'split-primary' : (activeState === 'expanded-screenrec' || activeState === 'compact-screenrec') ? 'screenrec' : (activeState === 'expanded-music' || activeState === 'compact-music' || activeState === 'expanded-lyrics') ? 'music' : (activeState === 'expanded-call' || activeState === 'compact-call') ? 'call' : activeState}>
+            {isSplitLayout && (
+              isPrimaryMusicInSplit ? (
+                <MusicWidget
+                  isSplit={true}
+                  isLight={isLight}
+                  trackInfo={trackInfo}
+                  eqColor={eqColor}
+                  eqGlow={eqGlow}
+                  progressGradient={progGrad}
+                />
+              ) : (
+                <IdleWidget weatherConfig={weatherConfig} isLight={isLight} />
+              )
+            )}
 
-          {activeState === 'idle' && <IdleWidget isLight={isLight} weatherConfig={weatherConfig} />}
+            {!isSplitLayout && activeState === 'idle' && <IdleWidget isLight={isLight} weatherConfig={weatherConfig} />}
 
           {isMusicState && (
             <MusicWidget
@@ -1553,7 +1489,7 @@ export default function DynamicIsland({
             <ScreenRecorderWidget
               isCompact={activeState === 'compact-screenrec'}
               onExpand={() => setActiveState('expanded-screenrec')}
-              onMinimize={() => setActiveState('compact-screenrec')}
+              onMinimize={() => setActiveState(isScreenRecordingOngoing ? 'split' : 'idle')}
               onStop={() => setActiveState('idle')}
             />
           )}
@@ -1578,6 +1514,183 @@ export default function DynamicIsland({
 
         </div>
       </div>
+
+      {/* Secondary Capsule on Right Side with Smooth Pop-in / Pop-out Spring Animation */}
+      <AnimatePresence mode="popLayout">
+        {isSplitLayout && (
+          <motion.div
+            key="secondary-pill"
+            ref={secondaryCapsuleRef}
+            initial={{ scale: 0.25, opacity: 0, x: -16, filter: 'blur(6px)' }}
+            animate={{
+              scale: 1,
+              opacity: 1,
+              x: 0,
+              filter: 'blur(0px)',
+              transition: {
+                type: 'spring',
+                stiffness: 480,
+                damping: 26,
+                mass: 0.7,
+              },
+            }}
+            exit={{
+              scale: 0.25,
+              opacity: 0,
+              x: -16,
+              filter: 'blur(6px)',
+              transition: {
+                duration: 0.2,
+                ease: [0.32, 0.72, 0, 1],
+              },
+            }}
+            className={`island-capsule island-capsule-secondary ${isRecordingSidePill ? 'secondary-screenrec' : ''} ${isLight ? 'theme-light' : 'theme-dark'} ${isDocked ? 'is-docked' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              resetIdleTimer();
+              if (isRecordingSidePill) {
+                setActiveState('expanded-screenrec');
+              } else {
+                setActiveState('expanded-timer');
+              }
+            }}
+            onMouseEnter={(e) => { resetIdleTimer(); handleMouseEnter(e); setIsSecondaryHovered(true); }}
+            onMouseLeave={(e) => { handleMouseLeave(e); setIsSecondaryHovered(false); }}
+            onMouseMove={resetIdleTimer}
+            onMouseDown={() => setIsSecondaryPressed(true)}
+            onMouseUp={() => setIsSecondaryPressed(false)}
+            title={isRecordingSidePill ? "Screen Recording (Click to expand Studio)" : "Click to expand Timer"}
+          >
+            <ThemeCanvas
+              containerRef={secondaryCapsuleRef}
+              isHovered={isSecondaryHovered}
+              isPressed={isSecondaryPressed}
+              accentColor={isRecordingSidePill ? (isScreenRecordingPaused ? '#f59e0b' : '#ff453a') : '#ff9f0a'}
+            />
+            <div className="activity-fade-content" style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {isRecordingSidePill ? (
+                <div
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 6,
+                    padding: '0 4px',
+                    boxSizing: 'border-box',
+                    userSelect: 'none',
+                  }}
+                >
+                  {/* Status dot + Timer */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: '50%',
+                        background: isScreenRecordingPaused ? '#f59e0b' : '#ff453a',
+                        boxShadow: isScreenRecordingPaused
+                          ? '0 0 6px rgba(245,158,11,0.6)'
+                          : '0 0 8px rgba(255,69,58,0.5)',
+                        animation: isScreenRecordingActive ? 'pulse 1.2s infinite ease-in-out' : 'none',
+                        flexShrink: 0,
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: '#fff',
+                        fontVariantNumeric: 'tabular-nums',
+                        letterSpacing: '0.02em',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {isScreenRecordingPaused ? 'PAUSED' : formattedTime}
+                    </span>
+                  </div>
+
+                  {/* Divider */}
+                  <div style={{ width: 1, height: 14, background: 'rgba(255,255,255,0.15)', margin: '0 1px' }} />
+
+                  {/* Pause / Resume button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isScreenRecordingPaused) resumeRecording();
+                      else pauseRecording();
+                    }}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 6,
+                      border: 'none',
+                      background: isScreenRecordingPaused ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.1)',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'transform 0.12s ease',
+                      flexShrink: 0,
+                    }}
+                    title={isScreenRecordingPaused ? 'Resume' : 'Pause'}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.12)'; e.currentTarget.style.background = isScreenRecordingPaused ? 'rgba(245,158,11,0.35)' : 'rgba(255,255,255,0.2)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = isScreenRecordingPaused ? 'rgba(245,158,11,0.2)' : 'rgba(255,255,255,0.1)'; }}
+                  >
+                    {isScreenRecordingPaused ? (
+                      <Play size={9} color="#f59e0b" fill="#f59e0b" style={{ marginLeft: 1 }} />
+                    ) : (
+                      <Pause size={9} color="#fff" fill="#fff" />
+                    )}
+                  </button>
+
+                  {/* Stop button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      stopRecording();
+                    }}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 6,
+                      border: 'none',
+                      background: 'rgba(255,69,58,0.2)',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'transform 0.12s ease',
+                      flexShrink: 0,
+                    }}
+                    title="Stop & Save Recording"
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.12)'; e.currentTarget.style.background = 'rgba(255,69,58,0.35)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(255,69,58,0.2)'; }}
+                  >
+                    <Square size={8} color="#ff453a" fill="#ff453a" />
+                  </button>
+                </div>
+              ) : (
+                <TimerWidget
+                  isSplit={true}
+                  onExpand={() => setActiveState('expanded-timer')}
+                />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
 
       {/* Official 1:1 macOS Dark Translucent Glass Focus / Do Not Disturb Badge */}
       {shouldRenderDnd && activeState !== 'compact-music' && activeState !== 'split' && activeState !== 'expanded-launcher' && (

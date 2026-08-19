@@ -268,6 +268,7 @@ export default function WeatherWidget({
             <input
               type="text"
               autoFocus
+              aria-label="Search city name"
               placeholder="Search city (e.g. Dwarka)..."
               value={cityInput}
               onChange={(e) => setCityInput(e.target.value)}
@@ -286,6 +287,7 @@ export default function WeatherWidget({
               <Loader2 size={13} className="animate-spin" color="#0071e3" />
             ) : (
               <button
+                aria-label="Cancel search"
                 onClick={() => {
                   setIsEditing(false);
                   setSuggestions([]);
@@ -329,7 +331,7 @@ export default function WeatherWidget({
             >
               {suggestions.map((item, idx) => (
                 <div
-                  key={item.id || idx}
+                  key={item.id ? `place-${item.id}` : `${item.name}-${item.latitude}-${item.longitude}-${idx}`}
                   onClick={() => handleSelectPlace(item)}
                   style={{
                     padding: '8px 12px',

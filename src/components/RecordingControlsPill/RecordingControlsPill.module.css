@@ -1,0 +1,250 @@
+.stage {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+  user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+}
+
+.pillContainer {
+  pointer-events: auto;
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  background: rgba(14, 14, 16, 0.88);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+  padding: 4px 6px;
+  gap: 8px;
+  color: #fff;
+  transition: all 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.15);
+  position: relative;
+  cursor: grab;
+}
+
+.pillContainer:active {
+  cursor: grabbing;
+}
+
+.collapsed {
+  height: 38px;
+  padding: 0 10px 0 12px;
+}
+
+.expanded {
+  height: 44px;
+  padding: 0 12px 0 14px;
+}
+
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotRecording {
+  background: #ff453a;
+  box-shadow: 0 0 10px rgba(255, 69, 58, 0.8);
+  animation: pulseDot 1.4s infinite ease-in-out;
+}
+
+.dotPaused {
+  background: #f59e0b;
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+}
+
+@keyframes pulseDot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 0.6;
+  }
+}
+
+.timerText {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.statusLabel {
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.12);
+  margin: 0 2px;
+}
+
+.actionsSection {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  -webkit-app-region: no-drag;
+}
+
+.iconButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.iconButton:hover {
+  transform: scale(1.08);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.iconButton:active {
+  transform: scale(0.94);
+}
+
+.activeButton {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+.dangerButton {
+  background: rgba(255, 69, 58, 0.18);
+  color: #ff453a;
+}
+
+.dangerButton:hover {
+  background: rgba(255, 69, 58, 0.32);
+}
+
+.pauseButton {
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
+}
+
+.pauseButton:hover {
+  background: rgba(245, 158, 11, 0.28);
+}
+
+.stopButton {
+  background: linear-gradient(135deg, rgba(255, 69, 58, 0.9) 0%, rgba(220, 38, 38, 0.95) 100%);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(255, 69, 58, 0.35);
+}
+
+.stopButton:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(255, 69, 58, 0.5);
+}
+
+.toggleExpandButton {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+
+.toggleExpandButton:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.confirmPopup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 12px;
+  background: rgba(20, 20, 24, 0.96);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 69, 58, 0.4);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  -webkit-app-region: no-drag;
+}
+
+.confirmText {
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.confirmBtn {
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.confirmDiscardBtn {
+  background: #ff453a;
+  color: #fff;
+}
+
+.confirmCancelBtn {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.gripHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.2);
+  margin-right: -2px;
+  cursor: grab;
+}

@@ -1,6 +1,6 @@
 # WinLand — Ultra-Fluid Dynamic Island for Windows 🏝️
 
-**WinLand** is a high-performance, hardware-accelerated Dynamic Island desktop experience for Windows, built with React 19, Three.js (WebGL), Vite, and Electron. It brings fluid macOS/iOS-inspired live activities, real-time 3D device hardware connection popups, system telemetry, ambient media controls, camera and microphone privacy indicators, phone call notifications, Focus Assist integration, screen recording, live weather with place search, and a native macOS Tahoe-style System Settings suite directly to your desktop.
+**WinLand** is a high-performance, hardware-accelerated Dynamic Island desktop experience for Windows, built with React 19, Three.js (WebGL), Vite, and Electron. It brings fluid macOS/iOS-inspired live activities, real-time 3D device hardware connection popups, system telemetry, ambient media controls, camera and microphone privacy indicators, phone call notifications, Focus Assist integration, 240 FPS screen recording, live weather with place search, and a native macOS Tahoe-style System Settings suite directly to your desktop.
 
 ---
 
@@ -14,6 +14,30 @@
 ---
 
 ## 🌟 Key Features
+
+### 🎥 Screen Studio — 240 FPS Ultra-High Framerate Recording
+- **240 FPS Ultra-High Framerate Capture**: Record silky-smooth desktop footage at up to 240 FPS with zero dropped frames and fluid motion fidelity.
+- **Zero-Copy GPU Capture Pipeline**: Direct integration with Windows DirectX Desktop Duplication (DXGI) and Windows Graphics Capture (WGC) for hardware frame ingestion with near-zero CPU overhead.
+- **Dedicated Hardware Transcoding**: Native multi-tier GPU encoding with NVIDIA NVENC (`h264_nvenc`), Intel QuickSync (`h264_qsv`), AMD AMF (`h264_amf`), and zero-latency multi-threaded CPU fallback (`libx264 ultrafast`).
+- **Constant Framerate (CFR) Timestamp Pacing**: Precision timestamp normalization (`-fps_mode cfr`) eliminates micro-stutters and variable framerate jitter.
+- **Dynamic Bitrate Scaling**: Proportional encoder bitrate scaling up to 80 Mbps ensures pristine clarity across 1080p, 1440p, and native 4K.
+- **High-Fidelity 48kHz Stereo System Audio**: Captures desktop audio loopback in full 48kHz uncompressed stereo.
+- **Smart Focus & Cinematic Camera**: Cursor-following zoom with hotkey overrides (`P` for pan-out, `Z` for zoom-in).
+- **Gliding Spring Framerate Selector**: Segmented framerate switch (`30` ↔ `60` ↔ `120` ↔ `240` FPS) with fluid Framer Motion spring physics.
+
+### ⏱️ Dual Split-Pill Dynamic Island & Countdown Timer
+- **Automatic Split Morphing**: Starting a timer automatically morphs the Dynamic Island into a dual split-pill layout with primary playback/clock on the left and active countdown on the right.
+- **Live Countdown & Progress Ring**: Apple-orange (`#FF9F0A`) glowing timer badge with live countdown, animated SVG progress ring, and quick-add (+1 min, +5 min) controls.
+- **Synthesized Web Audio Alarm**: High-quality synthesized completion chime played on timer expiry with automatic split re-unification.
+
+### 🎵 Ambient Music Player & Synced Karaoke Lyrics
+- **Refined Synced Lyrics Alignment**: Perfectly balanced header geometry with organic spacing tailored to the island's rounded bezier corners.
+- **Sub-Millisecond Vocal Tracking**: High-precision continuous timekeeper delivers real-time word-by-word tracking.
+- **Interactive Vocal Sync Tuning**: On-the-fly vocal offset adjustment (`-0.2s`, `Sync`, `+0.2s`) with persistent local storage.
+- **Full-Bleed Soft-Feather Artwork**: Left-anchored album artwork with an 8-stop smooth horizontal gradient mask that blends naturally into the pitch-black capsule.
+- **60/120 FPS Continuous Progress Bar**: Sub-pixel smooth scrubber engine powered by native display `requestAnimationFrame` interpolation.
+- **Multi-Provider Lyrics Support**: 5-stage karaoke word-wipe lyrics engine with LRCLIB, Lyrics.ovh, and NetEase Cloud fallback.
+- **System Master Volume Control**: Integrated inline volume slider with mousewheel support and quick mute toggle.
 
 ### 🌤️ Live Weather & Geocoding Search Suite
 - **Ground-Truth METAR Surface Observations**: Real-time physical weather station observations powered by high-precision surface meteorological stations and NOAA GFS global models.
@@ -34,12 +58,9 @@
 - **Interactive Control Center Privacy Card**: Clicking on privacy indicators displays active applications accessing your sensors (e.g., *OBS Studio*, *Discord*, *Zoom*, *Google Chrome*) with real-time status badges.
 - **Native Windows Sensor Telemetry**: Continuously queries the Windows `CapabilityAccessManager` subsystem to provide instantaneous detection with zero CPU overhead.
 
-### 🌊 Fluid "Squish & Stretch" Spring Physics
-- **Volume-Conserving Elastic Dynamics**: When morphing between compact (`310×44`) and expanded activity views (`356×156` / `480×120`), the capsule conserves physical volume by momentarily compressing vertically as it stretches horizontally, followed by cushioned spring settling (`cubic-bezier(0.16, 1, 0.3, 1)`).
-- **Synchronized Content Spring Fade**: Internal widgets smoothly scale (`0.96 -> 1.0`) with synchronized alpha crossfading to eliminate layout jitter.
-
 ### 🎧 3D WebGL Device Connection Popups & Hardware Adaptation
 - **Real-Time Bluetooth & 2.4GHz Detection**: Instantaneous connection and disconnection pop-up notifications for wireless headsets, earbuds, speakers, controllers, and smartphones.
+- **Zero-Leak GPU Memory Lifecycle**: Recursive scene graph traversal with explicit GPU disposal (`dispose()`) for geometries, materials, and textures.
 - **39 Integrated 3D Hardware Models**:
   - **Audio & Speakers**: Sonos Soundbar, Razer Barracuda Headset, Sony WH-1000XM5, Apple AirPods Max, Apple AirPods Pro, Samsung Galaxy Buds Pro (with individual left/right earbud levitation and animated flip case).
   - **Gaming Peripherals**: PlayStation 5 DualSense Wireless Controller, Xbox Series X/S Wireless Controllers (Carbon Black & Robot White).
@@ -48,13 +69,6 @@
     - **Samsung Galaxy Foldables**: Z Fold 6, Z Fold 2, Z Flip 6, Z Flip 3.
     - **Google Pixel Series**: Pixel 8 Pro, Pixel 7 Pro, Pixel 6 Pro.
     - **Apple iPhone Series**: iPhone 17 Pro, iPhone 17 Air, iPhone 16 Pro, iPhone 16, iPhone 15 Pro, iPhone 15, iPhone 12.
-
-### 🎵 Ambient Music Player & Synced Karaoke Lyrics
-- **Full-Bleed Soft-Feather Artwork**: Left-anchored album artwork with an 8-stop smooth horizontal gradient mask that blends naturally into the deep pitch-black capsule.
-- **60/120 FPS Continuous Progress Bar**: Sub-pixel smooth scrubber engine powered by native display `requestAnimationFrame` interpolation.
-- **Dual-Layer Track Crossfades**: Exiting songs dissolve smoothly over 650ms while incoming artwork fades in with a micro-zoom ease.
-- **Multi-Provider Synced Lyrics**: 5-stage karaoke word-wipe lyrics engine with LRCLIB, Lyrics.ovh, and NetEase Cloud fallback.
-- **System Master Volume Control**: Integrated inline volume slider with mousewheel support and quick mute toggle.
 
 ### 📁 Shelf Drop Zone Fluid Absorption & 3D Tilt Card Grid
 - **Fluid Ingestion Aura**: Dragging desktop files or shortcuts over the Dynamic Island triggers an energetic blue glass absorption aura (`scale(1.025)`) with ambient edge glow.
@@ -70,16 +84,6 @@
 ### 🌙 System-Wide Windows 11 Do Not Disturb (DND) Integration
 - **Native Focus Assist Sync**: Directly toggles Windows Action Center Focus Assist via Windows Registry.
 - **Spring Animations**: Lavender moon badge and smooth spring expand/collapse transitions.
-
-### ⏱️ Interactive Timer & Alarm Widget
-- **Countdown & Progress Ring**: Live remaining time countdown with an animated SVG progress ring and quick-add (+1 min, +5 min) controls.
-- **Synthesized Alarm**: Web Audio API synthesized completion chime played upon timer expiry with smooth auto-dismissal.
-
-### 🎥 Screen Studio — Screen Recording Suite
-- **Custom Resolution & Framerates**: Record desktop activity in crisp 1080p, 1440p, or native 4K at up to 120 FPS.
-- **High-Fidelity 48kHz Stereo System Audio**: Captures desktop audio loopback without WebRTC echo cancellation ducking or mono downmixing.
-- **Smart Focus & Cinematic Camera**: Cursor-following zoom with hotkey overrides (`P` for pan-out, `Z` for zoom-in).
-- **Compact Island Controls**: Live timer, pause/resume toggle, and stop controls embedded directly in the notch pill.
 
 ---
 
@@ -120,6 +124,9 @@ npm run dev
 
 # Run Electron app in development mode
 npm run app
+
+# Lint & Verify Code Quality
+npm run lint
 
 # Build Vite frontend bundle
 npm run build

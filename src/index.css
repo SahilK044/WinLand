@@ -508,10 +508,9 @@ img, canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* .island-capsule's base transform-origin (top center) suits the tall
-     morphing pill; this is a small floating chip, so it should scale from
-     its own center on hover/press instead. */
   transform-origin: center center;
+  will-change: transform, opacity;
+  backface-visibility: hidden;
 }
 
 .island-capsule-secondary:hover {
@@ -520,6 +519,11 @@ img, canvas {
 
 .island-capsule-secondary:active {
   transform: scale(0.92);
+}
+
+.island-capsule-secondary.secondary-screenrec {
+  min-width: 148px;
+  padding: 0 8px 0 10px;
 }
 
 .state-expanded-music {
@@ -747,7 +751,7 @@ img, canvas {
 }
 
 .state-compact-screenrec {
-  width: 190px;
+  width: 110px;
   height: 36px;
   border-radius: 18px;
 }

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Cpu, Activity, Gauge } from 'lucide-react';
 
 const SystemMonitorWidget = React.memo(function SystemMonitorWidget({ isCompact, stats = { cpu: 24, ram: 58, gpu: 32 } }) {
-  const [history, setHistory] = useState(Array(24).fill(25));
+  const [history, setHistory] = useState(() => Array(24).fill(25));
 
   useEffect(() => {
     setHistory((prev) => [...prev.slice(1), stats.cpu]);

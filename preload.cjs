@@ -181,6 +181,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   openFileLocation: (filePath) => ipcRenderer.send('open-file-location', filePath),
 
+  // Recording State Manager & Companion Controls Pill IPC
+  startRecording: (options) => ipcRenderer.invoke('recording:start', options),
+  pauseRecording: () => ipcRenderer.invoke('recording:pause'),
+  resumeRecording: () => ipcRenderer.invoke('recording:resume'),
+  stopRecording: () => ipcRenderer.invoke('recording:stop'),
+  discardRecording: () => ipcRenderer.invoke('recording:discard'),
+  toggleRecordingMic: () => ipcRenderer.invoke('recording:toggle-mic'),
+  toggleRecordingWebcam: () => ipcRenderer.invoke('recording:toggle-webcam'),
+  toggleRecordingSmartFocus: () => ipcRenderer.invoke('recording:toggle-smart-focus'),
+  getRecordingState: () => ipcRenderer.invoke('recording:get-state'),
+  subscribeRecordingState: () => ipcRenderer.send('recording:subscribe'),
+  reportRecordingStatus: (payload) => ipcRenderer.send('recording:status-update', payload),
+  onRecordingStateChanged: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('recording:state-changed', handler);
+    return () => ipcRenderer.removeListener('recording:state-changed', handler);
+  },
+  onRecordingTick: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('recording:tick', handler);
+    return () => ipcRenderer.removeListener('recording:tick', handler);
+  },
+  onRecordingCommand: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on('recording:command', handler);
+    return () => ipcRenderer.removeListener('recording:command', handler);
+  },
+  resizeControlsPillWindow: (width, height) => ipcRenderer.send('resize-controls-pill-window', { width, height }),
+
   // macOS Privacy Indicators (Camera & Microphone Status)
   getPrivacySensors: () => ipcRenderer.invoke('get-privacy-sensors'),
   onPrivacySensorsUpdate: (callback) => {

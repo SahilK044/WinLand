@@ -1,6 +1,8 @@
 import React, { useState, Component } from 'react';
 import DynamicIsland from './components/DynamicIsland/DynamicIsland';
 import SettingsWindow from './components/SettingsWindow/SettingsWindow';
+import RecordingControlsPill from './components/RecordingControlsPill/RecordingControlsPill';
+import RecordingEngineHost from './components/RecordingEngineHost';
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -43,6 +45,7 @@ function IslandView() {
 
   return (
     <div className="island-overlay-stage">
+      <RecordingEngineHost />
       <DynamicIsland
         activeState={activeState}
         setActiveState={setActiveState}
@@ -62,9 +65,20 @@ export default function App() {
                           window.location.hash.includes('settings') ||
                           window.location.href.includes('settings');
 
+  const isRecordingControlsRoute = window.location.search.includes('recording-controls') ||
+                                   window.location.hash.includes('recording-controls') ||
+                                   window.location.href.includes('recording-controls');
+
   return (
     <ErrorBoundary>
-      {isSettingsRoute ? <SettingsWindow /> : <IslandView />}
+      {isSettingsRoute ? (
+        <SettingsWindow />
+      ) : isRecordingControlsRoute ? (
+        <RecordingControlsPill />
+      ) : (
+        <IslandView />
+      )}
     </ErrorBoundary>
   );
 }
+
