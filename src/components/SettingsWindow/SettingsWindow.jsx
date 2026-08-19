@@ -856,23 +856,25 @@ export default function SettingsWindow() {
           )}
 
               {activeTab === 'about' && (
-                <div className="wl-about">
-                  <div className="wl-about-mark" style={{ background: 'transparent', boxShadow: 'none' }}>
+                <div className="wl-about" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 380, padding: '30px 20px', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
                     <img
                       src="./icon.png"
                       alt="WinLand Logo"
                       style={{
-                        width: 76,
-                        height: 76,
-                        borderRadius: 18,
-                        boxShadow: '0 8px 24px rgba(0, 122, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.4)',
+                        width: 136,
+                        height: 136,
                         objectFit: 'contain',
+                        background: 'transparent',
+                        filter: 'drop-shadow(0 14px 36px rgba(0, 122, 255, 0.48)) drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35))',
+                        userSelect: 'none',
+                        pointerEvents: 'none',
                       }}
                     />
                   </div>
-                  <div className="wl-about-name">WinLand</div>
-                  <div className="wl-about-ver">Version 1.0.0</div>
-                  <p className="wl-about-copy">
+                  <div className="wl-about-name" style={{ fontSize: 26, fontWeight: 750, letterSpacing: '-0.025em', color: 'var(--label)' }}>WinLand</div>
+                  <div className="wl-about-ver" style={{ fontSize: 13, fontWeight: 550, color: 'var(--label-3)', marginTop: 4 }}>Version 1.0.0</div>
+                  <p className="wl-about-copy" style={{ fontSize: 13.5, color: 'var(--label-2)', lineHeight: 1.65, maxWidth: 440, marginTop: 16 }}>
                     A Dynamic Island for Windows with 1:1 macOS Tahoe System Settings.
                     Shows what is playing, what just connected, and how much battery it has left.
                   </p>
