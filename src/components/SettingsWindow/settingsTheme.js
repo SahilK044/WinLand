@@ -181,10 +181,22 @@ export const SETTINGS_CSS = `
 .wl-tab:hover:not(.is-active) { background: var(--surface-hover); }
 
 .wl-tab-badge {
-  width: 22px; height: 22px; border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  color: #ffffff; flex-shrink: 0;
-  transition: transform 0.2s ease, background 0.2s ease;
+  width: 25px;
+  height: 25px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 1.5px 3.5px rgba(0, 0, 0, 0.28), inset 0 0.75px 0.5px rgba(255, 255, 255, 0.42), inset 0 -0.75px 0.5px rgba(0, 0, 0, 0.18);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, filter 0.2s ease;
+}
+.wl-tab:hover .wl-tab-badge {
+  transform: scale(1.04);
+}
+.wl-tab.is-active .wl-tab-badge {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35), inset 0 0.75px 0.5px rgba(255, 255, 255, 0.5);
 }
 
 /* ── Content Area ─────────────────────────────────────────────────────── */

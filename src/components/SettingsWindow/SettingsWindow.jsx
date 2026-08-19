@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Check, X, Search, Moon, Sun } from 'lucide-react';
 import {
-  Smartphone, Headphones, Disc, Palette, Monitor, Info,
-  Check, X, Gamepad, Speaker, Search, Moon, Sun,
-} from 'lucide-react';
+  IconSmartphones,
+  IconHeadphones,
+  IconEarbuds,
+  IconGamingControllers,
+  IconSpeakers,
+  IconAppearance,
+  IconStyleMotion,
+  IconSystemPlacement,
+  IconAbout,
+} from './SettingsIcons';
 import { DEVICE_CATALOG, DEVICE_COLOR_VARIANTS, ANIMATION_STYLES } from '../../data/deviceCatalog';
 import { STYLE_KEYS, DEFAULT_STYLES, MUSIC_AURA_KEY } from '../../data/devicePrefs';
 import Canvas3DCard from './Canvas3DCard';
@@ -16,20 +24,20 @@ const SIDEBAR_GROUPS = [
   {
     label: 'Devices',
     tabs: [
-      { id: 'phones',      label: 'Smartphones',        icon: Smartphone, bg: '#007AFF' },
-      { id: 'headphones',  label: 'Headphones',         icon: Headphones, bg: '#AF52DE' },
-      { id: 'earbuds',     label: 'Earbuds & Audio',    icon: Disc,       bg: '#FF9500' },
-      { id: 'controllers', label: 'Gaming Controllers', icon: Gamepad,    bg: '#34C759' },
-      { id: 'speakers',    label: 'Speakers & Sound',   icon: Speaker,    bg: '#5AC8FA' },
+      { id: 'phones',      label: 'Smartphones',        icon: IconSmartphones,       bg: 'linear-gradient(180deg, #1C92FF 0%, #006ADC 100%)' },
+      { id: 'headphones',  label: 'Headphones',         icon: IconHeadphones,        bg: 'linear-gradient(180deg, #C76BF8 0%, #9537CE 100%)' },
+      { id: 'earbuds',     label: 'Earbuds & Audio',    icon: IconEarbuds,           bg: 'linear-gradient(180deg, #FFB340 0%, #E67A00 100%)' },
+      { id: 'controllers', label: 'Gaming Controllers', icon: IconGamingControllers, bg: 'linear-gradient(180deg, #4CD964 0%, #248A3D 100%)' },
+      { id: 'speakers',    label: 'Speakers & Sound',   icon: IconSpeakers,          bg: 'linear-gradient(180deg, #70D7FF 0%, #009BD6 100%)' },
     ],
   },
   {
     label: 'WinLand Preferences',
     tabs: [
-      { id: 'appearance', label: 'Appearance & Theme', icon: Sun,        bg: '#5856D6' },
-      { id: 'style',      label: 'Style & Motion',     icon: Palette,    bg: '#FF2D55' },
-      { id: 'system',     label: 'System & Placement', icon: Monitor,    bg: '#8E8E93' },
-      { id: 'about',      label: 'About',              icon: Info,       bg: '#FFCC00' },
+      { id: 'appearance', label: 'Appearance & Theme', icon: IconAppearance,        bg: 'linear-gradient(180deg, #7A78FF 0%, #4644B8 100%)' },
+      { id: 'style',      label: 'Style & Motion',     icon: IconStyleMotion,       bg: 'linear-gradient(180deg, #FF4570 0%, #D81E48 100%)' },
+      { id: 'system',     label: 'System & Placement', icon: IconSystemPlacement,   bg: 'linear-gradient(180deg, #A8A8AD 0%, #6E6E73 100%)' },
+      { id: 'about',      label: 'About',              icon: IconAbout,             bg: 'linear-gradient(180deg, #FFE033 0%, #D4A500 100%)' },
     ],
   },
 ];
@@ -353,12 +361,12 @@ export default function SettingsWindow() {
                           <div
                             className="wl-tab-badge"
                             style={{
-                              background: isSelected ? 'rgba(255, 255, 255, 0.25)' : tab.bg,
+                              background: tab.bg,
                               zIndex: 1,
                               position: 'relative',
                             }}
                           >
-                            <Icon size={13} color="#fff" />
+                            <Icon size={14.5} color="#ffffff" />
                           </div>
                           <span
                             style={{
