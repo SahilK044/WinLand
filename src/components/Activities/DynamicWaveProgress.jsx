@@ -179,11 +179,11 @@ export default function DynamicWaveProgress({
         anim.velocity += (anim.targetVelocity - anim.velocity) * easeFactor;
         anim.amplitudeFactor += (anim.targetAmplitude - anim.amplitudeFactor) * easeFactor;
 
-        // Progress wave phases horizontally
+        // Progress wave phases horizontally with lively, fluid motion
         if (anim.velocity > 0.005) {
-          anim.phase1 -= 0.0016 * anim.velocity * dt;
-          anim.phase2 -= 0.0025 * anim.velocity * dt;
-          anim.phase3 -= 0.0034 * anim.velocity * dt;
+          anim.phase1 -= 0.0048 * anim.velocity * dt;
+          anim.phase2 -= 0.0072 * anim.velocity * dt;
+          anim.phase3 -= 0.0096 * anim.velocity * dt;
         }
 
         // Check if settled
@@ -236,30 +236,33 @@ export default function DynamicWaveProgress({
         // Extract 3-Layer Dynamic Harmony Palette from eqColor
         const palette = getOneUIPalette(eqColor);
 
-        // ── 1. Samsung One UI Dynamic Multi-Layer Waves (Rising Upward) ────────
+        // ── 1. Samsung One UI Dynamic Multi-Layer Waves (Rolling Upward) ────────
         if (playedW > 6 && anim.amplitudeFactor > 0.01) {
           ctx.save();
 
           // 3 Distinct Overlapping Translucent Wave Layers (One UI 9 Beta 1 / Beta 2)
           const layers = [
             {
+              index: 0,
               phase: anim.phase1,
               amp: 13.5 * anim.amplitudeFactor,
-              wl: Math.max(68, playedW * 0.85),
+              wl: 68,
               color: palette.backColor,
               alpha: 0.45,
             },
             {
+              index: 1,
               phase: anim.phase2,
               amp: 10.5 * anim.amplitudeFactor,
-              wl: Math.max(50, playedW * 0.65),
+              wl: 48,
               color: palette.midColor,
               alpha: 0.65,
             },
             {
+              index: 2,
               phase: anim.phase3,
               amp: 7.5 * anim.amplitudeFactor,
-              wl: Math.max(36, playedW * 0.45),
+              wl: 34,
               color: palette.frontColor,
               alpha: 0.80,
             },
@@ -269,6 +272,10 @@ export default function DynamicWaveProgress({
             ctx.beginPath();
             ctx.moveTo(trackLeft, baselineY);
 
+            // Subtle organic breathing undulation
+            const breath = isPlaying ? 1 + 0.14 * Math.sin(now * 0.003 + layer.index * 1.8) : 1;
+            const effectiveAmp = layer.amp * breath;
+
             const step = 1.0;
             for (let x = trackLeft; x <= thumbX; x += step) {
               // Smooth cosine taper at start and end boundaries
@@ -276,10 +283,15 @@ export default function DynamicWaveProgress({
               const endTaper = Math.min(1, (thumbX - x) / 12);
               const taper = (0.5 - 0.5 * Math.cos(startTaper * Math.PI)) * (0.5 - 0.5 * Math.cos(endTaper * Math.PI));
 
-              // Upward sinusoidal hill elevation
+              // Multi-harmonic fluid wave equation
               const k = (Math.PI * 2) / layer.wl;
-              const sineVal = Math.sin((x - trackLeft) * k + layer.phase);
-              const elevation = Math.pow(Math.max(0, sineVal), 1.25) * layer.amp * taper;
+              const s1 = Math.sin((x - trackLeft) * k + layer.phase);
+              const s2 = 0.32 * Math.sin((x - trackLeft) * k * 1.7 + layer.phase * 1.3);
+              const raw = (s1 + s2) / 1.32;
+
+              // Normalized positive elevation (0 at baseline, up to effectiveAmp at crest)
+              const normElevation = Math.pow((raw + 1) * 0.5, 1.35);
+              const elevation = normElevation * effectiveAmp * taper;
               const waveY = baselineY - elevation;
 
               ctx.lineTo(x, waveY);
@@ -291,7 +303,7 @@ export default function DynamicWaveProgress({
             ctx.closePath();
 
             // Luminous vertical translucent gradient fill
-            const waveGrad = ctx.createLinearGradient(0, baselineY - layer.amp, 0, baselineY);
+            const waveGrad = ctx.createLinearGradient(0, baselineY - effectiveAmp, 0, baselineY);
             waveGrad.addColorStop(0, hexToRgba(layer.color, layer.alpha * 0.35));
             waveGrad.addColorStop(0.55, hexToRgba(layer.color, layer.alpha * 0.75));
             waveGrad.addColorStop(1, hexToRgba(layer.color, layer.alpha));
