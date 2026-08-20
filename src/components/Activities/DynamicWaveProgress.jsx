@@ -55,9 +55,9 @@ export default function DynamicWaveProgress({
   const animStateRef = useRef({
     timeSeconds: 0,
     velocity: isPlaying ? 1 : 0,
-    amplitudeFactor: isPlaying ? 1 : 0.85,
+    amplitudeFactor: isPlaying ? 1 : 0,
     targetVelocity: isPlaying ? 1 : 0,
-    targetAmplitude: isPlaying ? 1 : 0.85,
+    targetAmplitude: isPlaying ? 1 : 0,
     lastFrameTime: performance.now(),
     isSettled: false,
   });
@@ -86,10 +86,10 @@ export default function DynamicWaveProgress({
     }
   }, [progressMs, isPlaying]);
 
-  // Easing targets when playback state flips
+  // Easing targets when playback state flips (smooth settle on pause, smooth rise on play)
   useEffect(() => {
     animStateRef.current.targetVelocity = isPlaying ? 1 : 0;
-    animStateRef.current.targetAmplitude = isPlaying ? 1 : 0.85;
+    animStateRef.current.targetAmplitude = isPlaying ? 1 : 0;
     animStateRef.current.isSettled = false;
     animStateRef.current.lastFrameTime = performance.now();
   }, [isPlaying]);
@@ -173,20 +173,23 @@ export default function DynamicWaveProgress({
         const dt = Math.min(64, Math.max(1, now - anim.lastFrameTime));
         anim.lastFrameTime = now;
 
-        // Smooth 220ms critically damped easing
-        const easeFactor = Math.min(1, dt / 220);
-        anim.velocity += (anim.targetVelocity - anim.velocity) * easeFactor;
-        anim.amplitudeFactor += (anim.targetAmplitude - anim.amplitudeFactor) * easeFactor;
+        // Smooth critically damped easing for both velocity and amplitude
+        const easeVelocity = Math.min(1, dt / 350);
+        const easeAmplitude = Math.min(1, dt / 320);
+        anim.velocity += (anim.targetVelocity - anim.velocity) * easeVelocity;
+        anim.amplitudeFactor += (anim.targetAmplitude - anim.amplitudeFactor) * easeAmplitude;
 
         // Advance continuous animation time (seconds)
-        if (anim.velocity > 0.005) {
+        if (anim.velocity > 0.001) {
           anim.timeSeconds += (dt * 0.001) * anim.velocity;
         }
 
-        // Check if settled
-        const velocitySettled = Math.abs(anim.velocity - anim.targetVelocity) < 0.002;
-        const amplitudeSettled = Math.abs(anim.amplitudeFactor - anim.targetAmplitude) < 0.002;
+        // Check if fully settled
+        const velocitySettled = Math.abs(anim.velocity - anim.targetVelocity) < 0.001;
+        const amplitudeSettled = Math.abs(anim.amplitudeFactor - anim.targetAmplitude) < 0.001;
         if (!isPlaying && !isDraggingRef.current && velocitySettled && amplitudeSettled) {
+          anim.velocity = 0;
+          anim.amplitudeFactor = 0;
           anim.isSettled = true;
         }
 
