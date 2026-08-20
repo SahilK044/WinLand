@@ -3,16 +3,18 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 /* ────────────────────────────────────────────────────────────────────────────
    WinLand — Samsung One UI 9 Beta Dynamic Music Progress Wave
    ────────────────────────────────────────────────────────────────────────────
-   • 3-Layer GPU-accelerated liquid waves confined strictly to the played region.
+   • Wave sits directly ON the progress baseline and rises UPWARD.
+   • Bottom edge of the wave is completely flat along baselineY with 0 underspill.
+   • Continuous single-body colored shape: thin baseline + soft dynamic liquid wave.
    • Frame-rate independent horizontal flow (phase += speed * dt).
-   • Multi-harmonic sinusoidal hills (base + 0.25x 2nd harmonic + 0.12x 3rd harmonic).
+   • Multi-harmonic sinusoidal hills (base + 0.28x 2nd harmonic + 0.14x 3rd harmonic).
    • Smooth play/pause/resume velocity & amplitude easing with 0% CPU idle settling.
-   • Integrated glowing seek thumb with pointer capture and drag time tooltip.
+   • Integrated glowing seek thumb centered on (playedW, baselineY).
    • Full theme adaptability (Dark, Light, Liquid Glass) using active album art colors.
    ──────────────────────────────────────────────────────────────────────────── */
 
-const CANVAS_HEIGHT = 26;
-const TRACK_THICKNESS = 4;
+const CANVAS_HEIGHT = 28;
+const TRACK_THICKNESS = 3.5;
 
 function fmtTime(ms) {
   if (!ms || ms <= 0) return '0:00';
@@ -219,18 +221,22 @@ export default function DynamicWaveProgress({
 
       const fraction = durationMs > 0 ? Math.min(1, Math.max(0, currentPlayedMs / durationMs)) : 0;
       const playedW = fraction * displayW;
-      const centerY = displayH / 2;
+
+      // ── Authoritative Baseline Coordinate ──────────────────────────────────
+      // Everything anchors strictly to this Y coordinate:
+      // Track, unplayed line, wave bottom boundary, playhead center.
+      const baselineY = Math.round(displayH * 0.65);
 
       // ── 1. Unplayed Background Track ───────────────────────────────────────
       ctx.beginPath();
-      ctx.roundRect(0, centerY - (TRACK_THICKNESS / 2), displayW, TRACK_THICKNESS, TRACK_THICKNESS / 2);
+      ctx.roundRect(0, baselineY - (TRACK_THICKNESS / 2), displayW, TRACK_THICKNESS, TRACK_THICKNESS / 2);
       ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.10)' : 'rgba(255, 255, 255, 0.14)';
       ctx.fill();
 
       // ── 2. Played Base Track Line ──────────────────────────────────────────
       if (playedW > 0) {
         ctx.beginPath();
-        ctx.roundRect(0, centerY - (TRACK_THICKNESS / 2), playedW, TRACK_THICKNESS, TRACK_THICKNESS / 2);
+        ctx.roundRect(0, baselineY - (TRACK_THICKNESS / 2), playedW, TRACK_THICKNESS, TRACK_THICKNESS / 2);
         const baseGrad = ctx.createLinearGradient(0, 0, Math.max(playedW, 10), 0);
         baseGrad.addColorStop(0, '#ffffff');
         baseGrad.addColorStop(1, eqColor);
@@ -238,12 +244,12 @@ export default function DynamicWaveProgress({
         ctx.fill();
       }
 
-      // ── 3. Multi-Layer Dynamic Liquid Waves (Samsung One UI 9 Beta) ──────
+      // ── 3. Multi-Layer Dynamic Liquid Waves Rising UPWARD from Baseline ───
       if (playedW > 8) {
         ctx.save();
-        // Clip waves strictly to played region
+        // Hard clipping boundary: strictly clipped to [0, playedW] and ABOVE baselineY
         ctx.beginPath();
-        ctx.rect(0, 0, playedW, displayH);
+        ctx.rect(0, 0, playedW, baselineY + (TRACK_THICKNESS / 2));
         ctx.clip();
 
         // Subtle breathing dynamic modulation while playing
@@ -251,84 +257,93 @@ export default function DynamicWaveProgress({
 
         // Wave Layer Definitions: [phase, speed, baseAmp, opacity, strokeOpacity, wavelengthDiv]
         const layers = [
-          { phase: anim.phase1, amp: 6.2 * anim.amplitudeFactor * breathMod, fillOp: 0.35, strokeOp: 0.45, wl: Math.max(45, playedW / 2.2) },
-          { phase: anim.phase2, amp: 5.0 * anim.amplitudeFactor * breathMod, fillOp: 0.60, strokeOp: 0.70, wl: Math.max(38, playedW / 2.8) },
-          { phase: anim.phase3, amp: 3.8 * anim.amplitudeFactor * breathMod, fillOp: 0.85, strokeOp: 0.95, wl: Math.max(30, playedW / 3.4) },
+          { phase: anim.phase1, amp: 13.0 * anim.amplitudeFactor * breathMod, fillOp: 0.35, strokeOp: 0.45, wl: Math.max(52, playedW / 2.2) },
+          { phase: anim.phase2, amp: 10.5 * anim.amplitudeFactor * breathMod, fillOp: 0.55, strokeOp: 0.70, wl: Math.max(42, playedW / 2.8) },
+          { phase: anim.phase3, amp: 8.0 * anim.amplitudeFactor * breathMod, fillOp: 0.80, strokeOp: 0.95, wl: Math.max(34, playedW / 3.4) },
         ];
 
         layers.forEach((layer) => {
           ctx.beginPath();
-          ctx.moveTo(0, centerY);
+          ctx.moveTo(0, baselineY);
 
-          const step = 3;
+          const step = 2.5;
           for (let x = 0; x <= playedW; x += step) {
-            // Taper waves naturally near start and near seek thumb
-            const startTaper = Math.min(1, x / 14);
-            const endTaper = Math.min(1, (playedW - x) / 12);
-            const taper = startTaper * endTaper;
+            // Smooth taper near start and near seek thumb
+            const startTaper = Math.min(1, x / 16);
+            const endTaper = Math.min(1, (playedW - x) / 14);
+            const taper = Math.sin(startTaper * Math.PI * 0.5) * Math.sin(endTaper * Math.PI * 0.5);
 
-            // Multi-harmonic equation: base + 0.25x 2nd harmonic + 0.12x 3rd harmonic
+            // Multi-harmonic smooth liquid wave equation
             const k = (Math.PI * 2) / layer.wl;
-            const yOffset = (
-              Math.sin(x * k + layer.phase) +
-              0.25 * Math.sin(x * k * 1.8 + layer.phase * 1.3) +
-              0.12 * Math.sin(x * k * 2.7 + layer.phase * 0.7)
-            ) * layer.amp * taper;
+            const s1 = Math.sin(x * k + layer.phase);
+            const s2 = 0.28 * Math.sin(x * k * 1.75 + layer.phase * 1.25);
+            const s3 = 0.14 * Math.sin(x * k * 2.6 + layer.phase * 0.75);
+            const raw = (s1 + s2 + s3) / 1.42; // In [-1, 1]
 
-            ctx.lineTo(x, centerY - yOffset);
+            // Pure upward elevation: 0 at baseline, layer.amp at peaks (never extends below baselineY)
+            const positiveElevation = Math.max(0, (raw + 0.85) / 1.85);
+            const heightAboveBaseline = Math.pow(positiveElevation, 1.25) * layer.amp * taper;
+            const waveTopY = baselineY - heightAboveBaseline;
+
+            ctx.lineTo(x, waveTopY);
           }
 
-          ctx.lineTo(playedW, centerY);
+          // Flat bottom edge terminating cleanly at baselineY
+          ctx.lineTo(playedW, baselineY);
+          ctx.lineTo(0, baselineY);
           ctx.closePath();
 
-          // Liquid wave fill gradient
-          const waveGrad = ctx.createLinearGradient(0, centerY - layer.amp, playedW, centerY + layer.amp);
-          waveGrad.addColorStop(0, hexToRgba(eqColor, layer.fillOp));
-          waveGrad.addColorStop(1, hexToRgba(eqColor, layer.fillOp * 0.3));
+          // Liquid wave fill gradient (seamlessly blending into the played baseline)
+          const waveGrad = ctx.createLinearGradient(0, baselineY - layer.amp, 0, baselineY);
+          waveGrad.addColorStop(0, hexToRgba(eqColor, layer.fillOp * 0.4));
+          waveGrad.addColorStop(0.6, hexToRgba(eqColor, layer.fillOp * 0.85));
+          waveGrad.addColorStop(1, hexToRgba(eqColor, layer.fillOp));
           ctx.fillStyle = waveGrad;
           ctx.fill();
 
           // Crisp top wave crest stroke
           ctx.beginPath();
           for (let x = 0; x <= playedW; x += step) {
-            const startTaper = Math.min(1, x / 14);
-            const endTaper = Math.min(1, (playedW - x) / 12);
-            const taper = startTaper * endTaper;
+            const startTaper = Math.min(1, x / 16);
+            const endTaper = Math.min(1, (playedW - x) / 14);
+            const taper = Math.sin(startTaper * Math.PI * 0.5) * Math.sin(endTaper * Math.PI * 0.5);
             const k = (Math.PI * 2) / layer.wl;
-            const yOffset = (
-              Math.sin(x * k + layer.phase) +
-              0.25 * Math.sin(x * k * 1.8 + layer.phase * 1.3) +
-              0.12 * Math.sin(x * k * 2.7 + layer.phase * 0.7)
-            ) * layer.amp * taper;
+            const s1 = Math.sin(x * k + layer.phase);
+            const s2 = 0.28 * Math.sin(x * k * 1.75 + layer.phase * 1.25);
+            const s3 = 0.14 * Math.sin(x * k * 2.6 + layer.phase * 0.75);
+            const raw = (s1 + s2 + s3) / 1.42;
+            const positiveElevation = Math.max(0, (raw + 0.85) / 1.85);
+            const heightAboveBaseline = Math.pow(positiveElevation, 1.25) * layer.amp * taper;
+            const waveTopY = baselineY - heightAboveBaseline;
 
-            if (x === 0) ctx.moveTo(x, centerY - yOffset);
-            else ctx.lineTo(x, centerY - yOffset);
+            if (x === 0) ctx.moveTo(x, waveTopY);
+            else ctx.lineTo(x, waveTopY);
           }
-          ctx.strokeStyle = hexToRgba('#ffffff', layer.strokeOp * 0.9);
-          ctx.lineWidth = 1.4;
+          ctx.strokeStyle = hexToRgba('#ffffff', layer.strokeOp * 0.85);
+          ctx.lineWidth = 1.3;
           ctx.stroke();
         });
 
         ctx.restore();
       }
 
-      // ── 4. Glowing Seek Thumb ──────────────────────────────────────────────
+      // ── 4. Glowing Seek Thumb Centered Exactly on Baseline ────────────────
       if (fraction > 0.005 || isDraggingRef.current) {
         const thumbRadius = isDraggingRef.current ? 5.5 : 4.5;
 
-        // Outer ambient glow aura
+        // Outer ambient glow aura centered on (playedW, baselineY)
         ctx.save();
         ctx.shadowColor = eqGlow;
         ctx.shadowBlur = isDraggingRef.current ? 14 : 9;
         ctx.beginPath();
-        ctx.arc(playedW, centerY, thumbRadius + 1, 0, Math.PI * 2);
-        ctx.fillStyle = hexToRgba(eqColor, 0.4);
+        ctx.arc(playedW, baselineY, thumbRadius + 1.2, 0, Math.PI * 2);
+        ctx.fillStyle = hexToRgba(eqColor, 0.45);
         ctx.fill();
         ctx.restore();
 
-        // Inner solid white circle with subtle outline
+        // Inner solid white circle with crisp subtle outline
         ctx.beginPath();
-        ctx.arc(playedW, centerY, thumbRadius, 0, Math.PI * 2);
+        ctx.arc(playedW, baselineY, thumbRadius, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
         ctx.fill();
         ctx.lineWidth = 1.2;
