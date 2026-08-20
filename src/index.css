@@ -666,7 +666,47 @@ img, canvas {
   }
 }
 
+/* ── Music Progress Bar Shimmer Glow Animation ────────────────────────────── */
+@keyframes progressShimmerWave {
+  0% {
+    transform: translateX(-120%) skewX(-15deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  80% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateX(280%) skewX(-15deg);
+    opacity: 0;
+  }
+}
 
+.progress-shimmer-bar {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-shimmer-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.4) 35%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0.4) 65%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: progressShimmerWave 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  pointer-events: none;
+  will-change: transform;
+}
 
 /* ── Call Widget: Dynamic Island States ──────────────────────────────────── */
 .state-compact-call {
