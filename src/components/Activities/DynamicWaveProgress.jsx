@@ -92,12 +92,15 @@ export default function DynamicWaveProgress({
     animStateRef.current.lastFrameTime = performance.now();
   }, [isPlaying]);
 
+  const PADDING_X = 6;
+
   // ── Calculate Seek MS from Pointer Event ───────────────────────────────────
   const calcMsFromEvent = useCallback((e) => {
     if (!containerRef.current || !durationMs) return 0;
     const rect = containerRef.current.getBoundingClientRect();
-    const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-    const ratio = rect.width > 0 ? clickX / rect.width : 0;
+    const clickX = Math.max(PADDING_X, Math.min(e.clientX - rect.left, rect.width - PADDING_X));
+    const trackWidth = Math.max(1, rect.width - PADDING_X * 2);
+    const ratio = (clickX - PADDING_X) / trackWidth;
     setDragPosX(clickX);
     return Math.round(ratio * durationMs);
   }, [durationMs]);
@@ -217,12 +220,19 @@ export default function DynamicWaveProgress({
       }
 
       const fraction = durationMs > 0 ? Math.min(1, Math.max(0, currentPlayedMs / durationMs)) : 0;
-      const playedW = fraction * displayW;
       const centerY = displayH / 2;
+
+      // Inset geometry so the seek thumb at 0% or 100% is never cropped by canvas edges
+      const PADDING_X = 6;
+      const trackLeft = PADDING_X;
+      const trackRight = displayW - PADDING_X;
+      const trackWidth = Math.max(1, trackRight - trackLeft);
+      const playedW = fraction * trackWidth;
+      const thumbX = trackLeft + playedW;
 
       // ── 1. Unplayed Background Track Line ──────────────────────────────────
       ctx.beginPath();
-      ctx.roundRect(0, centerY - (TRACK_THICKNESS / 2), displayW, TRACK_THICKNESS, TRACK_THICKNESS / 2);
+      ctx.roundRect(trackLeft, centerY - (TRACK_THICKNESS / 2), trackWidth, TRACK_THICKNESS, TRACK_THICKNESS / 2);
       ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.10)' : 'rgba(255, 255, 255, 0.14)';
       ctx.fill();
 
@@ -231,34 +241,34 @@ export default function DynamicWaveProgress({
         const currentAmp = WAVE_AMP * anim.amplitudeFactor;
         const k = (Math.PI * 2) / WAVE_LENGTH;
 
-        // Generate smooth wave path points
+        // Generate smooth wave path points from trackLeft to thumbX
         const points = [];
         const step = 1.0;
-        for (let x = 0; x <= playedW; x += step) {
+        for (let x = trackLeft; x <= thumbX; x += step) {
           // Smooth taper near start and near thumb
-          const startTaper = Math.min(1, x / 14);
-          const endTaper = Math.min(1, (playedW - x) / 10);
+          const startTaper = Math.min(1, (x - trackLeft) / 14);
+          const endTaper = Math.min(1, (thumbX - x) / 10);
           const taper = Math.sin(startTaper * Math.PI * 0.5) * Math.sin(endTaper * Math.PI * 0.5);
 
           // Flowing sine wave equation
-          const yOffset = Math.sin(x * k + anim.phase) * currentAmp * taper;
+          const yOffset = Math.sin((x - trackLeft) * k + anim.phase) * currentAmp * taper;
           points.push({ x, y: centerY + yOffset });
         }
 
-        // Ensure final point terminates precisely at (playedW, centerY)
-        if (points.length === 0 || points[points.length - 1].x < playedW) {
-          points.push({ x: playedW, y: centerY });
+        // Ensure final point terminates precisely at (thumbX, centerY)
+        if (points.length === 0 || points[points.length - 1].x < thumbX) {
+          points.push({ x: thumbX, y: centerY });
         }
 
         // A. Subtle Translucent Ambient Liquid Depth Fill
         if (playedW > 8 && currentAmp > 0.5) {
           ctx.save();
           ctx.beginPath();
-          ctx.moveTo(0, centerY);
+          ctx.moveTo(trackLeft, centerY);
           for (let i = 0; i < points.length; i++) {
             ctx.lineTo(points[i].x, points[i].y);
           }
-          ctx.lineTo(playedW, centerY);
+          ctx.lineTo(thumbX, centerY);
           ctx.closePath();
 
           const depthGrad = ctx.createLinearGradient(0, centerY - currentAmp, 0, centerY + currentAmp);
@@ -291,7 +301,7 @@ export default function DynamicWaveProgress({
         for (let i = 1; i < points.length; i++) {
           ctx.lineTo(points[i].x, points[i].y);
         }
-        const ribbonGrad = ctx.createLinearGradient(0, 0, Math.max(playedW, 10), 0);
+        const ribbonGrad = ctx.createLinearGradient(trackLeft, 0, Math.max(thumbX, trackLeft + 10), 0);
         ribbonGrad.addColorStop(0, '#ffffff');
         ribbonGrad.addColorStop(0.35, hexToRgba(eqColor, 0.95));
         ribbonGrad.addColorStop(1, eqColor);
@@ -306,19 +316,19 @@ export default function DynamicWaveProgress({
       if (fraction > 0.005 || isDraggingRef.current) {
         const thumbRadius = isDraggingRef.current ? 5.5 : 4.5;
 
-        // Outer ambient glow aura centered on (playedW, centerY)
+        // Outer ambient glow aura centered on (thumbX, centerY)
         ctx.save();
         ctx.shadowColor = eqGlow;
         ctx.shadowBlur = isDraggingRef.current ? 14 : 9;
         ctx.beginPath();
-        ctx.arc(playedW, centerY, thumbRadius + 1.2, 0, Math.PI * 2);
+        ctx.arc(thumbX, centerY, thumbRadius + 1.2, 0, Math.PI * 2);
         ctx.fillStyle = hexToRgba(eqColor, 0.5);
         ctx.fill();
         ctx.restore();
 
         // Inner solid white circle with crisp subtle outline
         ctx.beginPath();
-        ctx.arc(playedW, centerY, thumbRadius, 0, Math.PI * 2);
+        ctx.arc(thumbX, centerY, thumbRadius, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
         ctx.fill();
         ctx.lineWidth = 1.2;
