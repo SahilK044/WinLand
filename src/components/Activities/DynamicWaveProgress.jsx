@@ -1,21 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 /* ────────────────────────────────────────────────────────────────────────────
-   WinLand — Samsung One UI 9 Premium Flowing Wave Progress Bar
+   WinLand — Samsung One UI 9 / Android Media Squiggly Wave Progress Bar
    ────────────────────────────────────────────────────────────────────────────
-   • Authentic Samsung One UI 9 Beta media progress experience:
-     The played track IS a luminous, flowing wavy line with liquid ambient depth.
-   • Silky multi-harmonic sine waves (amplitude ~4.5px) with smooth boundary tapers.
-   • Ambient neon aura glow + specular gradient ribbon for high-end luxury feel.
-   • Ultra-smooth 60/120/144 FPS GPU Canvas rendering with monotonic delta timing.
-   • Seamless play/pause velocity easing (220ms) and 0% CPU idle settling.
-   • Integrated glowing glass seek thumb with drag time tooltip.
+   • 1:1 Authentic SquigglyProgress architecture (AOSP / One UI 9 Media Player).
+   • Fixed wavelength (~34px cycle) with genuine undulating sinusoidal wave.
+   • Smooth start/end boundary tapering ensuring seamless connection to the
+     centerline and the circular seek thumb.
+   • High-precision 60/120/144 FPS GPU Canvas rendering with monotonic delta time.
+   • Smooth play/pause amplitude and velocity easing (200ms).
+   • Zero-allocation render loop with 0% CPU idle settling when paused.
+   • Complete boundary inset (PADDING_X = 6px) preventing thumb cropping at 0% & 100%.
    ──────────────────────────────────────────────────────────────────────────── */
 
-const CANVAS_HEIGHT = 26;
+const CANVAS_HEIGHT = 24;
 const TRACK_THICKNESS = 3.5;
-const WAVE_AMP = 4.6;
-const WAVE_LENGTH = 72;
+const WAVE_LENGTH = 34; // Fixed physical cycle length (1:1 with Samsung One UI)
+const WAVE_AMPLITUDE = 4.0; // Peak displacement from centerline
 
 function fmtTime(ms) {
   if (!ms || ms <= 0) return '0:00';
@@ -53,9 +54,9 @@ export default function DynamicWaveProgress({
   const animStateRef = useRef({
     phase: 0,
     velocity: isPlaying ? 1 : 0,
-    amplitudeFactor: isPlaying ? 1 : 0.85,
+    amplitudeFactor: isPlaying ? 1 : 0,
     targetVelocity: isPlaying ? 1 : 0,
-    targetAmplitude: isPlaying ? 1 : 0.85,
+    targetAmplitude: isPlaying ? 1 : 0,
     lastFrameTime: performance.now(),
     isSettled: !isPlaying,
   });
@@ -84,10 +85,10 @@ export default function DynamicWaveProgress({
     }
   }, [progressMs, isPlaying]);
 
-  // Easing targets when playback state flips
+  // Easing targets when playback state flips (playing = wave active, paused = flat)
   useEffect(() => {
     animStateRef.current.targetVelocity = isPlaying ? 1 : 0;
-    animStateRef.current.targetAmplitude = isPlaying ? 1 : 0.85;
+    animStateRef.current.targetAmplitude = isPlaying ? 1 : 0;
     animStateRef.current.isSettled = false;
     animStateRef.current.lastFrameTime = performance.now();
   }, [isPlaying]);
@@ -172,17 +173,17 @@ export default function DynamicWaveProgress({
       const dt = Math.min(64, Math.max(1, now - anim.lastFrameTime));
       anim.lastFrameTime = now;
 
-      // Smoothly ease velocity and amplitude (220ms time constant)
+      // Smooth 220ms critically damped easing
       const easeFactor = Math.min(1, dt / 220);
       anim.velocity += (anim.targetVelocity - anim.velocity) * easeFactor;
       anim.amplitudeFactor += (anim.targetAmplitude - anim.amplitudeFactor) * easeFactor;
 
-      // Update horizontal phase progression
+      // Progress phase horizontally while active
       if (anim.velocity > 0.005) {
-        anim.phase -= 0.0032 * anim.velocity * dt;
+        anim.phase -= 0.0045 * anim.velocity * dt;
       }
 
-      // Check if settled (to save CPU when paused and not seeking)
+      // Check if settled (stop RAF loop when settled to save 0% CPU)
       const velocitySettled = Math.abs(anim.velocity - anim.targetVelocity) < 0.002;
       const amplitudeSettled = Math.abs(anim.amplitudeFactor - anim.targetAmplitude) < 0.002;
       if (!isPlaying && !isDraggingRef.current && velocitySettled && amplitudeSettled) {
@@ -223,7 +224,6 @@ export default function DynamicWaveProgress({
       const centerY = displayH / 2;
 
       // Inset geometry so the seek thumb at 0% or 100% is never cropped by canvas edges
-      const PADDING_X = 6;
       const trackLeft = PADDING_X;
       const trackRight = displayW - PADDING_X;
       const trackWidth = Math.max(1, trackRight - trackLeft);
@@ -233,100 +233,73 @@ export default function DynamicWaveProgress({
       // ── 1. Unplayed Background Track Line ──────────────────────────────────
       ctx.beginPath();
       ctx.roundRect(trackLeft, centerY - (TRACK_THICKNESS / 2), trackWidth, TRACK_THICKNESS, TRACK_THICKNESS / 2);
-      ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.10)' : 'rgba(255, 255, 255, 0.14)';
+      ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.16)';
       ctx.fill();
 
-      // ── 2. Premium Flowing Liquid Wave Scrubber (Samsung One UI 9) ─────────
+      // ── 2. Authentic Samsung One UI Squiggly Progress Wave ─────────────────
       if (playedW > 0) {
-        const currentAmp = WAVE_AMP * anim.amplitudeFactor;
+        const currentAmp = WAVE_AMPLITUDE * anim.amplitudeFactor;
         const k = (Math.PI * 2) / WAVE_LENGTH;
 
-        // Generate smooth wave path points from trackLeft to thumbX
-        const points = [];
+        // Path generation
+        ctx.beginPath();
         const step = 1.0;
+        let isFirst = true;
+
         for (let x = trackLeft; x <= thumbX; x += step) {
-          // Smooth taper near start and near thumb
-          const startTaper = Math.min(1, (x - trackLeft) / 14);
-          const endTaper = Math.min(1, (thumbX - x) / 10);
+          // Smooth taper at boundaries (first 10px and last 6px)
+          const startTaper = Math.min(1, (x - trackLeft) / 10);
+          const endTaper = Math.min(1, (thumbX - x) / 6);
           const taper = Math.sin(startTaper * Math.PI * 0.5) * Math.sin(endTaper * Math.PI * 0.5);
 
-          // Flowing sine wave equation
-          const yOffset = Math.sin((x - trackLeft) * k + anim.phase) * currentAmp * taper;
-          points.push({ x, y: centerY + yOffset });
-        }
+          // Pure sinusoidal wave
+          const y = centerY + Math.sin((x - trackLeft) * k + anim.phase) * currentAmp * taper;
 
-        // Ensure final point terminates precisely at (thumbX, centerY)
-        if (points.length === 0 || points[points.length - 1].x < thumbX) {
-          points.push({ x: thumbX, y: centerY });
-        }
-
-        // A. Subtle Translucent Ambient Liquid Depth Fill
-        if (playedW > 8 && currentAmp > 0.5) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(trackLeft, centerY);
-          for (let i = 0; i < points.length; i++) {
-            ctx.lineTo(points[i].x, points[i].y);
+          if (isFirst) {
+            ctx.moveTo(x, y);
+            isFirst = false;
+          } else {
+            ctx.lineTo(x, y);
           }
-          ctx.lineTo(thumbX, centerY);
-          ctx.closePath();
-
-          const depthGrad = ctx.createLinearGradient(0, centerY - currentAmp, 0, centerY + currentAmp);
-          depthGrad.addColorStop(0, hexToRgba(eqColor, 0.22));
-          depthGrad.addColorStop(1, hexToRgba(eqColor, 0.08));
-          ctx.fillStyle = depthGrad;
-          ctx.fill();
-          ctx.restore();
         }
 
-        // B. Soft Neon Aura Glow Ribbon
+        // Connect precisely to (thumbX, centerY)
+        ctx.lineTo(thumbX, centerY);
+
+        // Soft ambient aura glow
         ctx.save();
         ctx.shadowColor = eqGlow;
         ctx.shadowBlur = isLight ? 4 : 8;
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-        ctx.strokeStyle = hexToRgba(eqColor, 0.65);
-        ctx.lineWidth = TRACK_THICKNESS + 1.2;
+        ctx.strokeStyle = eqColor;
+        ctx.lineWidth = TRACK_THICKNESS;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.stroke();
         ctx.restore();
 
-        // C. Core Specular Liquid Ribbon Line (Crisp, Luminous)
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
-        }
-        const ribbonGrad = ctx.createLinearGradient(trackLeft, 0, Math.max(thumbX, trackLeft + 10), 0);
-        ribbonGrad.addColorStop(0, '#ffffff');
-        ribbonGrad.addColorStop(0.35, hexToRgba(eqColor, 0.95));
-        ribbonGrad.addColorStop(1, eqColor);
-        ctx.strokeStyle = ribbonGrad;
+        // Crisp solid core stroke
+        ctx.strokeStyle = eqColor;
         ctx.lineWidth = TRACK_THICKNESS;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         ctx.stroke();
       }
 
-      // ── 3. Glowing Glass Playhead Thumb Knob ────────────────────────────────
+      // ── 3. Glowing Playhead Thumb Knob (Samsung One UI) ────────────────────
       if (fraction > 0.005 || isDraggingRef.current) {
         const thumbRadius = isDraggingRef.current ? 5.5 : 4.5;
 
-        // Outer ambient glow aura centered on (thumbX, centerY)
+        // Outer ambient glow aura
         ctx.save();
         ctx.shadowColor = eqGlow;
-        ctx.shadowBlur = isDraggingRef.current ? 14 : 9;
+        ctx.shadowBlur = isDraggingRef.current ? 12 : 8;
         ctx.beginPath();
-        ctx.arc(thumbX, centerY, thumbRadius + 1.2, 0, Math.PI * 2);
-        ctx.fillStyle = hexToRgba(eqColor, 0.5);
+        ctx.arc(thumbX, centerY, thumbRadius + 1, 0, Math.PI * 2);
+        ctx.fillStyle = eqColor;
         ctx.fill();
         ctx.restore();
 
-        // Inner solid white circle with crisp subtle outline
+        // Inner solid white circle with subtle outline
         ctx.beginPath();
         ctx.arc(thumbX, centerY, thumbRadius, 0, Math.PI * 2);
         ctx.fillStyle = '#ffffff';
@@ -420,6 +393,7 @@ export default function DynamicWaveProgress({
           justifyContent: 'space-between',
           fontSize: 10,
           marginTop: -2,
+          padding: '0 2px',
           fontWeight: 600,
           color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255, 255, 255, 0.55)',
           fontVariantNumeric: 'tabular-nums',
@@ -430,24 +404,4 @@ export default function DynamicWaveProgress({
       </div>
     </div>
   );
-}
-
-// ── Color Utility Helper ────────────────────────────────────────────────────
-function hexToRgba(hex, alpha = 1) {
-  if (!hex || typeof hex !== 'string') return `rgba(52, 199, 89, ${alpha})`;
-  if (hex.startsWith('rgba') || hex.startsWith('rgb')) {
-    return hex;
-  }
-  const cleanHex = hex.replace('#', '');
-  let r = 52, g = 199, b = 89;
-  if (cleanHex.length === 3) {
-    r = parseInt(cleanHex[0] + cleanHex[0], 16);
-    g = parseInt(cleanHex[1] + cleanHex[1], 16);
-    b = parseInt(cleanHex[2] + cleanHex[2], 16);
-  } else if (cleanHex.length >= 6) {
-    r = parseInt(cleanHex.substring(0, 2), 16);
-    g = parseInt(cleanHex.substring(2, 4), 16);
-    b = parseInt(cleanHex.substring(4, 6), 16);
-  }
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
