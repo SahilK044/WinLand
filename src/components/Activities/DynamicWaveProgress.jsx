@@ -315,14 +315,17 @@ export default function DynamicWaveProgress({
             ctx.beginPath();
             ctx.moveTo(trackLeft, baselineY);
 
+            // Generous adaptive shoulder taper (avoids abrupt pinch/cliff at the thumb knob)
+            const taperLen = Math.min(38, playedW * 0.45);
+
             // Sub-pixel 0.5px sampling step for ultra-smooth anti-aliased liquid curves
             const step = 0.5;
             for (let x = trackLeft; x <= thumbX; x += step) {
               const u = x - trackLeft;
 
-              // Smooth cosine taper at start and end boundaries
-              const startTaper = Math.min(1, u / 14);
-              const endTaper = Math.min(1, (thumbX - x) / 12);
+              // Smooth cosine taper at start and thumb boundaries
+              const startTaper = taperLen > 0 ? Math.min(1, u / taperLen) : 1;
+              const endTaper = taperLen > 0 ? Math.min(1, (thumbX - x) / taperLen) : 1;
               const taper = (0.5 - 0.5 * Math.cos(startTaper * Math.PI)) * (0.5 - 0.5 * Math.cos(endTaper * Math.PI));
 
               // Compute continuous dynamic morphing elevation
@@ -385,14 +388,15 @@ export default function DynamicWaveProgress({
 
         // ── 4. Glowing Playhead Thumb Knob (Samsung One UI 9) ──────────────────
         if (fraction > 0.005 || isDraggingRef.current) {
-          const thumbRadius = isDraggingRef.current ? 5.5 : 4.5;
+          const targetThumbRadius = isDraggingRef.current ? 5.8 : 4.5;
+          const thumbRadius = targetThumbRadius;
 
           // Ambient outer glow halo centered on (thumbX, baselineY)
           ctx.save();
           ctx.shadowColor = palette.primaryGlow;
-          ctx.shadowBlur = isDraggingRef.current ? 14 : 10;
+          ctx.shadowBlur = isDraggingRef.current ? 16 : 10;
           ctx.beginPath();
-          ctx.arc(thumbX, baselineY, thumbRadius + 1.2, 0, Math.PI * 2);
+          ctx.arc(thumbX, baselineY, thumbRadius + 1.4, 0, Math.PI * 2);
           ctx.fillStyle = palette.primaryColor;
           ctx.fill();
           ctx.restore();
