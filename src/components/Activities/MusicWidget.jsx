@@ -1188,17 +1188,23 @@ export default function MusicWidget({
           </div>
         </div>
 
-        {/* ── 2. Middle Row: Dynamic Waves or Classic Shimmer Scrubber with Smooth Fade ── */}
+        {/* ── 2. Middle Row: Dynamic Waves or Classic Shimmer Scrubber with Ultra-Smooth Dissolve ── */}
         <div style={{ width: '100%', height: 44, marginTop: 2, marginBottom: 0, position: 'relative' }}>
           <AnimatePresence initial={false}>
             {musicWaves ? (
               <motion.div
                 key="waves"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                style={{ width: '100%', position: 'absolute', top: 0, left: 0 }}
+                initial={{ opacity: 0, filter: 'blur(3px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, filter: 'blur(3px)' }}
+                transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  width: '100%',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  willChange: 'opacity, filter',
+                }}
               >
                 <DynamicWaveProgress
                   progressMs={progressMs}
@@ -1213,11 +1219,17 @@ export default function MusicWidget({
             ) : (
               <motion.div
                 key="classic"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                style={{ width: '100%', position: 'absolute', top: 0, left: 0 }}
+                initial={{ opacity: 0, filter: 'blur(3px)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, filter: 'blur(3px)' }}
+                transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                style={{
+                  width: '100%',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  willChange: 'opacity, filter',
+                }}
               >
                 <ClassicShimmerProgress
                   progressMs={progressMs}
