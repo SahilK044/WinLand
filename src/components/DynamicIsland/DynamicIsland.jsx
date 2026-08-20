@@ -1297,7 +1297,6 @@ export default function DynamicIsland({
   const smoothB = Math.round(b);
   const eqColor  = `rgb(${smoothR},${smoothG},${smoothB})`;
   const eqGlow   = `rgba(${smoothR},${smoothG},${smoothB},0.42)`;
-  const progGrad = `linear-gradient(90deg, rgb(${smoothR},${smoothG},${smoothB}), rgba(${smoothR},${smoothG},${smoothB},0.75))`;
 
   const isSplitLayout = activeState === 'split';
   const isRecordingSidePill = isScreenRecordingOngoing;
@@ -1399,7 +1398,6 @@ export default function DynamicIsland({
                   trackInfo={trackInfo}
                   eqColor={eqColor}
                   eqGlow={eqGlow}
-                  progressGradient={progGrad}
                 />
               ) : (
                 <IdleWidget weatherConfig={weatherConfig} isLight={isLight} />
@@ -1420,7 +1418,6 @@ export default function DynamicIsland({
               trackInfo={trackInfo}
               eqColor={eqColor}
               eqGlow={eqGlow}
-              progressGradient={progGrad}
               onExpand={() => setActiveState('expanded-music')}
               onTogglePlay={handleTogglePlay}
               onNext={handleNext}

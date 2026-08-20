@@ -1034,45 +1034,6 @@ img, canvas {
   }
 }
 
-@keyframes progressShimmerSweep {
-  0% {
-    transform: translateX(-120%);
-  }
-  100% {
-    transform: translateX(250%);
-  }
-}
-
-.progress-shimmer-bar {
-  position: relative;
-  overflow: hidden;
-}
-
-.progress-shimmer-bar::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 45%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.45) 50%,
-    transparent 100%
-  );
-  animation: progressShimmerSweep 2.2s ease-in-out infinite;
-  pointer-events: none;
-}
-
-
-
-
-
-
-
-
-
 /* Island geometry contract: flush top, fixed bottom radius, anti-aliased cutout. */
 .island-capsule, .island-capsule.primary-split, .island-capsule-secondary {
   border: none !important;
