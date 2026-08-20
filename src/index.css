@@ -668,18 +668,23 @@ img, canvas {
 
 
 
-/* ── Call Widget: Compact pill ────────────────────────────────────────────── */
+/* ── Call Widget: Dynamic Island States ──────────────────────────────────── */
 .state-compact-call {
   width: 280px;
-  height: 48px;
-  border-radius: 24px;
+  height: 44px;
+  border-radius: 22px;
 }
 
-/* ── Call Widget: Expanded panel ──────────────────────────────────────────── */
+.state-incoming-call {
+  width: 380px;
+  height: 72px;
+  border-radius: 36px;
+}
+
 .state-expanded-call {
-  width: 320px;
-  height: 220px;
-  border-radius: 44px;
+  width: 380px;
+  height: 140px;
+  border-radius: 38px;
 }
 
 /* ── Call Animations (1:1 macOS Concentric Acoustic Radar Waves) ─────────── */

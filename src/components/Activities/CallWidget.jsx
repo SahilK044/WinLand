@@ -2,19 +2,22 @@ import React, { useState, useEffect, useRef } from 'react';
 import { soundEngine } from '../../utils/soundEngine';
 
 /* ────────────────────────────────────────────────────────────────────────────
-   macOS Sequoia / Tahoe – 1:1 Phone & FaceTime Call Live Activity
+   macOS Sequoia / Tahoe – 1:1 Dynamic Island Call Activity
    ────────────────────────────────────────────────────────────────────────────
-   • Incoming Call : Deep black squircle, 3-tier concentric acoustic radar rings,
-                     dark initials avatar with crisp Apple green border, bold typography,
-                     glowing circular Decline (Red #ff3b30) & Accept (Green #34c759) buttons.
-   • Active Call   : Compact pill (live 4-bar equalizer + name + timer) &
-                     Expanded view (avatar, name, live timer, Mute / Speaker / Keypad / End).
+   • Incoming Call (Horizontal Island Banner):
+     Left 44px avatar with green ring & acoustic pulse · Center: Name + "Phone Link · Incoming Call" ·
+     Right: Red Decline & Green Accept circular action buttons.
+   • Active Call (Expanded HUD):
+     Top: Avatar + Name + Live duration + Live Waveform ·
+     Bottom: 4-button glass toolbar (Mute · Keypad · Speaker · End).
+   • Compact Pill:
+     Live green waveform · Caller name · Tabular duration counter.
    ──────────────────────────────────────────────────────────────────────────── */
 
 const SF_FONT = '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "SF Pro", "Inter", "Helvetica Neue", system-ui, sans-serif';
 
 /* ── Inline SVG icons (1:1 Apple SF-Symbols style) ────────────────────────── */
-const PhoneIcon = ({ size = 20, color = '#ffffff', style = {} }) => (
+const PhoneIcon = ({ size = 18, color = '#ffffff', style = {} }) => (
   <svg
     width={size}
     height={size}
@@ -30,27 +33,27 @@ const PhoneIcon = ({ size = 20, color = '#ffffff', style = {} }) => (
   </svg>
 );
 
-const MicIcon = ({ size = 16, color = '#ffffff' }) => (
+const MicIcon = ({ size = 15, color = '#ffffff' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', shapeRendering: 'geometricPrecision' }}>
     <rect x="9" y="1" width="6" height="13" rx="3"/>
     <path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
   </svg>
 );
 
-const MicOffIcon = ({ size = 16, color = '#ffffff' }) => (
+const MicOffIcon = ({ size = 15, color = '#ffffff' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', shapeRendering: 'geometricPrecision' }}>
     <line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 005.12 2.12M15 9.34V4a3 3 0 00-5.94-.6"/>
     <path d="M17 16.95A7 7 0 015 12v-2m14 0v2c0 .73-.11 1.43-.32 2.09"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>
   </svg>
 );
 
-const SpeakerIcon = ({ size = 16, color = '#ffffff' }) => (
+const SpeakerIcon = ({ size = 15, color = '#ffffff' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', shapeRendering: 'geometricPrecision' }}>
     <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>
   </svg>
 );
 
-const KeypadIcon = ({ size = 16, color = '#ffffff' }) => (
+const KeypadIcon = ({ size = 15, color = '#ffffff' }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block', shapeRendering: 'geometricPrecision' }}>
     <rect x="3" y="3" width="4" height="4" rx="1"/><rect x="10" y="3" width="4" height="4" rx="1"/><rect x="17" y="3" width="4" height="4" rx="1"/>
     <rect x="3" y="10" width="4" height="4" rx="1"/><rect x="10" y="10" width="4" height="4" rx="1"/><rect x="17" y="10" width="4" height="4" rx="1"/>
@@ -58,8 +61,8 @@ const KeypadIcon = ({ size = 16, color = '#ffffff' }) => (
   </svg>
 );
 
-/* ── Live Waveform for Compact Pill ──────────────────────────────────────── */
-function CompactWaveform() {
+/* ── Live Waveform for Compact & Active In-Call View ─────────────────────── */
+function CompactWaveform({ size = 20 }) {
   const canvasRef = useRef(null);
   const rafRef = useRef(null);
   const tRef = useRef(0);
@@ -69,24 +72,24 @@ function CompactWaveform() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const dpr = Math.max(window.devicePixelRatio || 1, 2);
-    canvas.width = 22 * dpr;
-    canvas.height = 22 * dpr;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
     ctx.scale(dpr, dpr);
 
     const loop = () => {
       tRef.current += 0.08;
-      ctx.clearRect(0, 0, 22, 22);
+      ctx.clearRect(0, 0, size, size);
       const bars = 4;
-      const barW = 2.4;
-      const gap = 2.0;
-      const startX = (22 - (bars * barW + (bars - 1) * gap)) / 2;
+      const barW = 2.2;
+      const gap = 1.8;
+      const startX = (size - (bars * barW + (bars - 1) * gap)) / 2;
       const freqs = [1.0, 1.618, 2.414, 3.317];
       const phases = [0, 1.1, 2.3, 0.7];
 
       for (let i = 0; i < bars; i++) {
-        const h = 5 + 9 * (0.5 + 0.5 * Math.sin(tRef.current * freqs[i] + phases[i]));
+        const h = 4 + 8 * (0.5 + 0.5 * Math.sin(tRef.current * freqs[i] + phases[i]));
         const x = startX + i * (barW + gap);
-        const y = 11 - h / 2;
+        const y = (size / 2) - (h / 2);
         ctx.beginPath();
         ctx.roundRect(x, y, barW, h, barW / 2);
         ctx.fillStyle = '#34c759';
@@ -96,12 +99,12 @@ function CompactWaveform() {
     };
     rafRef.current = requestAnimationFrame(loop);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
-  }, []);
+  }, [size]);
 
   return (
     <canvas
       ref={canvasRef}
-      style={{ width: 22, height: 22, flexShrink: 0, imageRendering: 'auto' }}
+      style={{ width: size, height: size, flexShrink: 0, imageRendering: 'auto' }}
     />
   );
 }
@@ -113,7 +116,7 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
   const [isSpeaker, setIsSpeaker] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
 
-  // Button hover / active physics
+  // Button hover / active states for smooth spring physics
   const [hoverAccept, setHoverAccept] = useState(false);
   const [pressAccept, setPressAccept] = useState(false);
   const [hoverDecline, setHoverDecline] = useState(false);
@@ -212,7 +215,7 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
   const hasAvatar = !!callData?.avatar;
 
   /* ──────────────────────────────────────────────────────────────────────────
-     1. COMPACT PILL (macOS Active Live Indicator)
+     1. COMPACT PILL (macOS Active Live Activity Pill)
      ────────────────────────────────────────────────────────────────────────── */
   if (isCompact) {
     return (
@@ -224,7 +227,7 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
         MozOsxFontSmoothing: 'grayscale',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 9, minWidth: 0 }}>
-          <CompactWaveform />
+          <CompactWaveform size={20} />
           <span style={{
             fontSize: 13.5, fontWeight: 600, color: '#ffffff',
             letterSpacing: '-0.25px', lineHeight: 1,
@@ -254,15 +257,178 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
   }
 
   /* ──────────────────────────────────────────────────────────────────────────
-     2. EXPANDED VIEW (1:1 macOS Incoming Call & Active Call)
+     2. INCOMING CALL (macOS / iOS Dynamic Island Horizontal Banner)
+     ────────────────────────────────────────────────────────────────────────── */
+  if (callState === 'incoming') {
+    return (
+      <div
+        style={{
+          width: '100%', height: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 16px 0 14px',
+          position: 'relative',
+          borderRadius: 'inherit',
+          background: '#000000',
+          fontFamily: SF_FONT,
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
+          textRendering: 'optimizeLegibility',
+          userSelect: 'none',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Left: Avatar with Concentric Acoustic Radar Pulse Rings */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 13, minWidth: 0,
+        }}>
+          <div style={{
+            position: 'relative',
+            width: 46, height: 46,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0,
+          }}>
+            {/* Ambient Green Core Glow */}
+            <div style={{
+              position: 'absolute', width: 42, height: 42, borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(52, 199, 89, 0.45) 0%, transparent 75%)',
+              pointerEvents: 'none',
+              animation: 'callGlowBreath 2s ease-in-out infinite',
+            }} />
+
+            {/* Acoustic Radar Wave 1 */}
+            <div style={{
+              position: 'absolute', width: 42, height: 42, borderRadius: '50%',
+              border: '1.5px solid rgba(52, 199, 89, 0.75)',
+              pointerEvents: 'none',
+              animation: 'macosCallPulse1 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite',
+            }} />
+
+            {/* Acoustic Radar Wave 2 */}
+            <div style={{
+              position: 'absolute', width: 42, height: 42, borderRadius: '50%',
+              border: '1.5px solid rgba(52, 199, 89, 0.65)',
+              pointerEvents: 'none',
+              animation: 'macosCallPulse2 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 0.75s',
+            }} />
+
+            {/* Avatar Circle */}
+            {hasAvatar && !avatarError ? (
+              <img
+                src={callData.avatar}
+                alt={callerName}
+                style={{
+                  width: 42, height: 42, borderRadius: '50%',
+                  objectFit: 'cover',
+                  border: '2px solid #34c759',
+                  boxShadow: '0 0 12px rgba(52, 199, 89, 0.45)',
+                  zIndex: 2,
+                }}
+                onError={() => setAvatarError(true)}
+              />
+            ) : (
+              <div style={{
+                width: 42, height: 42, borderRadius: '50%',
+                background: '#1d1d1f',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 700, fontSize: 16, color: '#ffffff',
+                border: '2px solid #34c759',
+                boxShadow: '0 0 12px rgba(52, 199, 89, 0.45)',
+                letterSpacing: '-0.4px',
+                fontFamily: SF_FONT,
+                zIndex: 2,
+              }}>
+                {initials}
+              </div>
+            )}
+          </div>
+
+          {/* Caller Details */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', minWidth: 0 }}>
+            <div style={{
+              fontSize: 15.5, fontWeight: 700, color: '#ffffff',
+              letterSpacing: '-0.3px', lineHeight: 1.2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {callerName}
+            </div>
+            <div style={{
+              fontSize: 12, fontWeight: 400, color: 'rgba(255, 255, 255, 0.55)',
+              letterSpacing: '-0.1px', marginTop: 2, lineHeight: 1.2,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {source} · Incoming Call
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Accept & Decline Circular Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          {/* Decline Button (Red) */}
+          <button
+            onClick={declineCall}
+            onMouseEnter={() => setHoverDecline(true)}
+            onMouseLeave={() => { setHoverDecline(false); setPressDecline(false); }}
+            onMouseDown={() => setPressDecline(true)}
+            onMouseUp={() => setPressDecline(false)}
+            className="interactive-child"
+            style={{
+              width: 42, height: 42, borderRadius: '50%',
+              background: '#ff3b30',
+              border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: hoverDecline
+                ? '0 5px 18px rgba(255, 59, 48, 0.55), 0 2px 6px rgba(255, 59, 48, 0.35)'
+                : '0 3px 14px rgba(255, 59, 48, 0.45), 0 1px 4px rgba(255, 59, 48, 0.22)',
+              transform: pressDecline ? 'scale(0.92)' : hoverDecline ? 'scale(1.06)' : 'scale(1)',
+              transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease',
+              outline: 'none',
+            }}
+            title="Decline"
+          >
+            <PhoneIcon size={18} color="#ffffff" style={{ transform: 'rotate(135deg)' }} />
+          </button>
+
+          {/* Accept Button (Green) */}
+          <button
+            onClick={acceptCall}
+            onMouseEnter={() => setHoverAccept(true)}
+            onMouseLeave={() => { setHoverAccept(false); setPressAccept(false); }}
+            onMouseDown={() => setPressAccept(true)}
+            onMouseUp={() => setPressAccept(false)}
+            className="interactive-child"
+            style={{
+              width: 42, height: 42, borderRadius: '50%',
+              background: '#34c759',
+              border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+              boxShadow: hoverAccept
+                ? '0 5px 18px rgba(52, 199, 89, 0.55), 0 2px 6px rgba(52, 199, 89, 0.35)'
+                : '0 3px 14px rgba(52, 199, 89, 0.45), 0 1px 4px rgba(52, 199, 89, 0.22)',
+              transform: pressAccept ? 'scale(0.92)' : hoverAccept ? 'scale(1.06)' : 'scale(1)',
+              transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease',
+              outline: 'none',
+            }}
+            title="Accept"
+          >
+            <PhoneIcon size={18} color="#ffffff" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+     3. ACTIVE CALL EXPANDED (macOS Call Management HUD)
      ────────────────────────────────────────────────────────────────────────── */
   return (
     <div
       style={{
         width: '100%', height: '100%',
         display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center',
-        padding: '16px 20px',
+        justifyContent: 'space-between',
+        padding: '16px 20px 14px',
         position: 'relative',
         borderRadius: 'inherit',
         background: '#000000',
@@ -274,277 +440,118 @@ export default function CallWidget({ callData, isCompact, onEndCall }) {
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* ── Top Avatar Area with macOS Concentric Acoustic Radar Rings ── */}
-      <div style={{
-        position: 'relative',
-        width: 64,
-        height: 64,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 8,
-        flexShrink: 0,
-      }}>
-        {callState === 'incoming' && (
-          <>
-            {/* Ambient Base Green Core Glow */}
+      {/* Top Section: Avatar + Name + Timer & Waveform */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {/* Avatar */}
+          {hasAvatar && !avatarError ? (
+            <img
+              src={callData.avatar}
+              alt={callerName}
+              style={{
+                width: 38, height: 38, borderRadius: '50%',
+                objectFit: 'cover',
+                border: '1.5px solid rgba(255, 255, 255, 0.2)',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.5)',
+              }}
+              onError={() => setAvatarError(true)}
+            />
+          ) : (
             <div style={{
-              position: 'absolute',
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(52, 199, 89, 0.45) 0%, rgba(52, 199, 89, 0.1) 60%, transparent 85%)',
-              pointerEvents: 'none',
-              animation: 'callGlowBreath 2.2s ease-in-out infinite',
-            }} />
-
-            {/* Radar Wave 1 (Inner Wave) */}
-            <div style={{
-              position: 'absolute',
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              border: '1.5px solid rgba(52, 199, 89, 0.75)',
-              pointerEvents: 'none',
-              animation: 'macosCallPulse1 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite',
-            }} />
-
-            {/* Radar Wave 2 (Middle Wave) */}
-            <div style={{
-              position: 'absolute',
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              border: '1.5px solid rgba(52, 199, 89, 0.65)',
-              pointerEvents: 'none',
-              animation: 'macosCallPulse2 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 0.75s',
-            }} />
-
-            {/* Radar Wave 3 (Outer Wave) */}
-            <div style={{
-              position: 'absolute',
-              width: 56,
-              height: 56,
-              borderRadius: '50%',
-              border: '1px solid rgba(52, 199, 89, 0.45)',
-              pointerEvents: 'none',
-              animation: 'macosCallPulse3 2.2s cubic-bezier(0.2, 0.8, 0.4, 1) infinite 1.4s',
-            }} />
-          </>
-        )}
-
-        {/* Active Connected Call Glow */}
-        {callState === 'active' && (
-          <div style={{
-            position: 'absolute',
-            width: 68,
-            height: 68,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(52, 199, 89, 0.3) 0%, rgba(52, 199, 89, 0.08) 55%, transparent 80%)',
-            pointerEvents: 'none',
-            animation: 'callGlowBreath 3s ease-in-out infinite',
-          }} />
-        )}
-
-        {/* Center Avatar Circle */}
-        {hasAvatar && !avatarError ? (
-          <img
-            src={callData.avatar}
-            alt={callerName}
-            style={{
-              width: 54, height: 54, borderRadius: '50%',
-              objectFit: 'cover',
-              border: callState === 'incoming'
-                ? '2.5px solid #34c759'
-                : '1.5px solid rgba(255, 255, 255, 0.18)',
-              boxShadow: callState === 'incoming'
-                ? '0 0 14px rgba(52, 199, 89, 0.4)'
-                : '0 4px 12px rgba(0, 0, 0, 0.5)',
-              zIndex: 2,
-              animation: 'callAvatarEntry 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards',
-            }}
-            onError={() => setAvatarError(true)}
-          />
-        ) : (
-          <div style={{
-            width: 54, height: 54, borderRadius: '50%',
-            background: '#232326',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 20, color: '#ffffff',
-            border: callState === 'incoming'
-              ? '2.5px solid #34c759'
-              : '1.5px solid rgba(255, 255, 255, 0.18)',
-            boxShadow: callState === 'incoming'
-              ? '0 0 14px rgba(52, 199, 89, 0.4)'
-              : '0 4px 12px rgba(0, 0, 0, 0.5)',
-            letterSpacing: '-0.5px',
-            fontFamily: SF_FONT,
-            zIndex: 2,
-            animation: 'callAvatarEntry 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards',
-          }}>
-            {initials}
-          </div>
-        )}
-      </div>
-
-      {/* ── Caller Name ────────────────────────────────────────────────────── */}
-      <div style={{
-        fontSize: 18, fontWeight: 700, color: '#ffffff',
-        letterSpacing: '-0.35px', textAlign: 'center',
-        lineHeight: 1.2,
-        maxWidth: '90%',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        animation: 'callTextEntry 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both',
-      }}>
-        {callerName}
-      </div>
-
-      {/* ── Subtitle Status Line ───────────────────────────────────────────── */}
-      <div style={{
-        fontSize: 12.5, fontWeight: 500,
-        color: callState === 'active' ? '#34c759' : 'rgba(255, 255, 255, 0.48)',
-        letterSpacing: '-0.1px', textAlign: 'center',
-        marginTop: 3,
-        marginBottom: callState === 'incoming' ? 18 : 14,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-        animation: 'callTextEntry 0.45s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both',
-      }}>
-        {callState === 'active' ? (
-          <>
-            <span style={{
-              width: 6, height: 6, borderRadius: '50%',
-              background: '#34c759', display: 'inline-block',
-              boxShadow: '0 0 8px rgba(52, 199, 89, 0.6)',
-              animation: 'callDotPulse 2s ease-in-out infinite',
-            }} />
-            <span style={{ color: 'rgba(255,255,255,0.7)' }}>{source}</span>
-            <span style={{ color: 'rgba(255,255,255,0.3)' }}>·</span>
-            <span style={{
-              fontVariantNumeric: 'tabular-nums', fontWeight: 600,
-              color: '#34c759',
+              width: 38, height: 38, borderRadius: '50%',
+              background: '#232326',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 700, fontSize: 15, color: '#ffffff',
+              border: '1.5px solid rgba(255, 255, 255, 0.2)',
+              letterSpacing: '-0.3px',
+              fontFamily: SF_FONT,
             }}>
-              {formatDuration(duration)}
-            </span>
-          </>
-        ) : (
-          <span>
-            {source} · Incoming Call
-          </span>
-        )}
+              {initials}
+            </div>
+          )}
+
+          {/* Caller & Duration */}
+          <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{
+              fontSize: 15, fontWeight: 700, color: '#ffffff',
+              letterSpacing: '-0.25px', lineHeight: 1.2,
+            }}>
+              {callerName}
+            </div>
+            <div style={{
+              fontSize: 12, fontWeight: 500, color: '#34c759',
+              letterSpacing: '0.2px', marginTop: 2,
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <span style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: '#34c759', display: 'inline-block',
+                boxShadow: '0 0 6px rgba(52, 199, 89, 0.6)',
+                animation: 'callDotPulse 2s ease-in-out infinite',
+              }} />
+              <span style={{ color: 'rgba(255,255,255,0.6)' }}>{source} ·</span>
+              <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                {formatDuration(duration)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Top Right: Live Waveform */}
+        <CompactWaveform size={22} />
       </div>
 
-      {/* ── Bottom Controls ────────────────────────────────────────────────── */}
-      {callState === 'incoming' ? (
-        /* ── Incoming: 1:1 Circular Decline (Red) + Accept (Green) Buttons ── */
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 42,
-          animation: 'callButtonsEntry 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both',
-        }}>
-          {/* Decline (Red) */}
-          <button
-            onClick={declineCall}
-            onMouseEnter={() => setHoverDecline(true)}
-            onMouseLeave={() => { setHoverDecline(false); setPressDecline(false); }}
-            onMouseDown={() => setPressDecline(true)}
-            onMouseUp={() => setPressDecline(false)}
-            className="interactive-child"
-            style={{
-              width: 50, height: 50, borderRadius: '50%',
-              background: '#ff3b30',
-              border: 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: hoverDecline
-                ? '0 6px 20px rgba(255, 59, 48, 0.55), 0 2px 8px rgba(255, 59, 48, 0.35)'
-                : '0 4px 16px rgba(255, 59, 48, 0.42), 0 2px 6px rgba(255, 59, 48, 0.22)',
-              transform: pressDecline ? 'scale(0.92)' : hoverDecline ? 'scale(1.06)' : 'scale(1)',
-              transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease',
-              outline: 'none',
-            }}
-            title="Decline"
-          >
-            <PhoneIcon size={20} color="#ffffff" style={{ transform: 'rotate(135deg)' }} />
-          </button>
+      {/* Bottom Section: 4-Button macOS Glass Control Toolbar */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        width: '100%', marginTop: 8,
+      }}>
+        {/* Mute Button */}
+        <CallActionBtn
+          icon={isMuted ? <MicOffIcon size={16} color={isMuted ? '#ff453a' : '#ffffff'} /> : <MicIcon size={16} color="#ffffff" />}
+          label="Mute"
+          active={isMuted}
+          activeColor="rgba(255, 69, 58, 0.22)"
+          activeBorder="#ff453a"
+          onClick={toggleMute}
+        />
 
-          {/* Accept (Green) */}
-          <button
-            onClick={acceptCall}
-            onMouseEnter={() => setHoverAccept(true)}
-            onMouseLeave={() => { setHoverAccept(false); setPressAccept(false); }}
-            onMouseDown={() => setPressAccept(true)}
-            onMouseUp={() => setPressAccept(false)}
-            className="interactive-child"
-            style={{
-              width: 50, height: 50, borderRadius: '50%',
-              background: '#34c759',
-              border: 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: hoverAccept
-                ? '0 6px 20px rgba(52, 199, 89, 0.55), 0 2px 8px rgba(52, 199, 89, 0.35)'
-                : '0 4px 16px rgba(52, 199, 89, 0.42), 0 2px 6px rgba(52, 199, 89, 0.22)',
-              transform: pressAccept ? 'scale(0.92)' : hoverAccept ? 'scale(1.06)' : 'scale(1)',
-              transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease',
-              outline: 'none',
-            }}
-            title="Accept"
-          >
-            <PhoneIcon size={20} color="#ffffff" />
-          </button>
-        </div>
-      ) : (
-        /* ── Active Connected Call: 4-button macOS Toolbar ── */
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 14,
-          animation: 'callButtonsEntry 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both',
-        }}>
-          {/* Mute Toggle */}
-          <CallActionBtn
-            icon={isMuted ? <MicOffIcon size={16} color={isMuted ? '#ff453a' : '#ffffff'} /> : <MicIcon size={16} color="#ffffff" />}
-            label="Mute"
-            active={isMuted}
-            activeColor="rgba(255, 69, 58, 0.22)"
-            activeBorder="#ff453a"
-            onClick={toggleMute}
-          />
+        {/* Keypad Button */}
+        <CallActionBtn
+          icon={<KeypadIcon size={16} color="#ffffff" />}
+          label="Keypad"
+          onClick={(e) => e.stopPropagation()}
+        />
 
-          {/* End Call Button (Solid Red Circle with Hung Up Icon) */}
-          <button
-            onClick={endCall}
-            className="interactive-child"
-            style={{
-              width: 48, height: 48, borderRadius: '50%',
-              background: '#ff3b30',
-              border: 'none',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(255, 59, 48, 0.45), 0 2px 6px rgba(255, 59, 48, 0.25)',
-              transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease',
-              outline: 'none',
-            }}
-            title="End Call"
-          >
-            <PhoneIcon size={20} color="#ffffff" style={{ transform: 'rotate(135deg)' }} />
-          </button>
+        {/* Speaker Button */}
+        <CallActionBtn
+          icon={<SpeakerIcon size={16} color={isSpeaker ? '#007aff' : '#ffffff'} />}
+          label="Speaker"
+          active={isSpeaker}
+          activeColor="rgba(0, 122, 255, 0.22)"
+          activeBorder="#007aff"
+          onClick={toggleSpeaker}
+        />
 
-          {/* Speaker / Audio Toggle */}
-          <CallActionBtn
-            icon={<SpeakerIcon size={16} color={isSpeaker ? '#007aff' : '#ffffff'} />}
-            label="Speaker"
-            active={isSpeaker}
-            activeColor="rgba(0, 122, 255, 0.22)"
-            activeBorder="#007aff"
-            onClick={toggleSpeaker}
-          />
-
-          {/* Keypad */}
-          <CallActionBtn
-            icon={<KeypadIcon size={16} color="#ffffff" />}
-            label="Keypad"
-            onClick={(e) => e.stopPropagation()}
-          />
-        </div>
-      )}
+        {/* End Call Button (Solid Red) */}
+        <button
+          onClick={endCall}
+          className="interactive-child"
+          style={{
+            width: 42, height: 42, borderRadius: '50%',
+            background: '#ff3b30',
+            border: 'none',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+            boxShadow: '0 3px 14px rgba(255, 59, 48, 0.45), 0 1px 4px rgba(255, 59, 48, 0.25)',
+            transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.22s ease',
+            outline: 'none',
+          }}
+          title="End Call"
+        >
+          <PhoneIcon size={18} color="#ffffff" style={{ transform: 'rotate(135deg)' }} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -564,7 +571,7 @@ function CallActionBtn({ icon, label, active, activeColor, activeBorder, onClick
       onMouseDown={() => setPressed(true)}
       onMouseUp={() => setPressed(false)}
       style={{
-        width: 40, height: 40, borderRadius: '50%',
+        width: 42, height: 42, borderRadius: '50%',
         background: active ? (activeColor || 'rgba(255,255,255,0.18)') : hovered ? 'rgba(255, 255, 255, 0.16)' : 'rgba(255, 255, 255, 0.1)',
         border: active ? `1px solid ${activeBorder || 'rgba(255,255,255,0.3)'}` : '1px solid rgba(255, 255, 255, 0.12)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',

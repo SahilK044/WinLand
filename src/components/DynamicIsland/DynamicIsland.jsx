@@ -913,8 +913,8 @@ export default function DynamicIsland({
       'expanded-music':    [356, 156],
       'expanded-lyrics':   [420, 320],
       'expanded-timer':    [480, timerHeight],
-      'compact-call':      [280, 48],
-      'expanded-call':     [320, 220],
+      'compact-call':      [280, 44],
+      'expanded-call':     callData?.state === 'incoming' ? [380, 72] : [380, 140],
       'expanded-airdrop':  [380, 200],
       'expanded-recorder': [370, 205],
       'expanded-screenrec':[400, 214],
@@ -954,7 +954,7 @@ export default function DynamicIsland({
     return () => {
       if (morphTimeoutRef.current) clearTimeout(morphTimeoutRef.current);
     };
-  }, [activeState, timers.length, shelvedItems.length, weatherSearchCount, isScreenRecordingOngoing]);
+  }, [activeState, callData?.state, timers.length, shelvedItems.length, weatherSearchCount, isScreenRecordingOngoing]);
 
   // ── State class map ───────────────────────────────────────────────────────
   const getStateClass = () => {
@@ -967,7 +967,7 @@ export default function DynamicIsland({
       'expanded-lyrics':   'state-expanded-lyrics',
       'expanded-timer':    'state-expanded-timer',
       'compact-call':      'state-compact-call',
-      'expanded-call':     'state-expanded-call',
+      'expanded-call':     callData?.state === 'incoming' ? 'state-incoming-call' : 'state-expanded-call',
       'expanded-airdrop':  'state-expanded-airdrop',
       'expanded-recorder': 'state-expanded-recorder',
       'expanded-screenrec':'state-expanded-screenrec',
