@@ -215,7 +215,7 @@ export async function searchPlaces(query) {
 /**
  * Fetches hyper-local physical surface station weather for exact geographic coordinates
  */
-export async function fetchWeatherForCoordinates(lat, lon, cityName = 'Local') {
+export async function fetchWeatherForCoordinates(lat, lon, cityName = 'Local', saveCustom = false) {
   // 1. Tier 1: Real surface meteorological station observation (wttr.in)
   try {
     const url = `https://wttr.in/${lat},${lon}?format=j1`;
@@ -243,9 +243,11 @@ export async function fetchWeatherForCoordinates(lat, lon, cityName = 'Local') {
         lastWeatherFetchTime = Date.now();
 
         try {
-          localStorage.setItem('winland_custom_city', result.city);
-          localStorage.setItem('winland_custom_lat', String(lat));
-          localStorage.setItem('winland_custom_lon', String(lon));
+          if (saveCustom) {
+            localStorage.setItem('winland_custom_city', result.city);
+            localStorage.setItem('winland_custom_lat', String(lat));
+            localStorage.setItem('winland_custom_lon', String(lon));
+          }
           localStorage.setItem('winland_live_weather', JSON.stringify(result));
         } catch {}
 
@@ -284,9 +286,11 @@ export async function fetchWeatherForCoordinates(lat, lon, cityName = 'Local') {
         lastWeatherFetchTime = Date.now();
 
         try {
-          localStorage.setItem('winland_custom_city', result.city);
-          localStorage.setItem('winland_custom_lat', String(lat));
-          localStorage.setItem('winland_custom_lon', String(lon));
+          if (saveCustom) {
+            localStorage.setItem('winland_custom_city', result.city);
+            localStorage.setItem('winland_custom_lat', String(lat));
+            localStorage.setItem('winland_custom_lon', String(lon));
+          }
           localStorage.setItem('winland_live_weather', JSON.stringify(result));
         } catch {}
 
@@ -312,7 +316,7 @@ export async function fetchLiveWeather(force = false, customQuery = '') {
     const matches = await searchPlaces(q);
     if (matches.length > 0) {
       const match = matches[0];
-      const result = await fetchWeatherForCoordinates(match.latitude, match.longitude, match.name);
+      const result = await fetchWeatherForCoordinates(match.latitude, match.longitude, match.name, true);
       if (result) return result;
     }
     // Fallback: wttr query with place name

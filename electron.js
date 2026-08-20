@@ -1405,10 +1405,11 @@ ipcMain.on('resize-window', (event, payload = {}) => {
   const targetDisplay = win === mainWindow ? getTargetDisplay() : screen.getPrimaryDisplay();
   const { width: screenWidth } = targetDisplay.workAreaSize;
 
-  // The main island window spans full screen width to allow seamless horizontal rubber-band fling physics without boundary clipping
   const DEFAULT_WIN_H = 680;
-  const padW = win === mainWindow ? screenWidth : Math.max(width + 40, 540);
-  const padH = Math.max(height + 40, DEFAULT_WIN_H);
+  const safeW = Number.isFinite(Number(width)) ? Number(width) : 0;
+  const safeH = Number.isFinite(Number(height)) ? Number(height) : 0;
+  const padW = win === mainWindow ? screenWidth : Math.max(safeW + 40, 540);
+  const padH = Math.max(safeH + 40, DEFAULT_WIN_H);
 
   const currentBounds = win.getBounds();
 
@@ -1722,6 +1723,7 @@ const runFfmpeg = (args) => new Promise((resolve, reject) => {
   const ffmpegDir = path.dirname(ffmpegPath);
   const child = spawn(ffmpegPath, args, {
     windowsHide: true,
+    stdio: ['pipe', 'ignore', 'pipe'],
     env: { ...process.env, PATH: ffmpegDir + path.delimiter + (process.env.PATH || '') },
   });
   let stderr = '';
@@ -2315,10 +2317,10 @@ ipcMain.on('close-settings-window', () => {
 ipcMain.on('launch-app', (event, cmd) => {
   switch (cmd) {
     case 'browser':
-      shell.openExternal('https://www.google.com');
+      shell.openExternal('https://www.google.com').catch(() => {});
       break;
     case 'spotify':
-      shell.openExternal('spotify:');
+      shell.openExternal('spotify:').catch(() => {});
       break;
     case 'explorer':
       execFile('explorer.exe', [], (err) => {

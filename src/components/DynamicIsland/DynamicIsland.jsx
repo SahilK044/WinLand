@@ -57,6 +57,7 @@ function extractVibrantColor(imageUrl) {
         canvas.width = SIZE;
         canvas.height = SIZE;
         const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve(DEFAULT_ACCENT);
         ctx.drawImage(img, 0, 0, SIZE, SIZE);
         const { data } = ctx.getImageData(0, 0, SIZE, SIZE);
         canvas.width = 0;

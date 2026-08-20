@@ -126,15 +126,13 @@ class RecordingStateManager extends EventEmitter {
     this.broadcastState();
 
     // Send command to main window renderer's background RecordingEngineHost
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('recording:command', {
-        action: 'start',
-        options: this.state.options,
-        smartFocusEnabled: this.state.smartFocusEnabled,
-        micEnabled: this.state.micEnabled,
-        webcamEnabled: this.state.webcamEnabled,
-      });
-    }
+    this.sendCommand({
+      action: 'start',
+      options: this.state.options,
+      smartFocusEnabled: this.state.smartFocusEnabled,
+      micEnabled: this.state.micEnabled,
+      webcamEnabled: this.state.webcamEnabled,
+    });
 
     return { ok: true };
   }
@@ -151,9 +149,7 @@ class RecordingStateManager extends EventEmitter {
     this.pauseTick();
     this.broadcastState();
 
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('recording:command', { action: 'pause' });
-    }
+    this.sendCommand({ action: 'pause' });
     return { ok: true };
   }
 
@@ -163,38 +159,33 @@ class RecordingStateManager extends EventEmitter {
     this.resumeTick();
     this.broadcastState();
 
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('recording:command', { action: 'resume' });
-    }
+    this.sendCommand({ action: 'resume' });
     return { ok: true };
   }
 
   stopRecording() {
-    if (this.state.status === 'idle' || this.state.status === 'stopping') return { ok: false };
+    if (this.state.status !== 'recording' && this.state.status !== 'paused') {
+      return { ok: false };
+    }
     this.state.status = 'stopping';
     this.stopTick();
     this.broadcastState();
 
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('recording:command', { action: 'stop' });
-    }
-
-    // Destroy controls pill window on stop
-    destroyRecordingControlsPillWindow();
+    this.sendCommand({ action: 'stop' });
     return { ok: true };
   }
 
   discardRecording() {
-    if (this.state.status === 'idle') return { ok: false };
-    this.state.status = 'stopping';
+    if (this.state.status !== 'recording' && this.state.status !== 'paused') {
+      return { ok: false };
+    }
+    this.state.status = 'idle';
+    this.state.elapsedMs = 0;
     this.stopTick();
     this.broadcastState();
-
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('recording:command', { action: 'discard' });
-    }
-
     destroyRecordingControlsPillWindow();
+
+    this.sendCommand({ action: 'discard' });
     return { ok: true };
   }
 
@@ -202,12 +193,10 @@ class RecordingStateManager extends EventEmitter {
     this.state.micEnabled = !this.state.micEnabled;
     this.broadcastState();
 
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('recording:command', {
-        action: 'toggle-mic',
-        micEnabled: this.state.micEnabled,
-      });
-    }
+    this.sendCommand({
+      action: 'toggle-mic',
+      micEnabled: this.state.micEnabled,
+    });
     return { ok: true, micEnabled: this.state.micEnabled };
   }
 
@@ -215,12 +204,10 @@ class RecordingStateManager extends EventEmitter {
     this.state.webcamEnabled = !this.state.webcamEnabled;
     this.broadcastState();
 
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('recording:command', {
-        action: 'toggle-webcam',
-        webcamEnabled: this.state.webcamEnabled,
-      });
-    }
+    this.sendCommand({
+      action: 'toggle-webcam',
+      webcamEnabled: this.state.webcamEnabled,
+    });
     return { ok: true, webcamEnabled: this.state.webcamEnabled };
   }
 
@@ -228,12 +215,10 @@ class RecordingStateManager extends EventEmitter {
     this.state.smartFocusEnabled = !this.state.smartFocusEnabled;
     this.broadcastState();
 
-    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.webContents.send('recording:command', {
-        action: 'toggle-smart-focus',
-        smartFocusEnabled: this.state.smartFocusEnabled,
-      });
-    }
+    this.sendCommand({
+      action: 'toggle-smart-focus',
+      smartFocusEnabled: this.state.smartFocusEnabled,
+    });
     return { ok: true, smartFocusEnabled: this.state.smartFocusEnabled };
   }
 

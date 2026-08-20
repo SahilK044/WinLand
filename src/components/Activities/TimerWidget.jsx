@@ -28,7 +28,25 @@ export default function TimerWidget({
   onExpand,
 }) {
   const [timers, setTimers] = useState(() => timerStore.getTimers());
-  const handleResetTimer = (id) => timerStore.resetTimer(id);
+
+  const handleToggleTimer = (id) => {
+    if (id === 'default' || !timerStore.getTimers().some((t) => t.id === id)) {
+      const newTimer = timerStore.addTimer(300000);
+      if (newTimer?.id) timerStore.toggleTimer(newTimer.id);
+    } else {
+      timerStore.toggleTimer(id);
+    }
+  };
+
+  const handleResetTimer = (id) => {
+    if (id === 'default') return;
+    timerStore.resetTimer(id);
+  };
+
+  const handleRemoveTimer = (id) => {
+    if (id === 'default') return;
+    timerStore.removeTimer(id);
+  };
 
   useEffect(() => {
     const unsubscribe = timerStore.subscribe((updatedTimers) => {
@@ -135,7 +153,7 @@ export default function TimerWidget({
           aria-label={isPrimaryRunning ? 'Pause Timer' : 'Start Timer'}
           onClick={(e) => {
             e.stopPropagation();
-            timerStore.toggleTimer(primaryTimer.id);
+            handleToggleTimer(primaryTimer.id);
           }}
           className="interactive-child"
           style={{
@@ -192,8 +210,8 @@ export default function TimerWidget({
             key={timer.id}
             timer={timer}
             isFirst={index === 0}
-            onToggle={(id) => timerStore.toggleTimer(id)}
-            onRemove={(id) => timerStore.removeTimer(id)}
+            onToggle={handleToggleTimer}
+            onRemove={handleRemoveTimer}
             onReset={handleResetTimer}
             onAddSplit={() => timerStore.addTimer()}
             onUpdateLabel={(id, label) => timerStore.updateLabel(id, label)}

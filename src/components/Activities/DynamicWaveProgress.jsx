@@ -68,6 +68,7 @@ export default function DynamicWaveProgress({
   });
 
   const rafIdRef = useRef(null);
+  const renderRef = useRef(null);
 
   // Sync with incoming backend progress updates
   useEffect(() => {
@@ -83,6 +84,9 @@ export default function DynamicWaveProgress({
       }
       animStateRef.current.isSettled = false;
       animStateRef.current.lastFrameTime = performance.now();
+      if (!rafIdRef.current && renderRef.current) {
+        rafIdRef.current = requestAnimationFrame(renderRef.current);
+      }
       return;
     }
 
@@ -196,6 +200,7 @@ export default function DynamicWaveProgress({
     let isMounted = true;
 
     const render = (now) => {
+      renderRef.current = render;
       if (!isMounted) return;
 
       try {

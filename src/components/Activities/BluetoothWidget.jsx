@@ -213,7 +213,8 @@ function ControllerIcon({ size = 26, color = '#30d158', isAnimated = true }) {
 
 // 1:1 macOS Tahoe Vector Battery Shell
 function MacBatteryIcon({ batteryPct = 100, color = '#30d158' }) {
-  const fillWidth = Math.max(1.5, 14 * (Math.max(5, Math.min(100, batteryPct)) / 100));
+  const safePct = Number.isFinite(Number(batteryPct)) ? Number(batteryPct) : 100;
+  const fillWidth = Math.max(1.5, 14 * (Math.max(5, Math.min(100, safePct)) / 100));
   return (
     <svg width="22" height="12" viewBox="0 0 22 12" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="0.75" y="0.75" width="17.5" height="10.5" rx="3.25" stroke={color} strokeWidth="1.5" />

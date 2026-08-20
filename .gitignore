@@ -47,4 +47,10 @@ crash_log.txt
 *.njsproj
 *.sln
 *.sw?
+# Video promo generated texture captures
+winland-promo/public/textures/live/
 
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache/

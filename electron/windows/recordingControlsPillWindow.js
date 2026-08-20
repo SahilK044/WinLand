@@ -7,6 +7,7 @@ const __dirname = path.dirname(__filename);
 
 let controlsPillWindow = null;
 let isCreating = false;
+let isProgrammaticMove = false;
 let detachedPosition = null; // { x, y } if moved by user during session
 
 // Default dimensions of the controls pill window canvas
@@ -50,7 +51,7 @@ export function createRecordingControlsPillWindow(targetDisplayId = null) {
   try {
     let targetDisplay = null;
     if (targetDisplayId !== null) {
-      targetDisplay = screen.getAllDisplays().find((d) => d.id === targetDisplayId);
+      targetDisplay = screen.getAllDisplays().find((d) => String(d.id) === String(targetDisplayId));
     }
     if (!targetDisplay) {
       targetDisplay = screen.getPrimaryDisplay();
@@ -84,8 +85,6 @@ export function createRecordingControlsPillWindow(targetDisplayId = null) {
     controlsPillWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
     // Default to passing through mouse events until mouse enters the pill
     controlsPillWindow.setIgnoreMouseEvents(true, { forward: true });
-
-let isProgrammaticMove = false;
 
     // Track user drag / moved position
     controlsPillWindow.on('moved', () => {
