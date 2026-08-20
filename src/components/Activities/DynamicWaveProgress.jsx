@@ -239,20 +239,20 @@ export default function DynamicWaveProgress({
 
           const t = anim.timeSeconds;
 
-          // 3 Multi-Frequency Dynamic Morphing Wave Layers (Non-repeating, continuously morphing size)
+          // 3 Multi-Frequency Dynamic Morphing Wave Layers (Faster, continuous liquid flow)
           const layers = [
             {
               amp: 13.5,
               color: palette.backColor,
               alpha: 0.45,
               computeElevation: (u) => {
-                // Incommensurate multi-octave rolling harmonics
-                const w1 = Math.sin(u * (Math.PI * 2 / 76) - t * 0.95);
-                const w2 = 0.42 * Math.sin(u * (Math.PI * 2 / 46) + t * 0.72 + 1.4);
-                const w3 = 0.25 * Math.cos(u * (Math.PI * 2 / 120) - t * 0.48 + 2.7);
-                const raw = (w1 + w2 + w3) / 1.67;
-                // Dynamic spatial size envelope (wave peaks swell, reshape, and disperse)
-                const sizeEnv = 0.78 + 0.35 * Math.sin(u * (Math.PI * 2 / 140) + t * 0.65) + 0.18 * Math.cos(t * 1.1);
+                // Incommensurate multi-octave rolling harmonics (fluid, energetic flow)
+                const w1 = Math.sin(u * (Math.PI * 2 / 80) - t * 1.75);
+                const w2 = 0.38 * Math.sin(u * (Math.PI * 2 / 48) + t * 1.30 + 1.4);
+                const w3 = 0.22 * Math.cos(u * (Math.PI * 2 / 125) - t * 0.90 + 2.7);
+                const raw = (w1 + w2 + w3) / 1.60;
+                // Dynamic spatial size envelope (wave peaks continuously swell, morph, and disperse)
+                const sizeEnv = 0.78 + 0.35 * Math.sin(u * (Math.PI * 2 / 140) + t * 1.20) + 0.18 * Math.cos(t * 1.8);
                 return Math.pow((raw + 1) * 0.5, 1.35) * sizeEnv;
               },
             },
@@ -261,11 +261,11 @@ export default function DynamicWaveProgress({
               color: palette.midColor,
               alpha: 0.65,
               computeElevation: (u) => {
-                const w1 = Math.sin(u * (Math.PI * 2 / 54) - t * 1.25 + 0.8);
-                const w2 = 0.40 * Math.sin(u * (Math.PI * 2 / 34) + t * 0.92 + 2.1);
-                const w3 = 0.22 * Math.cos(u * (Math.PI * 2 / 92) - t * 0.62 + 1.1);
-                const raw = (w1 + w2 + w3) / 1.62;
-                const sizeEnv = 0.80 + 0.32 * Math.cos(u * (Math.PI * 2 / 112) - t * 0.75) + 0.18 * Math.sin(t * 1.35 + 1.0);
+                const w1 = Math.sin(u * (Math.PI * 2 / 56) - t * 2.30 + 0.8);
+                const w2 = 0.36 * Math.sin(u * (Math.PI * 2 / 36) + t * 1.65 + 2.1);
+                const w3 = 0.20 * Math.cos(u * (Math.PI * 2 / 96) - t * 1.10 + 1.1);
+                const raw = (w1 + w2 + w3) / 1.56;
+                const sizeEnv = 0.80 + 0.32 * Math.cos(u * (Math.PI * 2 / 112) - t * 1.35) + 0.18 * Math.sin(t * 2.2 + 1.0);
                 return Math.pow((raw + 1) * 0.5, 1.35) * sizeEnv;
               },
             },
@@ -274,11 +274,11 @@ export default function DynamicWaveProgress({
               color: palette.frontColor,
               alpha: 0.80,
               computeElevation: (u) => {
-                const w1 = Math.sin(u * (Math.PI * 2 / 38) - t * 1.55 + 1.9);
-                const w2 = 0.38 * Math.sin(u * (Math.PI * 2 / 24) + t * 1.15 + 0.5);
-                const w3 = 0.20 * Math.cos(u * (Math.PI * 2 / 66) - t * 0.82 + 3.3);
-                const raw = (w1 + w2 + w3) / 1.58;
-                const sizeEnv = 0.82 + 0.30 * Math.sin(u * (Math.PI * 2 / 86) + t * 0.92) + 0.16 * Math.cos(t * 1.65 + 2.2);
+                const w1 = Math.sin(u * (Math.PI * 2 / 40) - t * 2.85 + 1.9);
+                const w2 = 0.34 * Math.sin(u * (Math.PI * 2 / 26) + t * 2.05 + 0.5);
+                const w3 = 0.18 * Math.cos(u * (Math.PI * 2 / 70) - t * 1.40 + 3.3);
+                const raw = (w1 + w2 + w3) / 1.52;
+                const sizeEnv = 0.82 + 0.30 * Math.sin(u * (Math.PI * 2 / 86) + t * 1.60) + 0.16 * Math.cos(t * 2.7 + 2.2);
                 return Math.pow((raw + 1) * 0.5, 1.35) * sizeEnv;
               },
             },
@@ -288,7 +288,8 @@ export default function DynamicWaveProgress({
             ctx.beginPath();
             ctx.moveTo(trackLeft, baselineY);
 
-            const step = 1.0;
+            // Sub-pixel 0.5px sampling step for ultra-smooth anti-aliased liquid curves
+            const step = 0.5;
             for (let x = trackLeft; x <= thumbX; x += step) {
               const u = x - trackLeft;
 
