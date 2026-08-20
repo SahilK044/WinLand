@@ -17,6 +17,7 @@ import { STYLE_KEYS, DEFAULT_STYLES, MUSIC_AURA_KEY, MUSIC_WAVES_KEY } from '../
 import Canvas3DCard from './Canvas3DCard';
 import MotionPreviewStage from './MotionPreviewStage';
 import { SETTINGS_CSS } from './settingsTheme';
+import { themeManager } from '../../theme/ThemeManager';
 
 // Sidebar grouping with macOS System Colors for badges
 const SIDEBAR_GROUPS = [
@@ -119,6 +120,7 @@ export default function SettingsWindow() {
   });
   const [musicAura, setMusicAura]           = useState(() => localStorage.getItem(MUSIC_AURA_KEY) !== 'false');
   const [musicWaves, setMusicWaves]         = useState(() => localStorage.getItem(MUSIC_WAVES_KEY) !== 'false');
+  const [appearanceMode, setAppearanceMode] = useState(() => localStorage.getItem('winland_theme_mode') || themeManager.getMode() || 'dark');
   const [displays, setDisplays]             = useState([]);
   const [selectedDisplay, setSelectedDisplay] = useState(() => localStorage.getItem('winland_target_display') || '');
   const [hoveredCardId, setHoveredCardId]   = useState(null);
@@ -131,6 +133,23 @@ export default function SettingsWindow() {
     setHoveredCardId(null);
     setActiveEarbudId(null);
   };
+
+  const handleUpdateAppearanceMode = (mode) => {
+    if (mode !== 'dark' && mode !== 'light') return;
+    setAppearanceMode(mode);
+    themeManager.setMode(mode);
+    if (window.electronAPI?.setThemeMode) {
+      window.electronAPI.setThemeMode(mode);
+    }
+    window.dispatchEvent(new CustomEvent('winland-settings-changed', { detail: { themeMode: mode } }));
+  };
+
+  useEffect(() => {
+    const unsub = themeManager.subscribe((mode) => {
+      setAppearanceMode(mode || 'dark');
+    });
+    return () => unsub?.();
+  }, []);
 
   useEffect(() => {
     if (window.electronAPI?.getDisplays) {
