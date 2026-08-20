@@ -266,14 +266,14 @@ export default function ClassicShimmerProgress({
             top: 20,
             left: `calc(${PADDING_X}px + ${(initialPct / 100)} * (100% - ${PADDING_X * 2}px))`,
             transform: 'translate(-50%, -50%)',
-            width: isDragging ? 14 : 11.5,
-            height: isDragging ? 14 : 11.5,
+            width: isDragging ? 12.4 : 10.4,
+            height: isDragging ? 12.4 : 10.4,
             borderRadius: '50%',
             background: eqColor,
-            border: isDragging ? '2.4px solid #ffffff' : '2px solid #ffffff',
-            boxShadow: `0 0 10px ${eqGlow}, 0 2px 6px rgba(0,0,0,0.45)`,
+            border: 'none',
+            boxShadow: `0 0 10px ${eqGlow}, 0 1px 4px rgba(0,0,0,0.35)`,
             opacity: initialPct > 0.5 ? 1 : 0,
-            transition: isDragging ? 'none' : 'transform 0.15s ease, opacity 0.2s ease, width 0.15s ease, height 0.15s ease, background 0.8s ease',
+            transition: isDragging ? 'none' : 'transform 0.15s ease, opacity 0.2s ease, width 0.15s ease, height 0.15s ease, background 0.8s ease, box-shadow 0.8s ease',
             pointerEvents: 'none',
             zIndex: 10,
             display: 'flex',
@@ -284,8 +284,8 @@ export default function ClassicShimmerProgress({
           {/* Inner Solid White Core Dot */}
           <div
             style={{
-              width: isDragging ? 4.2 : 3.2,
-              height: isDragging ? 4.2 : 3.2,
+              width: isDragging ? 6.4 : 5.2,
+              height: isDragging ? 6.4 : 5.2,
               borderRadius: '50%',
               background: '#ffffff',
             }}
