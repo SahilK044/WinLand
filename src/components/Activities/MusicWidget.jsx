@@ -977,31 +977,6 @@ const EqBars = ({ h = 14, visualizerOpacity, eqColor, eqGlow }) => {
   );
 };
 
-// ── One UI 8.5/9-style Wavy Progress Bar ──────────────────────────────────
-// The played portion of the scrubber is drawn as a flowing sine wave instead
-// of a flat rectangle. The wave's phase drifts continuously while a track is
-// playing and its amplitude eases down to 0 (a flat line) when paused, all
-// driven imperatively via refs so it never forces a React re-render.
-const WAVE_W = 1000;
-const WAVE_H = 22;
-const WAVE_CENTER_Y = WAVE_H / 2;
-const WAVE_CYCLES = 20;
-const WAVE_WAVELENGTH = WAVE_W / WAVE_CYCLES;
-const WAVE_SAMPLE_STEP = 8;
-const WAVE_MAX_AMPLITUDE = 5.5;
-
-function buildWaveD(phase, amplitude) {
-  if (amplitude < 0.04) {
-    return `M0 ${WAVE_CENTER_Y} L${WAVE_W} ${WAVE_CENTER_Y}`;
-  }
-  let d = `M0 ${(WAVE_CENTER_Y + Math.sin(phase) * amplitude).toFixed(2)}`;
-  for (let x = WAVE_SAMPLE_STEP; x <= WAVE_W; x += WAVE_SAMPLE_STEP) {
-    const y = WAVE_CENTER_Y + Math.sin((x / WAVE_WAVELENGTH) * Math.PI * 2 + phase) * amplitude;
-    d += ` L${x.toFixed(1)} ${y.toFixed(2)}`;
-  }
-  return d;
-}
-
 export default function MusicWidget({
   isCompact,
   isExpanded: _isExpanded,
@@ -1026,13 +1001,9 @@ export default function MusicWidget({
 
   // ── High-Refresh 60/120 FPS Progress Bar & Seek Control ─────────────────
   const knobRef = useRef(null);
+  const progressBarRef = useRef(null);
   const currentTimeTextRef = useRef(null);
   const scrubberRef = useRef(null);
-  const wavePathRef = useRef(null);
-  const waveClipRectRef = useRef(null);
-  const waveStateRef = useRef({ phase: 0, amplitude: 0 });
-  const waveRafRef = useRef(null);
-  const waveUid = React.useId().replace(/:/g, '');
 
   const [isDragging, setIsDragging] = useState(false);
   const isDraggingRef = useRef(false);
@@ -1045,15 +1016,6 @@ export default function MusicWidget({
   const lastTitleRef = useRef(title);
   const [visualizerOpacity, setVisualizerOpacity] = useState(1);
 
-  // Imperatively reveals the wavy path up to the played fraction, mirroring
-  // the old `progressBarRef.style.width` writes but driving an SVG clip rect
-  // instead of a rectangle's width — still zero React re-renders per frame.
-  const setWaveProgress = React.useCallback((pctValue) => {
-    if (waveClipRectRef.current) {
-      waveClipRectRef.current.setAttribute('width', String((pctValue / 100) * WAVE_W));
-    }
-  }, []);
-
   // When song changes, immediately reset progress bar to 0:00
   useEffect(() => {
     if (lastTitleRef.current === title) return;
@@ -1062,7 +1024,7 @@ export default function MusicWidget({
     setRealtimeMs(0);
     seekLockUntilRef.current = Date.now() + 1500;
 
-    setWaveProgress(0);
+    if (progressBarRef.current) progressBarRef.current.style.width = '0%';
     if (knobRef.current) {
       knobRef.current.style.left = '0px';
       knobRef.current.style.opacity = '0';
@@ -1072,7 +1034,7 @@ export default function MusicWidget({
     setVisualizerOpacity(0.18);
     const fadeTimer = setTimeout(() => setVisualizerOpacity(1), 170);
     return () => clearTimeout(fadeTimer);
-  }, [title, setWaveProgress]);
+  }, [title]);
 
   // Sync with incoming progress updates from backend
   useEffect(() => {
@@ -1083,7 +1045,7 @@ export default function MusicWidget({
       syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
       setRealtimeMs(progressMs);
       const currentPct = durationMs > 0 ? Math.min(100, Math.max(0, (progressMs / durationMs) * 100)) : 0;
-      setWaveProgress(currentPct);
+      if (progressBarRef.current) progressBarRef.current.style.width = `${currentPct}%`;
       if (knobRef.current) {
         knobRef.current.style.left = `calc(${currentPct}% + ${(0.5 - currentPct / 100) * 8}px)`;
         knobRef.current.style.opacity = currentPct > 0.5 ? '1' : '0';
@@ -1101,7 +1063,7 @@ export default function MusicWidget({
     } else if (Math.abs(drift) > 60) {
       syncRef.current.baseMs += drift * 0.25;
     }
-  }, [progressMs, isPlaying, title, durationMs, setWaveProgress]);
+  }, [progressMs, isPlaying, title, durationMs]);
 
   // 60/120 FPS continuous interpolation RAF loop
   useEffect(() => {
@@ -1116,7 +1078,9 @@ export default function MusicWidget({
         const current = Math.min(syncRef.current.baseMs + delta, durationMs);
         const currentPct = durationMs > 0 ? Math.min(100, Math.max(0, (current / durationMs) * 100)) : 0;
 
-        setWaveProgress(currentPct);
+        if (progressBarRef.current) {
+          progressBarRef.current.style.width = `${currentPct}%`;
+        }
         if (knobRef.current) {
           knobRef.current.style.left = `calc(${currentPct}% + ${(0.5 - currentPct / 100) * 8}px)`;
           knobRef.current.style.opacity = currentPct > 0.5 ? '1' : '0';
@@ -1135,46 +1099,7 @@ export default function MusicWidget({
 
     rafId = requestAnimationFrame(updateFrame);
     return () => cancelAnimationFrame(rafId);
-  }, [isPlaying, durationMs, title, setWaveProgress]);
-
-  // Wavy scrubber animation: drifts the sine phase continuously while
-  // playing, and eases the amplitude toward 0 (a flat line) when paused.
-  // Runs its own rAF loop independent of the pct-sync loop above, since that
-  // one exits immediately whenever `isPlaying` is false and can't settle the
-  // amplitude back down smoothly on pause.
-  useEffect(() => {
-    const targetAmp = isPlaying ? WAVE_MAX_AMPLITUDE : 0;
-    let lastTs = null;
-
-    const tick = (ts) => {
-      if (lastTs == null) lastTs = ts;
-      const dt = Math.min(48, ts - lastTs);
-      lastTs = ts;
-
-      const state = waveStateRef.current;
-      state.amplitude += (targetAmp - state.amplitude) * Math.min(1, dt / 200);
-      if (Math.abs(targetAmp - state.amplitude) < 0.03) state.amplitude = targetAmp;
-
-      if (isPlaying) {
-        state.phase -= dt * 0.002;
-      }
-
-      if (wavePathRef.current) {
-        wavePathRef.current.setAttribute('d', buildWaveD(state.phase, state.amplitude));
-      }
-
-      const stillAnimating = isPlaying || Math.abs(targetAmp - state.amplitude) > 0.03;
-      waveRafRef.current = stillAnimating ? requestAnimationFrame(tick) : null;
-    };
-
-    if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
-    waveRafRef.current = requestAnimationFrame(tick);
-
-    return () => {
-      if (waveRafRef.current) cancelAnimationFrame(waveRafRef.current);
-      waveRafRef.current = null;
-    };
-  }, [isPlaying]);
+  }, [isPlaying, durationMs, title]);
 
   // Clock for empty expanded state fallback. Only ticks while no track is
   // playing — the progress bar drives its own rAF loop, so a 1s interval here
@@ -1196,14 +1121,14 @@ export default function MusicWidget({
     setDragPosX(clickX);
     const targetMs = Math.round(ratio * durationMs);
     const dragPct = Math.min(100, Math.max(0, (targetMs / durationMs) * 100));
-    setWaveProgress(dragPct);
+    if (progressBarRef.current) progressBarRef.current.style.width = `${dragPct}%`;
     if (knobRef.current) {
       knobRef.current.style.left = `calc(${dragPct}% + ${(0.5 - dragPct / 100) * 8}px)`;
       knobRef.current.style.opacity = '1';
     }
     if (currentTimeTextRef.current) currentTimeTextRef.current.textContent = fmt(targetMs);
     return targetMs;
-  }, [durationMs, setWaveProgress]);
+  }, [durationMs]);
 
   const handlePointerDown = (e) => {
     e.stopPropagation();
@@ -1457,46 +1382,24 @@ export default function MusicWidget({
               overflow: 'visible',
               flex: 1,
             }}>
-              {/* One UI-style wavy progress: flowing sine wave for the
-                  played portion, revealed via an SVG clip-rect whose width
-                  tracks `pct` imperatively (see setWaveProgress above). */}
-              <svg
-                width="100%"
-                height={22}
-                viewBox={`0 0 ${WAVE_W} ${WAVE_H}`}
-                preserveAspectRatio="none"
+              {/* Progress bar */}
+              <div
+                ref={progressBarRef}
+                className="progress-shimmer-bar"
                 style={{
-                  position: 'absolute',
-                  left: 0,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  overflow: 'visible',
-                  pointerEvents: 'none',
-                  filter: `drop-shadow(0 0 5px ${eqGlow})`,
-                  transition: 'filter 0.8s ease',
+                  width: `${pct}%`,
+                  height: '100%',
+                  background: `linear-gradient(90deg, #ffffff 0%, ${eqColor} 100%)`,
+                  borderRadius: 3,
+                  boxShadow: `0 0 8px ${eqGlow}`,
+                  transition: isDragging ? 'none' : 'background 0.8s ease, box-shadow 0.8s ease',
+                  willChange: 'width',
+                  position: 'relative',
+                  overflow: 'hidden',
                 }}
               >
-                <defs>
-                  <clipPath id={`wave-clip-${waveUid}`}>
-                    <rect ref={waveClipRectRef} x="0" y="0" width={pct > 0 ? (pct / 100) * WAVE_W : 0} height={WAVE_H} />
-                  </clipPath>
-                  <linearGradient id={`wave-grad-${waveUid}`} x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-                    <stop offset="45%" stopColor={eqColor} />
-                    <stop offset="100%" stopColor={eqColor} />
-                  </linearGradient>
-                </defs>
-                <path
-                  ref={wavePathRef}
-                  d={`M0 ${WAVE_H / 2} L${WAVE_W} ${WAVE_H / 2}`}
-                  fill="none"
-                  stroke={`url(#wave-grad-${waveUid})`}
-                  strokeWidth={3.6}
-                  strokeLinecap="round"
-                  clipPath={`url(#wave-clip-${waveUid})`}
-                  style={{ transition: 'stroke 0.8s ease' }}
-                />
-              </svg>
+                <div className="progress-shimmer-overlay" style={{ animationPlayState: isPlaying ? 'running' : 'paused' }} />
+              </div>
 
               {/* Glowing tip knob handle */}
               <div
