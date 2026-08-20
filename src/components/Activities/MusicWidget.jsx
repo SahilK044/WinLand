@@ -24,6 +24,32 @@ const StraightMicIcon = ({ size = 18, color = 'currentColor' }) => (
   </svg>
 );
 
+function getButtonIconColor(bgColor) {
+  if (!bgColor) return '#ffffff';
+  let r = 255, g = 255, b = 255;
+  if (bgColor.startsWith('#')) {
+    const hex = bgColor.replace('#', '');
+    if (hex.length === 3) {
+      r = parseInt(hex[0] + hex[0], 16);
+      g = parseInt(hex[1] + hex[1], 16);
+      b = parseInt(hex[2] + hex[2], 16);
+    } else if (hex.length >= 6) {
+      r = parseInt(hex.slice(0, 2), 16);
+      g = parseInt(hex.slice(2, 4), 16);
+      b = parseInt(hex.slice(4, 6), 16);
+    }
+  } else if (bgColor.startsWith('rgb')) {
+    const parts = bgColor.match(/\d+/g);
+    if (parts && parts.length >= 3) {
+      r = parseInt(parts[0], 10);
+      g = parseInt(parts[1], 10);
+      b = parseInt(parts[2], 10);
+    }
+  }
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  return lum > 165 ? '#000000' : '#ffffff';
+}
+
 function cleanTrackTitle(title) {
   if (!title) return '';
   return title
@@ -969,6 +995,7 @@ export default function MusicWidget({
   onSeek,
 }) {
   const { title, artist, appName = 'Spotify', coverUrl, isPlaying = false, progressMs = 0, durationMs = 0 } = trackInfo;
+  const playIconColor = getButtonIconColor(eqColor);
 
   const [time, setTime] = useState(new Date());
   const [visualizerOpacity, setVisualizerOpacity] = useState(1);
