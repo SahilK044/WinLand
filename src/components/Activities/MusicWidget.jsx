@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, Music, RefreshCw, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { useEqBars } from '../../utils/eqStore';
 import DynamicWaveProgress from './DynamicWaveProgress';
@@ -1187,29 +1188,49 @@ export default function MusicWidget({
           </div>
         </div>
 
-        {/* ── 2. Middle Row: Dynamic Waves or Classic Shimmer Scrubber ── */}
-        <div style={{ width: '100%', marginTop: 2, marginBottom: 0, position: 'relative' }}>
-          {musicWaves ? (
-            <DynamicWaveProgress
-              progressMs={progressMs}
-              durationMs={durationMs}
-              isPlaying={isPlaying}
-              eqColor={eqColor}
-              eqGlow={eqGlow}
-              isLight={isLight}
-              onSeek={onSeek}
-            />
-          ) : (
-            <ClassicShimmerProgress
-              progressMs={progressMs}
-              durationMs={durationMs}
-              isPlaying={isPlaying}
-              eqColor={eqColor}
-              eqGlow={eqGlow}
-              isLight={isLight}
-              onSeek={onSeek}
-            />
-          )}
+        {/* ── 2. Middle Row: Dynamic Waves or Classic Shimmer Scrubber with Smooth Fade ── */}
+        <div style={{ width: '100%', height: 44, marginTop: 2, marginBottom: 0, position: 'relative' }}>
+          <AnimatePresence initial={false}>
+            {musicWaves ? (
+              <motion.div
+                key="waves"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                style={{ width: '100%', position: 'absolute', top: 0, left: 0 }}
+              >
+                <DynamicWaveProgress
+                  progressMs={progressMs}
+                  durationMs={durationMs}
+                  isPlaying={isPlaying}
+                  eqColor={eqColor}
+                  eqGlow={eqGlow}
+                  isLight={isLight}
+                  onSeek={onSeek}
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="classic"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                style={{ width: '100%', position: 'absolute', top: 0, left: 0 }}
+              >
+                <ClassicShimmerProgress
+                  progressMs={progressMs}
+                  durationMs={durationMs}
+                  isPlaying={isPlaying}
+                  eqColor={eqColor}
+                  eqGlow={eqGlow}
+                  isLight={isLight}
+                  onSeek={onSeek}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ── 3. Bottom Row: Spaced Transport Controls (Comfortable Breathing Room) ── */}
