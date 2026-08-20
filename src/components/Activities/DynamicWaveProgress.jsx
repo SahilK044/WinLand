@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getEqSnapshot } from '../../utils/eqStore';
 
 /* ────────────────────────────────────────────────────────────────────────────
    WinLand — Samsung One UI 9 Dynamic Wave Progress Bar (1:1 Reference)
    ────────────────────────────────────────────────────────────────────────────
-   • 1:1 Authentic Samsung One UI 9 dynamic layered wave experience.
-   • Upward-rising layered dynamic waves with REAL-TIME DYNAMIC SIZE & SPEED:
-     - Beat-responsive amplitude swelling (bass, mid, and treble dynamics).
-     - Rhythmic dynamic speed surging that accelerates with musical intensity.
-     - Dynamic wavelength breathing with organic harmonic phase coupling.
-   • Multi-color harmonious palette derived dynamically from the active album art hue.
-   • Universal color parser (supports hex, rgb, rgba, hsl, dark/light fallbacks).
+   • 1:1 Authentic Samsung One UI 9 (Beta 1 & Beta 2) dynamic layered wave effect.
+   • Upward-rising layered dynamic waves (3 overlapping translucent fluid wave hills).
+   • Buttery-smooth, calm, and slow continuous liquid gliding flow (0 jitter/stutter).
+   • Multi-color harmonious palette derived dynamically from the active album art hue
+     (reproducing One UI 9 Beta 1 blue/cyan/purple & Beta 2 amber/yellow/orange).
+   • Robust universal color parser (supports hex, rgb, rgba, hsl, dark/light fallbacks).
    • Flat baseline track in foreground with rounded caps and glowing seek thumb.
+   • 60/120/144 FPS GPU-accelerated Canvas with sub-pixel anti-aliasing.
+   • Complete boundary inset (PADDING_X = 6px) preventing thumb cropping.
    ──────────────────────────────────────────────────────────────────────────── */
 
 const CANVAS_HEIGHT = 28;
@@ -174,32 +174,16 @@ export default function DynamicWaveProgress({
         const dt = Math.min(64, Math.max(1, now - anim.lastFrameTime));
         anim.lastFrameTime = now;
 
-        // Smooth 200ms critically damped easing
-        const easeFactor = Math.min(1, dt / 200);
+        // Smooth 220ms critically damped easing
+        const easeFactor = Math.min(1, dt / 220);
         anim.velocity += (anim.targetVelocity - anim.velocity) * easeFactor;
         anim.amplitudeFactor += (anim.targetAmplitude - anim.amplitudeFactor) * easeFactor;
 
-        // ── Real-Time Dynamic Audio Metrics ──────────────────────────────────
-        let bassNorm = 0.5;
-        let midNorm = 0.5;
-        let highNorm = 0.5;
-        let totalEnergy = 0.5;
-
-        if (isPlaying) {
-          const eq = getEqSnapshot() || [3, 3, 3, 3, 3];
-          bassNorm = Math.max(0, Math.min(1, ((eq[0] + eq[1]) / 2 - 3) / 55));
-          midNorm = Math.max(0, Math.min(1, ((eq[2] + eq[3]) / 2 - 3) / 55));
-          highNorm = Math.max(0, Math.min(1, (eq[4] - 3) / 55));
-          totalEnergy = bassNorm * 0.5 + midNorm * 0.35 + highNorm * 0.15;
-        }
-
-        // ── Dynamic Flow Speed Modulation ────────────────────────────────────
-        // Speed surges dynamically with musical beats and intensity
-        const speedMultiplier = isPlaying ? (1.0 + 1.8 * totalEnergy) : 1.0;
+        // Slow, calm, continuous liquid wave flow (completely smooth, zero jitter)
         if (anim.velocity > 0.005) {
-          anim.phase1 -= (0.0040 * speedMultiplier) * anim.velocity * dt;
-          anim.phase2 -= (0.0065 * speedMultiplier) * anim.velocity * dt;
-          anim.phase3 -= (0.0090 * speedMultiplier) * anim.velocity * dt;
+          anim.phase1 -= 0.0018 * anim.velocity * dt;
+          anim.phase2 -= 0.0028 * anim.velocity * dt;
+          anim.phase3 -= 0.0038 * anim.velocity * dt;
         }
 
         // Check if settled
@@ -256,32 +240,26 @@ export default function DynamicWaveProgress({
         if (playedW > 6 && anim.amplitudeFactor > 0.01) {
           ctx.save();
 
-          // 3 Distinct Overlapping Translucent Wave Layers with DYNAMIC SIZE
+          // 3 Smooth, Flowing Liquid Wave Layers (One UI 9 Beta 1 / Beta 2)
           const layers = [
             {
-              index: 0,
               phase: anim.phase1,
-              // Dynamic bass-responsive size swelling
-              baseAmp: 11.5 + 5.5 * bassNorm,
-              wl: 68 * (1 + 0.18 * bassNorm),
+              amp: 13.5 * anim.amplitudeFactor,
+              wl: 72,
               color: palette.backColor,
               alpha: 0.45,
             },
             {
-              index: 1,
               phase: anim.phase2,
-              // Dynamic mid-responsive size swelling
-              baseAmp: 9.0 + 4.5 * midNorm,
-              wl: 48 * (1 + 0.15 * midNorm),
+              amp: 10.5 * anim.amplitudeFactor,
+              wl: 52,
               color: palette.midColor,
               alpha: 0.65,
             },
             {
-              index: 2,
               phase: anim.phase3,
-              // Dynamic rhythm/high-responsive size swelling
-              baseAmp: 6.8 + 3.5 * highNorm,
-              wl: 34 * (1 + 0.12 * highNorm),
+              amp: 7.5 * anim.amplitudeFactor,
+              wl: 36,
               color: palette.frontColor,
               alpha: 0.80,
             },
@@ -291,10 +269,6 @@ export default function DynamicWaveProgress({
             ctx.beginPath();
             ctx.moveTo(trackLeft, baselineY);
 
-            // Subtle organic breathing undulation combined with dynamic amplitude
-            const breath = isPlaying ? 1 + 0.12 * Math.sin(now * 0.0032 + layer.index * 1.8) : 1;
-            const effectiveAmp = layer.baseAmp * anim.amplitudeFactor * breath;
-
             const step = 1.0;
             for (let x = trackLeft; x <= thumbX; x += step) {
               // Smooth cosine taper at start and end boundaries
@@ -302,15 +276,15 @@ export default function DynamicWaveProgress({
               const endTaper = Math.min(1, (thumbX - x) / 12);
               const taper = (0.5 - 0.5 * Math.cos(startTaper * Math.PI)) * (0.5 - 0.5 * Math.cos(endTaper * Math.PI));
 
-              // Multi-harmonic fluid wave equation
+              // Ultra-smooth multi-harmonic fluid wave equation
               const k = (Math.PI * 2) / layer.wl;
               const s1 = Math.sin((x - trackLeft) * k + layer.phase);
-              const s2 = 0.32 * Math.sin((x - trackLeft) * k * 1.7 + layer.phase * 1.3);
-              const raw = (s1 + s2) / 1.32;
+              const s2 = 0.22 * Math.sin((x - trackLeft) * k * 1.6 + layer.phase * 1.2);
+              const raw = (s1 + s2) / 1.22;
 
-              // Normalized positive elevation (0 at baseline, up to effectiveAmp at crest)
-              const normElevation = Math.pow((raw + 1) * 0.5, 1.35);
-              const elevation = normElevation * effectiveAmp * taper;
+              // Normalized positive elevation (0 at baseline, up to layer.amp at crest)
+              const normElevation = Math.pow((raw + 1) * 0.5, 1.30);
+              const elevation = normElevation * layer.amp * taper;
               const waveY = baselineY - elevation;
 
               ctx.lineTo(x, waveY);
@@ -322,7 +296,7 @@ export default function DynamicWaveProgress({
             ctx.closePath();
 
             // Luminous vertical translucent gradient fill
-            const waveGrad = ctx.createLinearGradient(0, baselineY - effectiveAmp, 0, baselineY);
+            const waveGrad = ctx.createLinearGradient(0, baselineY - layer.amp, 0, baselineY);
             waveGrad.addColorStop(0, hexToRgba(layer.color, layer.alpha * 0.35));
             waveGrad.addColorStop(0.55, hexToRgba(layer.color, layer.alpha * 0.75));
             waveGrad.addColorStop(1, hexToRgba(layer.color, layer.alpha));
