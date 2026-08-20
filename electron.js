@@ -50,6 +50,8 @@ const DEFAULT_SETTINGS = {
   targetDisplayId: null,
   // Liquid beat-synced ambient aura glow behind the expanded music player.
   musicAura: true,
+  // Dynamic Samsung One UI 9 liquid waves vs classic smooth shimmer progress bar
+  musicWaves: true,
   // Auto-hide preferences from Settings
   autoHideIdle: true,
   autoHideDuration: 10,

@@ -13,11 +13,10 @@ import {
   IconAbout,
 } from './SettingsIcons';
 import { DEVICE_CATALOG, DEVICE_COLOR_VARIANTS, ANIMATION_STYLES } from '../../data/deviceCatalog';
-import { STYLE_KEYS, DEFAULT_STYLES, MUSIC_AURA_KEY } from '../../data/devicePrefs';
+import { STYLE_KEYS, DEFAULT_STYLES, MUSIC_AURA_KEY, MUSIC_WAVES_KEY } from '../../data/devicePrefs';
 import Canvas3DCard from './Canvas3DCard';
 import MotionPreviewStage from './MotionPreviewStage';
 import { SETTINGS_CSS } from './settingsTheme';
-import { themeManager } from '../../theme/ThemeManager';
 
 // Sidebar grouping with macOS System Colors for badges
 const SIDEBAR_GROUPS = [
@@ -93,39 +92,25 @@ const DeviceCard = React.memo(function DeviceCard({
 });
 
 export default function SettingsWindow() {
-  const [activeTab, setActiveTab]                   = useState('phones');
-  const [searchQuery, setSearchQuery]               = useState('');
-  const [selectedPhone, setSelectedPhone]           = useState(() => localStorage.getItem('winland_phone_id')      || 's24ultra');
+  const [activeTab, setActiveTab]           = useState('phones');
+  const [searchQuery, setSearchQuery]       = useState('');
+  const [selectedPhone, setSelectedPhone]   = useState(() => localStorage.getItem('winland_phone_id') || 's24ultra');
   const [selectedHeadphones, setSelectedHeadphones] = useState(() => localStorage.getItem('winland_headphones_id') || 'razerbarracuda');
-  const [selectedEarbuds, setSelectedEarbuds]       = useState(() => localStorage.getItem('winland_earbuds_id')    || 'airpodspro');
+  const [selectedEarbuds, setSelectedEarbuds] = useState(() => localStorage.getItem('winland_earbuds_id') || 'airpodspro');
   const [selectedController, setSelectedController] = useState(() => localStorage.getItem('winland_controller_id') || 'ps5_controller');
-  const [selectedSpeaker, setSelectedSpeaker]       = useState(() => localStorage.getItem('winland_speaker_id')    || 'sonos_soundbar');
-  const [selectedColor, setSelectedColor]           = useState(() => localStorage.getItem('winland_color_variant') || 'space-grey');
-
-  const [animStyles, setAnimStyles] = useState(() => {
-    const initial = {};
+  const [selectedSpeaker, setSelectedSpeaker] = useState(() => localStorage.getItem('winland_speaker_id') || 'sonos_soundbar');
+  const [selectedColor, setSelectedColor]   = useState(() => localStorage.getItem('winland_color_variant') || 'titanium_black');
+  const [animStyles, setAnimStyles]         = useState(() => {
+    const s = {};
     for (const cat of Object.keys(STYLE_KEYS)) {
-      initial[cat] = localStorage.getItem(STYLE_KEYS[cat]) || DEFAULT_STYLES[cat];
+      s[cat] = localStorage.getItem(STYLE_KEYS[cat]) || DEFAULT_STYLES[cat];
     }
-    return initial;
+    return s;
   });
   const currentCategory = ['phones', 'headphones', 'earbuds', 'controllers', 'speakers'].includes(activeTab)
-    ? (activeTab === 'phones' ? 'phone' : activeTab)
+    ? (activeTab === 'phones' ? 'phone' : (activeTab === 'controllers' ? 'controller' : (activeTab === 'speakers' ? 'speaker' : activeTab)))
     : 'phone';
   const animStyle = animStyles[currentCategory] || animStyles.phone;
-
-  const [appearanceMode, setAppearanceMode] = useState(() => localStorage.getItem('winland_theme_mode') || themeManager.getMode() || 'dark');
-  const [appearanceOptions] = useState(() => themeManager.getOptions());
-
-  const handleUpdateAppearanceMode = (mode) => {
-    setAppearanceMode(mode);
-    localStorage.setItem('winland_theme_mode', mode);
-    themeManager.setMode(mode);
-    if (window.electronAPI?.sendAppearancePrefs) {
-      window.electronAPI.sendAppearancePrefs({ mode, ...appearanceOptions });
-    }
-  };
-
   const [autoHide, setAutoHide]             = useState(() => localStorage.getItem('winland_autohide_enabled') !== 'false');
   const [autoHideIdle, setAutoHideIdle]     = useState(() => localStorage.getItem('winland_autohide_idle') !== 'false');
   const [autoHideDuration, setAutoHideDuration] = useState(() => {
@@ -133,6 +118,7 @@ export default function SettingsWindow() {
     return saved ? parseInt(saved, 10) : 10;
   });
   const [musicAura, setMusicAura]           = useState(() => localStorage.getItem(MUSIC_AURA_KEY) !== 'false');
+  const [musicWaves, setMusicWaves]         = useState(() => localStorage.getItem(MUSIC_WAVES_KEY) !== 'false');
   const [displays, setDisplays]             = useState([]);
   const [selectedDisplay, setSelectedDisplay] = useState(() => localStorage.getItem('winland_target_display') || '');
   const [hoveredCardId, setHoveredCardId]   = useState(null);
@@ -188,8 +174,9 @@ export default function SettingsWindow() {
     autoHide:       autoHide,
     targetDisplay:  selectedDisplay,
     musicAura:      musicAura,
+    musicWaves:     musicWaves,
   }), [selectedPhone, selectedHeadphones, selectedEarbuds, selectedController,
-       selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay, musicAura]);
+       selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay, musicAura, musicWaves]);
 
   useEffect(() => {
     localStorage.setItem('winland_phone_id',        selectedPhone);
@@ -203,6 +190,7 @@ export default function SettingsWindow() {
     localStorage.setItem('winland_autohide_idle',    autoHideIdle ? 'true' : 'false');
     localStorage.setItem('winland_autohide_duration', autoHideDuration.toString());
     localStorage.setItem(MUSIC_AURA_KEY,            musicAura ? 'true' : 'false');
+    localStorage.setItem(MUSIC_WAVES_KEY,           musicWaves ? 'true' : 'false');
     localStorage.setItem('winland_xbox_variant',    xboxVariant);
     if (selectedDisplay) localStorage.setItem('winland_target_display', selectedDisplay);
     for (const cat of Object.keys(STYLE_KEYS)) {
@@ -210,16 +198,16 @@ export default function SettingsWindow() {
     }
 
     if (window.electronAPI?.writeSettings) {
-      window.electronAPI.writeSettings({ autoHideIdle, autoHideDuration, hideInFullscreen: autoHide, musicAura });
+      window.electronAPI.writeSettings({ autoHideIdle, autoHideDuration, hideInFullscreen: autoHide, musicAura, musicWaves });
     }
 
     window.dispatchEvent(new CustomEvent('winland-settings-changed', {
-      detail: { selectedPhone, selectedHeadphones, selectedEarbuds, selectedController, selectedSpeaker, xboxVariant, selectedColor, animStyle, autoHide, autoHideDuration, musicAura },
+      detail: { selectedPhone, selectedHeadphones, selectedEarbuds, selectedController, selectedSpeaker, xboxVariant, selectedColor, animStyle, autoHide, autoHideDuration, musicAura, musicWaves },
     }));
 
     window.electronAPI?.sendDevicePrefs?.(readDevicePrefs());
   }, [selectedPhone, selectedHeadphones, selectedEarbuds, selectedController,
-      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, musicAura, selectedDisplay, readDevicePrefs]);
+      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, musicAura, musicWaves, selectedDisplay, readDevicePrefs]);
 
   const handleClose = () => window.electronAPI?.closeSettingsWindow?.();
 
@@ -458,6 +446,25 @@ export default function SettingsWindow() {
                       aria-label="Music Background Aura Effect"
                       className="wl-switch"
                       onClick={() => setMusicAura((v) => !v)}
+                    >
+                      <span className="wl-switch-knob" />
+                    </button>
+                  </div>
+
+                  <div className="wl-row">
+                    <div>
+                      <div className="wl-row-title">Dynamic Liquid Waves</div>
+                      <div className="wl-row-sub">
+                        Display fluid Samsung One UI 9 dynamic liquid waves on the scrubber, or use the classic smooth progress bar with shimmer.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={musicWaves}
+                      aria-label="Dynamic Liquid Waves"
+                      className="wl-switch"
+                      onClick={() => setMusicWaves((v) => !v)}
                     >
                       <span className="wl-switch-knob" />
                     </button>

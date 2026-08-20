@@ -26,7 +26,7 @@ import { driveEq, useEqBars } from '../../utils/eqStore';
 import ThemeCanvas from '../../theme/ThemeCanvas';
 import { themeManager } from '../../theme/ThemeManager';
 import { Moon, Play, Pause, Square } from 'lucide-react';
-import { MUSIC_AURA_KEY } from '../../data/devicePrefs';
+import { MUSIC_AURA_KEY, MUSIC_WAVES_KEY } from '../../data/devicePrefs';
 import { timerStore } from '../../features/timer/TimerStore';
 import { fetchLiveWeather } from '../../utils/weatherUtils';
 
@@ -196,13 +196,15 @@ export default function DynamicIsland({
       const savedDuration = localStorage.getItem('winland_autohide_duration');
       const savedIdle = localStorage.getItem('winland_autohide_idle');
       const savedAura = localStorage.getItem(MUSIC_AURA_KEY);
+      const savedWaves = localStorage.getItem(MUSIC_WAVES_KEY);
       return {
         autoHideIdle: savedIdle !== 'false',
         autoHideDuration: savedDuration ? parseInt(savedDuration, 10) : 10,
         musicAura: savedAura !== 'false',
+        musicWaves: savedWaves !== 'false',
       };
     } catch {
-      return { autoHideIdle: true, autoHideDuration: 10, musicAura: true };
+      return { autoHideIdle: true, autoHideDuration: 10, musicAura: true, musicWaves: true };
     }
   });
 
@@ -1395,6 +1397,7 @@ export default function DynamicIsland({
                 <MusicWidget
                   isSplit={true}
                   isLight={isLight}
+                  musicWaves={devicePrefs?.musicWaves !== false}
                   trackInfo={trackInfo}
                   eqColor={eqColor}
                   eqGlow={eqGlow}
@@ -1414,6 +1417,7 @@ export default function DynamicIsland({
               isLight={isLight}
               isDndActive={isDndActive}
               isDndVisible={isDndVisible}
+              musicWaves={devicePrefs?.musicWaves !== false}
               onToggleLyrics={() => setActiveState((prev) => prev === 'expanded-lyrics' ? 'expanded-music' : 'expanded-lyrics')}
               trackInfo={trackInfo}
               eqColor={eqColor}

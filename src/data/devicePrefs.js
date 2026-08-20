@@ -43,6 +43,7 @@ export const DEFAULT_STYLES = {
 // The Xbox card offers a colour variant, which is a different GLB.
 export const XBOX_VARIANT_KEY = 'winland_xbox_variant';
 export const MUSIC_AURA_KEY = 'winland_music_aura';
+export const MUSIC_WAVES_KEY = 'winland_music_waves';
 
 const read = (key, fallback) => {
   try {
@@ -64,7 +65,8 @@ export function readDevicePrefs() {
     devices.controller = read(XBOX_VARIANT_KEY, 'xbox_white');
   }
   const musicAura = read(MUSIC_AURA_KEY, 'true') !== 'false';
-  return { devices, styles, musicAura };
+  const musicWaves = read(MUSIC_WAVES_KEY, 'true') !== 'false';
+  return { devices, styles, musicAura, musicWaves };
 }
 
 /** Map a detected bluetooth device category to the pref category. */

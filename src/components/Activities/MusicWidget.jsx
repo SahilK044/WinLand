@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music, RefreshCw, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { useEqBars } from '../../utils/eqStore';
 import DynamicWaveProgress from './DynamicWaveProgress';
+import ClassicShimmerProgress from './ClassicShimmerProgress';
 
 const MAC_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Arial, sans-serif';
 
@@ -22,32 +23,6 @@ const StraightMicIcon = ({ size = 18, color = 'currentColor' }) => (
     <line x1="8" y1="21" x2="16" y2="21" />
   </svg>
 );
-
-function getButtonIconColor(bgColor) {
-  if (!bgColor) return '#ffffff';
-  let r = 255, g = 255, b = 255;
-  if (bgColor.startsWith('#')) {
-    const hex = bgColor.replace('#', '');
-    if (hex.length === 3) {
-      r = parseInt(hex[0] + hex[0], 16);
-      g = parseInt(hex[1] + hex[1], 16);
-      b = parseInt(hex[2] + hex[2], 16);
-    } else if (hex.length >= 6) {
-      r = parseInt(hex.slice(0, 2), 16);
-      g = parseInt(hex.slice(2, 4), 16);
-      b = parseInt(hex.slice(4, 6), 16);
-    }
-  } else if (bgColor.startsWith('rgb')) {
-    const parts = bgColor.match(/\d+/g);
-    if (parts && parts.length >= 3) {
-      r = parseInt(parts[0], 10);
-      g = parseInt(parts[1], 10);
-      b = parseInt(parts[2], 10);
-    }
-  }
-  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  return lum > 165 ? '#000000' : '#ffffff';
-}
 
 function cleanTrackTitle(title) {
   if (!title) return '';
@@ -981,7 +956,8 @@ export default function MusicWidget({
   isLyricsView,
   isLight = false,
   isDndActive: _isDndActive = false,
-  isDndVisible,
+  isDndVisible: _isDndVisible = false,
+  musicWaves = true,
   onToggleLyrics,
   trackInfo = {},
   eqColor = '#34c759',
@@ -1009,15 +985,12 @@ export default function MusicWidget({
 
   // Clock for empty expanded state fallback when no track is playing
   useEffect(() => {
-    if (title) return undefined;
-    const timer = setInterval(() => setTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    if (title) return;
+    const interval = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(interval);
   }, [title]);
 
-  /* ─── EXPANDED SYNCED LYRICS VIEW ───
-     Must come after every hook above (Rules of Hooks: an early return can't
-     precede a hook call, or the hook count changes between renders and React
-     throws as soon as isLyricsView flips). */
+  /* ─── LYRICS VIEW ─── */
   if (isLyricsView) {
     return (
       <SyncedLyricsView
@@ -1036,13 +1009,11 @@ export default function MusicWidget({
     );
   }
 
-
   const hours = time.getHours();
   const mins = time.getMinutes();
   const displayHours = hours % 12 || 12;
   const timeString = `${displayHours}:${mins < 10 ? '0' : ''}${mins}`;
   const dateString = time.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
 
   /* ─── SPLIT PILL (Primary Left Component) ─── */
   if (isSplit) {
@@ -1059,104 +1030,120 @@ export default function MusicWidget({
             </MarqueeText>
           )}
         </div>
-        <div style={{ flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}>
-          <EqBars h={14} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
-        </div>
+        <EqBars h={12} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
       </div>
     );
   }
 
-  /* ─── COMPACT PILL (Single Active Island State) ─── */
+  /* ─── COMPACT VIEW ─── */
   if (isCompact) {
     return (
       <div
         onClick={(e) => { e.stopPropagation(); onExpand?.(); }}
         style={{
-          width: '100%', height: '100%',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '0 14px', cursor: 'pointer', fontFamily: MAC_FONT, boxSizing: 'border-box',
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0 10px',
+          boxSizing: 'border-box',
+          cursor: 'pointer',
+          fontFamily: MAC_FONT,
+          background: 'transparent',
         }}
       >
-        <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} glowColor={eqGlow} glowOpacity={0.45} />
-        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 10, paddingRight: 10, overflow: 'hidden' }}>
-          <MarqueeText style={{ fontSize: 11.5, fontWeight: 700, color: isLight ? '#000000' : '#ffffff', lineHeight: '15px' }}>
-            {title || 'Music Player'}
-          </MarqueeText>
-          {artist && (
-            <MarqueeText style={{ fontSize: 10, fontWeight: 500, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255,255,255,0.55)', lineHeight: '14px' }}>
-              {artist}
+        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1, overflow: 'hidden' }}>
+          <AlbumArt coverUrl={coverUrl} title={title} size={26} r={6} glowColor={eqGlow} glowOpacity={0.4} />
+          <div className="track-change-wrapper" key={title} style={{ minWidth: 0, paddingLeft: 8, paddingRight: 6, flex: 1, overflow: 'hidden' }}>
+            <MarqueeText style={{ fontSize: 11, fontWeight: 650, color: isLight ? '#000000' : '#ffffff', lineHeight: '14px' }}>
+              {title || 'Music Player'}
             </MarqueeText>
-          )}
+            {artist && (
+              <MarqueeText style={{ fontSize: 9.5, fontWeight: 500, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255,255,255,0.5)', lineHeight: '12px' }}>
+                {artist}
+              </MarqueeText>
+            )}
+          </div>
         </div>
-        <div style={{ flexShrink: 0, marginLeft: 4, display: 'flex', alignItems: 'center' }}>
-          <EqBars h={14} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
+        <div style={{ flexShrink: 0 }}>
+          <EqBars h={12} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
         </div>
       </div>
     );
   }
 
-  /* ─── EXPANDED PILL (1:1 macOS / iOS Lock Screen clock) ─── */
+  /* ─── EMPTY STATE (Fallback Clock) ─── */
   if (!title) {
     return (
-      <div style={{
-        width: '100%', height: '100%',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: 8, padding: '10px 0', fontFamily: MAC_FONT,
-      }}>
-        <div
-          style={{
-            fontSize: 52,
-            fontWeight: 700,
-            color: isLight ? '#000000' : '#ffffff',
-            letterSpacing: '-1.5px',
-            lineHeight: '58px',
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '16px 20px', boxSizing: 'border-box', fontFamily: MAC_FONT }}>
+        <div style={{ fontSize: 32, fontWeight: 800, color: isLight ? '#000000' : '#ffffff', letterSpacing: '-0.03em', lineHeight: 1 }}>
           {timeString}
         </div>
-        <div style={{ fontSize: 13, fontWeight: 600, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255, 255, 255, 0.55)', letterSpacing: '0.1px' }}>
+        <div style={{ fontSize: 12, fontWeight: 550, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255, 255, 255, 0.55)', marginTop: 4 }}>
           {dateString}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12, padding: '4px 10px', borderRadius: 12, background: isLight ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.08)' }}>
+          <Music size={12} color={isLight ? '#666' : '#aaa'} />
+          <span style={{ fontSize: 11, fontWeight: 500, color: isLight ? '#666' : '#aaa' }}>No Media Playing</span>
         </div>
       </div>
     );
   }
 
-  const playIconColor = getButtonIconColor(eqColor);
-
+  /* ─── EXPANDED PLAYER VIEW ─── */
   return (
-    <div style={{
-      position: 'relative',
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      alignItems: 'center',
-      fontFamily: MAC_FONT,
-      borderRadius: 'inherit',
-      overflow: 'hidden',
-    }}>
-      {/* ── Content Deck (Header, Scrubber & Controls — Clean Full Width) ── */}
-      <div style={{
-        position: 'relative',
-        zIndex: 2,
-        marginLeft: 0,
+    <div
+      className="music-widget-expanded"
+      style={{
         width: '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
-        padding: '14px 18px 12px 18px',
+        padding: '8px 12px 6px',
         boxSizing: 'border-box',
-      }}>
+        fontFamily: MAC_FONT,
+        position: 'relative',
+        zIndex: 2,
+      }}
+    >
+      {/* Dynamic Ambient Glow Behind Artwork in Expanded View */}
+      {eqGlow && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 2,
+            left: 2,
+            width: 76,
+            height: 76,
+            borderRadius: '50%',
+            background: eqGlow,
+            filter: 'blur(18px)',
+            opacity: isLight ? 0.35 : 0.65,
+            pointerEvents: 'none',
+            zIndex: 0,
+            transition: 'background 0.8s ease, opacity 0.8s ease',
+          }}
+        />
+      )}
 
-        {/* ── 1. Top Row: Track Info & Equalizer ── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-          <div style={{ marginRight: 11, flexShrink: 0 }}>
-            <AlbumArt coverUrl={coverUrl} title={title} size={40} r={9} glowColor={eqGlow} glowOpacity={isLight ? 0.4 : 0.65} />
-          </div>
+      {/* Main Column Container */}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, zIndex: 1 }}>
+        {/* ── 1. Top Row: Album Art + Track Info + Equalizer ── */}
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 10, minWidth: 0 }}>
+          <AlbumArt
+            coverUrl={coverUrl}
+            title={title}
+            size={42}
+            r={10}
+            glowColor={eqGlow}
+            glowOpacity={0.65}
+            onClick={onToggleLyrics}
+          />
 
-          <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden', paddingRight: isDndVisible ? 80 : 8 }}>
-            <MarqueeText style={{ fontSize: 15.5, fontWeight: 750, color: isLight ? '#000000' : '#ffffff', lineHeight: '18px', letterSpacing: '-0.3px' }}>
+          <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <MarqueeText className="widget-title" style={{ fontSize: 13.5, fontWeight: 700, lineHeight: '16px', color: isLight ? '#000000' : '#ffffff' }}>
               {title}
             </MarqueeText>
             {artist && (
@@ -1164,27 +1151,35 @@ export default function MusicWidget({
                 {artist}
               </MarqueeText>
             )}
-            <div style={{ fontSize: 9.5, fontWeight: 700, marginTop: 2, color: eqColor, transition: 'color 0.8s ease' }}>
-              {isPlaying ? 'Media • Active' : 'Media • Paused'}
-            </div>
           </div>
-
           <div style={{ flexShrink: 0, marginTop: 2 }}>
             <EqBars h={15} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
           </div>
         </div>
 
-        {/* ── 2. Middle Row: Samsung One UI 9 Dynamic Wave Progress ── */}
+        {/* ── 2. Middle Row: Dynamic Waves or Classic Shimmer Scrubber ── */}
         <div style={{ width: '100%', marginTop: 2, marginBottom: 0, position: 'relative' }}>
-          <DynamicWaveProgress
-            progressMs={progressMs}
-            durationMs={durationMs}
-            isPlaying={isPlaying}
-            eqColor={eqColor}
-            eqGlow={eqGlow}
-            isLight={isLight}
-            onSeek={onSeek}
-          />
+          {musicWaves ? (
+            <DynamicWaveProgress
+              progressMs={progressMs}
+              durationMs={durationMs}
+              isPlaying={isPlaying}
+              eqColor={eqColor}
+              eqGlow={eqGlow}
+              isLight={isLight}
+              onSeek={onSeek}
+            />
+          ) : (
+            <ClassicShimmerProgress
+              progressMs={progressMs}
+              durationMs={durationMs}
+              isPlaying={isPlaying}
+              eqColor={eqColor}
+              eqGlow={eqGlow}
+              isLight={isLight}
+              onSeek={onSeek}
+            />
+          )}
         </div>
 
         {/* ── 3. Bottom Row: Spaced Transport Controls (Comfortable Breathing Room) ── */}
