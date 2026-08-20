@@ -338,13 +338,24 @@ export default function DynamicWaveProgress({
             ctx.lineTo(trackLeft, baselineY);
             ctx.closePath();
 
-            // Luminous vertical translucent gradient fill
+            // ── Luminous Ambient Inner Glow & Multi-Stop Liquid Gradient ──
+            ctx.save();
+            ctx.shadowColor = palette.primaryGlow;
+            ctx.shadowBlur = isLight ? 6 : 10;
+
             const waveGrad = ctx.createLinearGradient(0, baselineY - layer.amp, 0, baselineY);
-            waveGrad.addColorStop(0, hexToRgba(layer.color, layer.alpha * 0.35));
-            waveGrad.addColorStop(0.55, hexToRgba(layer.color, layer.alpha * 0.75));
-            waveGrad.addColorStop(1, hexToRgba(layer.color, layer.alpha));
+            waveGrad.addColorStop(0, hexToRgba(layer.color, layer.alpha * 0.45));
+            waveGrad.addColorStop(0.40, hexToRgba(layer.color, layer.alpha * 0.70));
+            waveGrad.addColorStop(0.75, hexToRgba(layer.color, layer.alpha * 0.88));
+            waveGrad.addColorStop(1, hexToRgba(layer.color, layer.alpha * 0.98));
             ctx.fillStyle = waveGrad;
             ctx.fill();
+
+            // Subtle top liquid crest luminous rim
+            ctx.lineWidth = 1.0;
+            ctx.strokeStyle = hexToRgba(layer.color, layer.alpha * 0.50);
+            ctx.stroke();
+            ctx.restore();
           });
 
           ctx.restore();
