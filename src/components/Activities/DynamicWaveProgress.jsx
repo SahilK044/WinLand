@@ -280,7 +280,9 @@ export default function DynamicWaveProgress({
           ctx.save();
 
           const t = anim.timeSeconds;
-          const ampFactor = anim.amplitudeFactor;
+          // Smooth progressive amplitude scaling so short played distances ripple gently
+          const widthScale = Math.min(1, Math.max(0.20, playedW / 65));
+          const ampFactor = anim.amplitudeFactor * widthScale;
 
           // 2 Grand, Majestic, Ultra-Smooth Liquid Wave Layers (Large size, broad sweeping wavelengths)
           const layers = [
@@ -388,29 +390,26 @@ export default function DynamicWaveProgress({
           ctx.stroke();
         }
 
-        // ── 4. Glowing Playhead Thumb Knob (Samsung One UI 9) ──────────────────
+        // ── 4. Authentic Samsung One UI 9 Concentric Progress Circle ───────────
         if (fraction > 0.005 || isDraggingRef.current) {
-          const targetThumbRadius = isDraggingRef.current ? 5.8 : 4.5;
-          const thumbRadius = targetThumbRadius;
+          const outerRadius = isDraggingRef.current ? 6.2 : 5.2;
+          const innerRadius = isDraggingRef.current ? 3.2 : 2.6;
 
-          // Ambient outer glow halo centered on (thumbX, baselineY)
+          // 1. Outer Theme Ring with Soft Ambient Bloom
           ctx.save();
           ctx.shadowColor = palette.primaryGlow;
-          ctx.shadowBlur = isDraggingRef.current ? 16 : 10;
+          ctx.shadowBlur = isDraggingRef.current ? 12 : 8;
           ctx.beginPath();
-          ctx.arc(thumbX, baselineY, thumbRadius + 1.4, 0, Math.PI * 2);
+          ctx.arc(thumbX, baselineY, outerRadius, 0, Math.PI * 2);
           ctx.fillStyle = palette.primaryColor;
           ctx.fill();
           ctx.restore();
 
-          // Inner solid white circle
+          // 2. Inner Solid Core Dot (Concentric One UI 9 Disc)
           ctx.beginPath();
-          ctx.arc(thumbX, baselineY, thumbRadius, 0, Math.PI * 2);
-          ctx.fillStyle = '#ffffff';
+          ctx.arc(thumbX, baselineY, innerRadius, 0, Math.PI * 2);
+          ctx.fillStyle = palette.primaryColor === '#ffffff' ? (isLight ? '#1d1d1f' : '#282828') : '#ffffff';
           ctx.fill();
-          ctx.lineWidth = 1.2;
-          ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.15)';
-          ctx.stroke();
         }
 
         ctx.restore();
