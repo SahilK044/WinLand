@@ -276,7 +276,7 @@ export default function WeatherWidget({
               type="text"
               autoFocus
               aria-label="Search city name"
-              placeholder="Search city (e.g. Dwarka)..."
+              placeholder="Search city (e.g. London, Tokyo)..."
               value={cityInput}
               onChange={(e) => setCityInput(e.target.value)}
               onKeyDown={handleKeyDown}

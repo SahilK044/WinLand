@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 /* ────────────────────────────────────────────────────────────────────────────
-   WinLand — Samsung One UI 9 Dynamic Wave Progress Bar (1:1 Reference)
+   WinLand — Samsung One UI Dynamic Wave Progress Bar
    ────────────────────────────────────────────────────────────────────────────
-   • 1:1 Authentic Samsung One UI 9 dynamic layered wave experience.
-   • /frontend-design & /performance Polish:
-     - 0 React re-renders per frame in animation loop (direct DOM timekeeper).
-     - Zero memory allocations / garbage collection churn inside the RAF cycle.
-     - Pre-calculated wavenumbers and incommensurate multi-octave liquid harmonics.
-     - Direct album-art color palette matching with luminous translucent alpha gradients.
-     - 2 Grand, tall, ultra-smooth liquid wave crests (amp = 18px and 14.5px).
-     - Sub-pixel 0.5px curve resolution for anti-aliased organic liquid ribbons.
-     - Critically damped easing for smooth play/pause settling and waking.
-     - Frosted glass seek tooltip and glowing Samsung One UI 9 playhead thumb knob.
+   • Fluid layered liquid wave animation with GPU canvas rendering.
+   • Zero-allocation RAF cycle for buttery smooth frame delivery.
+   • Incommensurate multi-octave liquid wave harmonics.
+   • Dynamic palette blending derived from album artwork.
+   • Seamless frosted-glass scrubber tooltip and glowing One UI thumb knob.
    ──────────────────────────────────────────────────────────────────────────── */
 
 const CANVAS_HEIGHT = 28;
@@ -29,7 +24,7 @@ const K_FRONT_2 = (Math.PI * 2) / 62;
 const K_FRONT_ENV = (Math.PI * 2) / 145;
 
 function fmtTime(ms) {
-  if (!ms || ms <= 0) return '0:00';
+  if (!ms || !Number.isFinite(ms) || ms <= 0) return '0:00';
   const totalSeconds = Math.floor(ms / 1000);
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
@@ -102,7 +97,7 @@ export default function DynamicWaveProgress({
         timeDisplayRef.current.textContent = formatted;
       }
     } else if (Math.abs(drift) > 60) {
-      syncRef.current.baseMs += drift * 0.25;
+      syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
     }
   }, [progressMs, isPlaying]);
 
@@ -434,7 +429,7 @@ export default function DynamicWaveProgress({
         rafIdRef.current = null;
       }
     };
-  }, [isPlaying, isDragging, progressMs, durationMs, eqColor, eqGlow, isLight]);
+  }, [isPlaying, isDragging, durationMs, eqColor, eqGlow, isLight]);
 
   return (
     <div style={{ width: '100%', position: 'relative', userSelect: 'none' }}>

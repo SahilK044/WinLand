@@ -758,7 +758,8 @@ export default function SettingsWindow() {
                       const dispId = e.target.value;
                       setSelectedDisplay(dispId);
                       if (window.electronAPI?.setTargetDisplay) {
-                        window.electronAPI.setTargetDisplay(Number(dispId) || dispId);
+                        const parsed = Number(dispId);
+                        window.electronAPI.setTargetDisplay(!isNaN(parsed) && dispId !== '' ? parsed : dispId);
                       }
                     }}
                     style={{

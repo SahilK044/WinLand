@@ -11,8 +11,22 @@ import { repositionControlsPill, destroyRecordingControlsPillWindow } from './el
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// NOTE: no-sandbox / disable-http-cache were removed — the sandbox stays on and
-// Chromium's HTTP cache makes album-art fetches cheap.
+// ── Global Early Crash Handling ─────────────────────────────────────────────
+const mainCrashLog = path.join(os.tmpdir(), 'winland_main_crash.log');
+
+process.on('uncaughtException', (err) => {
+  console.error('WinLand Uncaught Exception:', err);
+  try {
+    fs.appendFileSync(mainCrashLog, `[${new Date().toISOString()}] Uncaught Exception: ${err?.stack || err}\n`);
+  } catch {}
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('WinLand Unhandled Rejection:', reason);
+  try {
+    fs.appendFileSync(mainCrashLog, `[${new Date().toISOString()}] Unhandled Rejection: ${reason?.stack || reason}\n`);
+  } catch {}
+});
 
 // Force sRGB color space profile for screen capture & WebM encoding on Windows HDR displays
 app.commandLine.appendSwitch('force-color-profile', 'srgb');
@@ -40,27 +54,16 @@ const DEFAULT_SETTINGS = {
   showBattery: true,
   showVolume: true,
   pollInterval: 2500,
-  // "Hide during fullscreen games" from Settings. Defaults to true so a
-  // first-run install matches the behaviour the toggle advertises; the
-  // SettingsWindow default below is aligned with this.
   hideInFullscreen: true,
-  // null = follow the primary display. Otherwise a display.id from
-  // screen.getAllDisplays(), set via the Settings window's Multi-Monitor
-  // Pinning control (get-displays / set-target-display IPC below).
   targetDisplayId: null,
-  // Liquid beat-synced ambient aura glow behind the expanded music player.
   musicAura: true,
-  // Dynamic Samsung One UI 9 liquid waves vs classic smooth shimmer progress bar
   musicWaves: true,
-  // System Appearance & Theme mode ('dark' or 'light')
   themeMode: 'dark',
-  // Auto-hide preferences from Settings
   autoHideIdle: true,
   autoHideDuration: 10,
-  // Pinned location coordinates for Weather
-  pinnedLat: 28.5915,
-  pinnedLon: 77.0531,
-  pinnedCity: 'Dwarka',
+  pinnedLat: 40.7128,
+  pinnedLon: -74.0060,
+  pinnedCity: 'New York',
 };
 
 function readSettings() {
@@ -151,13 +154,9 @@ const WINLAND_THEME_PATH = path.join(os.tmpdir(), 'winland_theme.json');
 let cachedWeatherData = null;
 
 function formatCleanCityName(name = '') {
-  if (!name) return 'South Delhi';
+  if (!name) return 'Local Weather';
   const raw = name.trim();
-  const lower = raw.toLowerCase();
-  if (lower.includes('paharganj') || lower === 'dehli') return 'Delhi';
-  if (lower.includes('chatarpur')) return 'South Delhi';
-  if (lower.includes('delhi cantonment')) return 'West Delhi';
-  return raw;
+  return raw.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
 }
 
 async function fetchLiveWeatherFromNetwork() {
@@ -167,9 +166,9 @@ async function fetchLiveWeatherFromNetwork() {
   let city = settings.pinnedCity;
 
   if (!lat || !lon) {
-    lat = 28.5915;
-    lon = 77.0531;
-    city = 'Dwarka';
+    lat = 40.7128;
+    lon = -74.0060;
+    city = 'New York';
   }
 
   // Tier 1: Real-time physical surface observation stations for the pinned coordinates
@@ -183,44 +182,47 @@ async function fetchLiveWeatherFromNetwork() {
         const tempC = Number(curr.temp_C);
         const condition = curr.weatherDesc?.[0]?.value?.trim() || 'Clear';
         cachedWeatherData = {
-          city: city || formatCleanCityName(area?.areaName?.[0]?.value || area?.region?.[0]?.value || 'Dwarka'),
-          country: area?.country?.[0]?.value || 'India',
+          city: city || formatCleanCityName(area?.areaName?.[0]?.value || area?.region?.[0]?.value || 'Local Weather'),
+          country: area?.country?.[0]?.value || '',
           latitude: lat,
           longitude: lon,
           temperatureC: tempC,
           temperature: tempC,
           weatherCondition: condition,
+          weatherCode: 0,
+          isDay: true,
           humidity: Number(curr.humidity || 50),
           apparentTemperatureC: Number(curr.FeelsLikeC || tempC),
-          isDay: (curr.isdaytime === 'yes' || curr.isdaytime === '1' || new Date().getHours() >= 6 && new Date().getHours() < 19),
         };
         return cachedWeatherData;
       }
     }
   } catch {}
 
-  // Tier 2: Open-Meteo GFS NOAA global observations for the pinned coordinates
+  // Tier 2: High-resolution Open-Meteo API
   try {
-    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code&models=gfs_seamless&timezone=auto`;
-    const wr = await fetch(weatherUrl, { signal: AbortSignal.timeout(4000) });
-    if (wr.ok) {
-      const wd = await wr.json();
-      if (wd?.current) {
-        const current = wd.current;
-        const code = Number(current.weather_code);
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code&timezone=auto`,
+      { signal: AbortSignal.timeout(4000) }
+    );
+    if (res.ok) {
+      const data = await res.json();
+      const current = data.current;
+      if (current) {
+        const code = current.weather_code;
         let condition = 'Clear';
-        if (code === 0 || code === 1) condition = current.is_day ? 'Sunny' : 'Clear';
-        else if (code === 2) condition = 'Partly Cloudy';
+        if (code === 0) condition = 'Clear';
+        else if (code === 1 || code === 2) condition = 'Partly Cloudy';
         else if (code === 3) condition = 'Overcast';
-        else if (code === 45 || code === 48) condition = 'Foggy';
-        else if (code >= 51 && code <= 57) condition = 'Drizzle';
+        else if (code === 45 || code === 48) condition = 'Fog';
+        else if (code >= 51 && code <= 55) condition = 'Drizzle';
         else if (code >= 61 && code <= 67) condition = 'Rain';
         else if (code >= 71 && code <= 77) condition = 'Snow';
         else if (code >= 80 && code <= 82) condition = 'Rain Showers';
         else if (code >= 95) condition = 'Thunderstorm';
 
         cachedWeatherData = {
-          city: city || 'Dwarka',
+          city: city || 'Local Weather',
           latitude: lat,
           longitude: lon,
           temperatureC: current.temperature_2m,
@@ -1362,7 +1364,8 @@ ipcMain.on('media-control', (event, action) => {
 // only ever has one shrink scheduled at a time instead of stacking timers.
 const pendingShrinkTimers = new WeakMap();
 
-ipcMain.on('resize-window', (event, { width, height, growing }) => {
+ipcMain.on('resize-window', (event, payload = {}) => {
+  const { width = 0, height = 0, growing } = payload || {};
   const win = BrowserWindow.fromWebContents(event.sender);
   if (!win || win.isDestroyed()) return;
 
@@ -1538,25 +1541,24 @@ ipcMain.handle('get-bluetooth-state', () => {
 });
 
 ipcMain.on('open-path', async (event, filePath) => {
-  if (filePath) {
-    try {
-      const err = await shell.openPath(filePath);
-      if (err) {
-        execFile('explorer.exe', [filePath], (err) => { if (err) console.error('Explorer error:', err); });
-      }
-    } catch {
+  if (!filePath || typeof filePath !== 'string') return;
+  try {
+    const err = await shell.openPath(filePath);
+    if (err) {
       execFile('explorer.exe', [filePath], (err) => { if (err) console.error('Explorer error:', err); });
     }
+  } catch {
+    execFile('explorer.exe', [filePath], (err) => { if (err) console.error('Explorer error:', err); });
   }
 });
 
 function expandEnvVars(str) {
-  if (!str) return str;
+  if (!str || typeof str !== 'string') return str;
   return str.replace(/%([^%]+)%/g, (_, name) => process.env[name] || process.env[name.toUpperCase()] || `%${name}%`);
 }
 
 ipcMain.handle('get-file-icon', async (_event, filePath) => {
-  if (!filePath) return null;
+  if (!filePath || typeof filePath !== 'string') return null;
   try {
     const expanded = expandEnvVars(filePath);
     const lower = expanded.toLowerCase();
@@ -2315,21 +2317,6 @@ ipcMain.on('launch-app', (event, cmd) => {
 });
 
 // ── App Lifecycle & Safety ──────────────────────────────────────────────────
-const mainCrashLog = path.join(os.tmpdir(), 'winland_main_crash.log');
-
-process.on('uncaughtException', (err) => {
-  console.error('WinLand Uncaught Exception:', err);
-  try {
-    fs.appendFileSync(mainCrashLog, `[${new Date().toISOString()}] Uncaught Exception: ${err?.stack || err}\n`);
-  } catch {}
-});
-
-process.on('unhandledRejection', (reason) => {
-  console.error('WinLand Unhandled Rejection:', reason);
-  try {
-    fs.appendFileSync(mainCrashLog, `[${new Date().toISOString()}] Unhandled Rejection: ${reason?.stack || reason}\n`);
-  } catch {}
-});
 
 app.whenReady().then(() => {
   createWindow();

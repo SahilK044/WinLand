@@ -7,20 +7,23 @@ export default function AirDropWidget({ isCompact, onComplete }) {
   const [isDone, setIsDone] = useState(false);
 
   useEffect(() => {
-    let interval = setInterval(() => {
+    if (isDone) return;
+    const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsDone(true);
-          soundEngine.playChime();
-          return 100;
-        }
-        return prev + 12;
+        if (prev >= 100) return 100;
+        return Math.min(100, prev + 12);
       });
     }, 400);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isDone]);
+
+  useEffect(() => {
+    if (progress >= 100 && !isDone) {
+      setIsDone(true);
+      soundEngine?.playChime?.();
+    }
+  }, [progress, isDone]);
 
   if (isCompact) {
     return (

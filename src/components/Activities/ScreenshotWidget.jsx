@@ -3,11 +3,19 @@ import { Camera, Copy, Check } from 'lucide-react';
 
 export default function ScreenshotWidget({ isCompact, imageSrc }) {
   const [copied, setCopied] = React.useState(false);
+  const timerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleCopy = (e) => {
     e.stopPropagation();
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   if (isCompact) {

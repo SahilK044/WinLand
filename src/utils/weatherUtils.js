@@ -4,13 +4,9 @@ import { Sun, Moon, Cloud, CloudRain, CloudSnow, CloudLightning, CloudFog, Cloud
  * Clean up ugly ISP station names to clean, polished city labels.
  */
 export function formatCleanCityName(name = '') {
-  if (!name) return 'Delhi';
+  if (!name) return 'Local Weather';
   const raw = name.trim();
-  const lower = raw.toLowerCase();
-  if (lower.includes('paharganj') || lower === 'dehli') return 'Delhi';
-  if (lower.includes('chatarpur')) return 'South Delhi';
-  if (lower.includes('delhi cantonment')) return 'West Delhi';
-  return raw;
+  return raw.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase());
 }
 
 /**
@@ -315,8 +311,7 @@ export async function fetchLiveWeather(force = false, customQuery = '') {
     const q = customQuery.trim();
     const matches = await searchPlaces(q);
     if (matches.length > 0) {
-      // Prioritize Indian/local match if user is in India
-      const match = matches.find((m) => m.country === 'India') || matches[0];
+      const match = matches[0];
       const result = await fetchWeatherForCoordinates(match.latitude, match.longitude, match.name);
       if (result) return result;
     }
@@ -330,33 +325,36 @@ export async function fetchLiveWeather(force = false, customQuery = '') {
         if (curr && curr.temp_C !== undefined) {
           const tempC = Number(curr.temp_C);
           const condition = curr.weatherDesc?.[0]?.value?.trim() || 'Clear';
-          const city = formatCleanCityName(q || area?.areaName?.[0]?.value || 'Local');
+          const city = formatCleanCityName(q || area?.areaName?.[0]?.value || 'Local Weather');
           const result = {
             city,
             country: area?.country?.[0]?.value || '',
+            latitude: area?.latitude ? Number(area.latitude) : 0,
+            longitude: area?.longitude ? Number(area.longitude) : 0,
             temperatureC: tempC,
             temperature: tempC,
             weatherCondition: condition,
+            weatherCode: 0,
+            isDay: true,
             humidity: Number(curr.humidity || 50),
             apparentTemperatureC: Number(curr.FeelsLikeC || tempC),
-            isDay: (curr.isdaytime === 'yes' || curr.isdaytime === '1' || (new Date().getHours() >= 6 && new Date().getHours() < 19)),
           };
           lastWeatherCache = result;
           lastWeatherFetchTime = Date.now();
-          try {
-            localStorage.setItem('winland_custom_city', city);
-            localStorage.setItem('winland_live_weather', JSON.stringify(result));
-          } catch {}
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('winland-weather-updated', { detail: result }));
-          }
           return result;
         }
       }
     } catch {}
   }
 
-  // Check saved custom coordinates in localStorage
+  // If no custom query, fetch current coordinates
+  return fetchLocalWeather(force);
+}
+
+/**
+ * Fetches default local coordinates
+ */
+export async function fetchLocalWeather(force = false) {
   let savedLat = null;
   let savedLon = null;
   let savedCity = '';
@@ -374,17 +372,16 @@ export async function fetchLiveWeather(force = false, customQuery = '') {
       if (!force && lastWeatherCache && now - lastWeatherFetchTime < WEATHER_CACHE_TTL) {
         return lastWeatherCache;
       }
-      const res = await fetchWeatherForCoordinates(lat, lon, savedCity || 'Local');
+      const res = await fetchWeatherForCoordinates(lat, lon, savedCity || 'Local Weather');
       if (res) return res;
     }
   }
 
-  const activeCity = savedCity || 'Dwarka';
+  const activeCity = savedCity || 'Local Weather';
   const now = Date.now();
   if (!force && lastWeatherCache && now - lastWeatherFetchTime < WEATHER_CACHE_TTL) {
     return lastWeatherCache;
   }
 
-  // Default to Dwarka / South West Delhi physical observation station
-  return fetchWeatherForCoordinates(28.5915, 77.0531, activeCity);
+  return fetchWeatherForCoordinates(40.7128, -74.0060, activeCity);
 }

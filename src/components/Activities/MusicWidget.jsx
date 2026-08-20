@@ -179,7 +179,12 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
   const lyricsRequestIdRef = useRef(0);
 
   useEffect(() => {
-    if (!title) return;
+    if (!title) {
+      setLyrics([]);
+      setPlainLyrics('');
+      setLoading(false);
+      return;
+    }
     const requestId = ++lyricsRequestIdRef.current;
     setLoading(true);
     setLyrics([]);
@@ -825,6 +830,7 @@ const SystemVolumeControl = ({ isLight = false }) => {
       };
     }
     const unsub = window.electronAPI.onVolumeUpdate(({ vol }) => {
+      if (!isMounted) return;
       if (typeof vol === 'number' && !isNaN(vol)) {
         setVolume(vol);
         if (vol > 0) {

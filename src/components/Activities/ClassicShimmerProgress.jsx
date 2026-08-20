@@ -5,7 +5,7 @@ const TRACK_THICKNESS = 3.5;
 const PADDING_X = 6;
 
 function fmtTime(ms) {
-  if (!ms || isNaN(ms) || ms < 0) return '0:00';
+  if (!ms || !Number.isFinite(ms) || ms <= 0) return '0:00';
   const totalSeconds = Math.floor(ms / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -138,21 +138,26 @@ export default function ClassicShimmerProgress({
     setIsDragging(true);
     computeTargetFromPointer(e.clientX);
 
+    if (e.target && e.target.setPointerCapture) {
+      try { e.target.setPointerCapture(e.pointerId); } catch {}
+    }
+  };
+
+  useEffect(() => {
+    if (!isDragging) return;
+
     const onPointerMove = (moveEvt) => {
+      if (!isDraggingRef.current) return;
       moveEvt.preventDefault();
       computeTargetFromPointer(moveEvt.clientX);
     };
 
     const onPointerUp = (upEvt) => {
-      upEvt.stopPropagation();
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
-
-      const finalMs = computeTargetFromPointer(upEvt.clientX);
+      if (!isDraggingRef.current) return;
       isDraggingRef.current = false;
       setIsDragging(false);
 
+      const finalMs = computeTargetFromPointer(upEvt.clientX);
       syncRef.current.baseMs = finalMs;
       syncRef.current.baseTs = performance.now();
 
@@ -162,7 +167,13 @@ export default function ClassicShimmerProgress({
     window.addEventListener('pointermove', onPointerMove, { passive: false });
     window.addEventListener('pointerup', onPointerUp);
     window.addEventListener('pointercancel', onPointerUp);
-  };
+
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, [isDragging, computeTargetFromPointer, onSeek]);
 
   const initialFraction = durationMs > 0 ? Math.min(1, Math.max(0, progressMs / durationMs)) : 0;
   const initialPct = initialFraction * 100;
