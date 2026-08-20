@@ -759,7 +759,7 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, glowColor, glowOpacity = 
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
-        title="Open Spotify"
+        title="Open Media"
         className="interactive-child"
         style={{
           position: 'relative',
@@ -768,11 +768,11 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, glowColor, glowOpacity = 
           height: '100%',
           borderRadius: r,
           overflow: 'hidden',
-          background: 'rgba(255,255,255,0.08)',
+          background: (coverUrl && !imgError) ? 'transparent' : 'rgba(255,255,255,0.08)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 4px 14px rgba(0,0,0,0.45)',
+          boxShadow: (coverUrl && !imgError) ? 'none' : '0 4px 14px rgba(0,0,0,0.45)',
           cursor: 'pointer',
           transform: isHovered ? 'scale(1.06)' : 'scale(1)',
           transition: 'transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -783,7 +783,7 @@ const AlbumArt = ({ coverUrl, title, size = 28, r = 7, glowColor, glowOpacity = 
             src={coverUrl}
             alt="Album Art"
             onError={() => setImgError(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: r }}
           />
         ) : isVideo ? (
           <div style={{
