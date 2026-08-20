@@ -668,47 +668,82 @@ img, canvas {
 
 
 
-/* â”€â”€ Call Widget: Compact pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Call Widget: Compact pill ────────────────────────────────────────────── */
 .state-compact-call {
-  width: 270px;
-  height: 54px;
-  border-radius: 27px;
+  width: 280px;
+  height: 48px;
+  border-radius: 24px;
 }
 
-/* â”€â”€ Call Widget: Expanded panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── Call Widget: Expanded panel ──────────────────────────────────────────── */
 .state-expanded-call {
-  width: 310px;
-  height: 240px;
+  width: 320px;
+  height: 220px;
   border-radius: 44px;
 }
 
-/* â”€â”€ Call Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-@keyframes callRingPulse1 {
-  0%   { transform: scale(0.95); opacity: 0.8; }
-  70%  { transform: scale(1.45); opacity: 0; }
-  100% { transform: scale(1.45); opacity: 0; }
+/* ── Call Animations (1:1 macOS Concentric Acoustic Radar Waves) ─────────── */
+@keyframes macosCallPulse1 {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.75;
+  }
+  65% {
+    transform: scale(1.42);
+    opacity: 0.15;
+  }
+  100% {
+    transform: scale(1.58);
+    opacity: 0;
+  }
 }
 
-@keyframes callRingPulse2 {
-  0%   { transform: scale(0.95); opacity: 0.6; }
-  70%  { transform: scale(1.55); opacity: 0; }
-  100% { transform: scale(1.55); opacity: 0; }
+@keyframes macosCallPulse2 {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  15% {
+    transform: scale(1.0);
+    opacity: 0.65;
+  }
+  75% {
+    transform: scale(1.82);
+    opacity: 0.08;
+  }
+  100% {
+    transform: scale(2.05);
+    opacity: 0;
+  }
 }
 
-@keyframes callPulseRing {
-  0%   { transform: scale(0.95); opacity: 0.85; box-shadow: 0 0 0 0 rgba(48, 209, 88, 0.6); }
-  70%  { transform: scale(1.35); opacity: 0; box-shadow: 0 0 0 14px rgba(48, 209, 88, 0); }
-  100% { transform: scale(1.35); opacity: 0; box-shadow: 0 0 0 0 rgba(48, 209, 88, 0); }
+@keyframes macosCallPulse3 {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  25% {
+    transform: scale(1.1);
+    opacity: 0.45;
+  }
+  85% {
+    transform: scale(2.35);
+    opacity: 0.04;
+  }
+  100% {
+    transform: scale(2.55);
+    opacity: 0;
+  }
 }
 
 @keyframes callAvatarEntry {
-  0%   { opacity: 0; transform: scale(0.5) translateY(12px); filter: blur(4px); }
-  60%  { opacity: 1; transform: scale(1.06) translateY(-2px); filter: blur(0); }
+  0%   { opacity: 0; transform: scale(0.6) translateY(10px); filter: blur(4px); }
+  65%  { opacity: 1; transform: scale(1.04) translateY(-1px); filter: blur(0); }
   100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
 }
 
 @keyframes callTextEntry {
-  0%   { opacity: 0; transform: translateY(8px); }
+  0%   { opacity: 0; transform: translateY(6px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 
@@ -718,18 +753,18 @@ img, canvas {
 }
 
 @keyframes callGlowBreath {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50%      { opacity: 0.7; transform: scale(1.05); }
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50%      { opacity: 0.85; transform: scale(1.08); }
 }
 
 @keyframes callDotPulse {
   0%, 100% { opacity: 1; transform: scale(1); }
-  50%      { opacity: 0.5; transform: scale(0.85); }
+  50%      { opacity: 0.45; transform: scale(0.85); }
 }
 
 @keyframes callTextPulse {
   0%, 100% { opacity: 1; }
-  50%      { opacity: 0.5; }
+  50%      { opacity: 0.55; }
 }
 
 .state-expanded-airdrop {
