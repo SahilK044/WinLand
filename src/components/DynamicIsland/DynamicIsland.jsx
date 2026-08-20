@@ -285,13 +285,23 @@ export default function DynamicIsland({
       unsubIpc = window.electronAPI.onAppearancePrefsUpdate((data) => {
         if (data && data.mode) {
           setThemeMode(data.mode);
+          themeManager.setMode(data.mode);
         }
       });
     }
 
+    const handleSettingsChanged = (e) => {
+      if (e.detail?.themeMode) {
+        setThemeMode(e.detail.themeMode);
+        themeManager.setMode(e.detail.themeMode);
+      }
+    };
+    window.addEventListener('winland-settings-changed', handleSettingsChanged);
+
     return () => {
       unsubManager();
       if (unsubIpc) unsubIpc();
+      window.removeEventListener('winland-settings-changed', handleSettingsChanged);
     };
   }, []);
 

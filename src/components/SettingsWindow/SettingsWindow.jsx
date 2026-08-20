@@ -137,9 +137,18 @@ export default function SettingsWindow() {
   const handleUpdateAppearanceMode = (mode) => {
     if (mode !== 'dark' && mode !== 'light') return;
     setAppearanceMode(mode);
+    try {
+      localStorage.setItem('winland_theme_mode', mode);
+    } catch {}
     themeManager.setMode(mode);
+    if (window.electronAPI?.sendAppearancePrefs) {
+      window.electronAPI.sendAppearancePrefs({ mode });
+    }
     if (window.electronAPI?.setThemeMode) {
       window.electronAPI.setThemeMode(mode);
+    }
+    if (window.electronAPI?.writeSettings) {
+      window.electronAPI.writeSettings({ themeMode: mode });
     }
     window.dispatchEvent(new CustomEvent('winland-settings-changed', { detail: { themeMode: mode } }));
   };
@@ -217,16 +226,16 @@ export default function SettingsWindow() {
     }
 
     if (window.electronAPI?.writeSettings) {
-      window.electronAPI.writeSettings({ autoHideIdle, autoHideDuration, hideInFullscreen: autoHide, musicAura, musicWaves });
+      window.electronAPI.writeSettings({ autoHideIdle, autoHideDuration, hideInFullscreen: autoHide, musicAura, musicWaves, themeMode: appearanceMode });
     }
 
     window.dispatchEvent(new CustomEvent('winland-settings-changed', {
-      detail: { selectedPhone, selectedHeadphones, selectedEarbuds, selectedController, selectedSpeaker, xboxVariant, selectedColor, animStyle, autoHide, autoHideDuration, musicAura, musicWaves },
+      detail: { selectedPhone, selectedHeadphones, selectedEarbuds, selectedController, selectedSpeaker, xboxVariant, selectedColor, animStyle, autoHide, autoHideDuration, musicAura, musicWaves, themeMode: appearanceMode },
     }));
 
     window.electronAPI?.sendDevicePrefs?.(readDevicePrefs());
   }, [selectedPhone, selectedHeadphones, selectedEarbuds, selectedController,
-      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, musicAura, musicWaves, selectedDisplay, readDevicePrefs]);
+      selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, musicAura, musicWaves, appearanceMode, selectedDisplay, readDevicePrefs]);
 
   const handleClose = () => window.electronAPI?.closeSettingsWindow?.();
 

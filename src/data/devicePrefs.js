@@ -44,6 +44,7 @@ export const DEFAULT_STYLES = {
 export const XBOX_VARIANT_KEY = 'winland_xbox_variant';
 export const MUSIC_AURA_KEY = 'winland_music_aura';
 export const MUSIC_WAVES_KEY = 'winland_music_waves';
+export const THEME_MODE_KEY = 'winland_theme_mode';
 
 const read = (key, fallback) => {
   try {
@@ -66,7 +67,8 @@ export function readDevicePrefs() {
   }
   const musicAura = read(MUSIC_AURA_KEY, 'true') !== 'false';
   const musicWaves = read(MUSIC_WAVES_KEY, 'true') !== 'false';
-  return { devices, styles, musicAura, musicWaves };
+  const themeMode = read(THEME_MODE_KEY, 'dark');
+  return { devices, styles, musicAura, musicWaves, themeMode };
 }
 
 /** Map a detected bluetooth device category to the pref category. */

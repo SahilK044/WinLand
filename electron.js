@@ -52,6 +52,8 @@ const DEFAULT_SETTINGS = {
   musicAura: true,
   // Dynamic Samsung One UI 9 liquid waves vs classic smooth shimmer progress bar
   musicWaves: true,
+  // System Appearance & Theme mode ('dark' or 'light')
+  themeMode: 'dark',
   // Auto-hide preferences from Settings
   autoHideIdle: true,
   autoHideDuration: 10,

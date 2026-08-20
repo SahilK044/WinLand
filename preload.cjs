@@ -92,6 +92,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Appearance & Telemetry IPC
   getSystemTelemetry: () => ipcRenderer.invoke('get-system-telemetry'),
   sendAppearancePrefs: (prefs) => ipcRenderer.send('appearance-prefs-changed', prefs),
+  setThemeMode: (mode) => ipcRenderer.send('appearance-prefs-changed', { mode }),
   onAppearancePrefsUpdate: on('appearance-prefs-update'),
 
   // Multi-Monitor Pinning & Focus Mode / DND Sync

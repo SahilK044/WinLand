@@ -1045,9 +1045,9 @@ export default function MusicWidget({
   /* ─── SPLIT PILL (Primary Left Component) ─── */
   if (isSplit) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px', boxSizing: 'border-box', fontFamily: MAC_FONT }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 12px 0 14px', boxSizing: 'border-box', fontFamily: MAC_FONT }}>
         <AlbumArt coverUrl={coverUrl} title={title} size={28} r={7} glowColor={eqGlow} glowOpacity={0.4} />
-        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 8, paddingRight: 8, overflow: 'hidden' }}>
+        <div className="track-change-wrapper" key={title} style={{ flex: 1, minWidth: 0, paddingLeft: 10, paddingRight: 8, overflow: 'hidden' }}>
           <MarqueeText style={{ fontSize: 11, fontWeight: 700, color: isLight ? '#000000' : '#ffffff', lineHeight: '14px' }}>
             {title || 'Music Player'}
           </MarqueeText>
@@ -1073,7 +1073,7 @@ export default function MusicWidget({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '0 10px',
+          padding: '0 10px 0 14px',
           boxSizing: 'border-box',
           cursor: 'pointer',
           fontFamily: MAC_FONT,
@@ -1082,7 +1082,7 @@ export default function MusicWidget({
       >
         <div style={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: 1, overflow: 'hidden' }}>
           <AlbumArt coverUrl={coverUrl} title={title} size={26} r={6} glowColor={eqGlow} glowOpacity={0.4} />
-          <div className="track-change-wrapper" key={title} style={{ minWidth: 0, paddingLeft: 8, paddingRight: 6, flex: 1, overflow: 'hidden' }}>
+          <div className="track-change-wrapper" key={title} style={{ minWidth: 0, paddingLeft: 10, paddingRight: 6, flex: 1, overflow: 'hidden' }}>
             <MarqueeText style={{ fontSize: 11, fontWeight: 650, color: isLight ? '#000000' : '#ffffff', lineHeight: '14px' }}>
               {title || 'Music Player'}
             </MarqueeText>
@@ -1140,8 +1140,8 @@ export default function MusicWidget({
         <div
           style={{
             position: 'absolute',
-            top: 2,
-            left: 2,
+            top: 4,
+            left: 8,
             width: 76,
             height: 76,
             borderRadius: '50%',
@@ -1158,11 +1158,11 @@ export default function MusicWidget({
       {/* Main Column Container */}
       <div style={{ width: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', flex: 1, zIndex: 1 }}>
         {/* ── 1. Top Row: Album Art + Track Info + Equalizer ── */}
-        <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 10, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 12, minWidth: 0, paddingLeft: 8, paddingRight: 6 }}>
           <AlbumArt
             coverUrl={coverUrl}
             title={title}
-            size={42}
+            size={43}
             r={10}
             glowColor={eqGlow}
             glowOpacity={0.65}
@@ -1182,7 +1182,7 @@ export default function MusicWidget({
               {isPlaying ? (appName || 'Spotify') : `${appName || 'Spotify'} • Paused`}
             </div>
           </div>
-          <div style={{ flexShrink: 0, marginTop: 2 }}>
+          <div style={{ flexShrink: 0, marginTop: 2, marginRight: 2 }}>
             <EqBars h={15} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />
           </div>
         </div>
