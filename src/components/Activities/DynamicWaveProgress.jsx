@@ -3,16 +3,16 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 /* ────────────────────────────────────────────────────────────────────────────
    WinLand — Samsung One UI 9 Dynamic Wave Progress Bar (1:1 Reference)
    ────────────────────────────────────────────────────────────────────────────
-   • 1:1 Authentic Samsung One UI 9 (Beta 1 & Beta 2) dynamic layered wave effect.
-   • Upward-rising multi-layered waves with CONTINUOUS ORGANIC MORPHING:
-     - Incommensurate multi-frequency harmonic synthesis (never repeats a static loop).
-     - Dynamic spatial size envelopes: wave crests continuously swell, morph, reshape,
-       and disperse like living liquid ribbons.
-     - Calm, slow, buttery-smooth 60/120/144 FPS GPU Canvas rendering with zero stutter.
-   • Multi-color harmonious palette derived dynamically from the active album art hue.
-   • Robust universal color parser (supports hex, rgb, rgba, hsl, dark/light fallbacks).
+   • 1:1 Authentic Samsung One UI 9 dynamic layered wave effect.
+   • Pure Album-Art Color Fidelity:
+     - Directly utilizes the album art accent (no arbitrary purple fallbacks for monochrome art).
+     - Clean monochromatic luminous layers for neutral/white album covers.
+   • Reduced Wave Count & Increased Wave Size:
+     - 2 Grand, tall, elegant liquid wave layers (amp = 18px and 14.5px).
+     - Broad, sweeping wavelengths (135px and 95px) for 1–2 majestic rolling crests.
+     - Silky smooth, continuous fluid flow with sub-pixel 0.5px curve resolution.
+   • Smooth play/pause settling into flat baseline and rising on play.
    • Flat baseline track in foreground with rounded caps and glowing seek thumb.
-   • Complete boundary inset (PADDING_X = 6px) preventing thumb cropping.
    ──────────────────────────────────────────────────────────────────────────── */
 
 const CANVAS_HEIGHT = 28;
@@ -233,56 +233,42 @@ export default function DynamicWaveProgress({
         const playedW = fraction * trackWidth;
         const thumbX = trackLeft + playedW;
 
-        // Extract 3-Layer Dynamic Harmony Palette from eqColor
+        // Extract Pure Album-Art Color Palette
         const palette = getOneUIPalette(eqColor);
 
-        // ── 1. Samsung One UI Dynamic Multi-Layer Waves (Rolling Upward) ────────
-        if (playedW > 6 && anim.amplitudeFactor > 0.01) {
+        // ── 1. Samsung One UI Dynamic Multi-Layer Waves (2 Grand, Tall, Smooth Waves) ────
+        if (playedW > 6 && anim.amplitudeFactor > 0.001) {
           ctx.save();
 
           const t = anim.timeSeconds;
 
-          // 3 Multi-Frequency Dynamic Morphing Wave Layers (Faster, continuous liquid flow)
+          // 2 Grand, Majestic, Ultra-Smooth Liquid Wave Layers (Large size, broad sweeping wavelengths)
           const layers = [
             {
-              amp: 13.5,
+              amp: 18.0,
               color: palette.backColor,
               alpha: 0.45,
               computeElevation: (u) => {
-                // Incommensurate multi-octave rolling harmonics (fluid, energetic flow)
-                const w1 = Math.sin(u * (Math.PI * 2 / 80) - t * 1.75);
-                const w2 = 0.38 * Math.sin(u * (Math.PI * 2 / 48) + t * 1.30 + 1.4);
-                const w3 = 0.22 * Math.cos(u * (Math.PI * 2 / 125) - t * 0.90 + 2.7);
-                const raw = (w1 + w2 + w3) / 1.60;
-                // Dynamic spatial size envelope (wave peaks continuously swell, morph, and disperse)
-                const sizeEnv = 0.78 + 0.35 * Math.sin(u * (Math.PI * 2 / 140) + t * 1.20) + 0.18 * Math.cos(t * 1.8);
-                return Math.pow((raw + 1) * 0.5, 1.35) * sizeEnv;
+                // Wide sweeping rolling harmonic (135px wavelength)
+                const w1 = Math.sin(u * (Math.PI * 2 / 135) - t * 1.55);
+                const w2 = 0.30 * Math.sin(u * (Math.PI * 2 / 85) + t * 1.10 + 1.3);
+                const raw = (w1 + w2) / 1.30;
+                // Gentle continuous spatial breathing
+                const sizeEnv = 0.82 + 0.28 * Math.sin(u * (Math.PI * 2 / 180) + t * 0.95) + 0.15 * Math.cos(t * 1.4);
+                return Math.pow((raw + 1) * 0.5, 1.40) * sizeEnv;
               },
             },
             {
-              amp: 10.5,
-              color: palette.midColor,
-              alpha: 0.65,
-              computeElevation: (u) => {
-                const w1 = Math.sin(u * (Math.PI * 2 / 56) - t * 2.30 + 0.8);
-                const w2 = 0.36 * Math.sin(u * (Math.PI * 2 / 36) + t * 1.65 + 2.1);
-                const w3 = 0.20 * Math.cos(u * (Math.PI * 2 / 96) - t * 1.10 + 1.1);
-                const raw = (w1 + w2 + w3) / 1.56;
-                const sizeEnv = 0.80 + 0.32 * Math.cos(u * (Math.PI * 2 / 112) - t * 1.35) + 0.18 * Math.sin(t * 2.2 + 1.0);
-                return Math.pow((raw + 1) * 0.5, 1.35) * sizeEnv;
-              },
-            },
-            {
-              amp: 7.5,
+              amp: 14.5,
               color: palette.frontColor,
               alpha: 0.80,
               computeElevation: (u) => {
-                const w1 = Math.sin(u * (Math.PI * 2 / 40) - t * 2.85 + 1.9);
-                const w2 = 0.34 * Math.sin(u * (Math.PI * 2 / 26) + t * 2.05 + 0.5);
-                const w3 = 0.18 * Math.cos(u * (Math.PI * 2 / 70) - t * 1.40 + 3.3);
-                const raw = (w1 + w2 + w3) / 1.52;
-                const sizeEnv = 0.82 + 0.30 * Math.sin(u * (Math.PI * 2 / 86) + t * 1.60) + 0.16 * Math.cos(t * 2.7 + 2.2);
-                return Math.pow((raw + 1) * 0.5, 1.35) * sizeEnv;
+                // Primary rolling liquid wave (95px wavelength)
+                const w1 = Math.sin(u * (Math.PI * 2 / 95) - t * 2.10 + 0.9);
+                const w2 = 0.26 * Math.sin(u * (Math.PI * 2 / 62) + t * 1.45 + 2.2);
+                const raw = (w1 + w2) / 1.26;
+                const sizeEnv = 0.84 + 0.25 * Math.cos(u * (Math.PI * 2 / 145) - t * 1.15) + 0.14 * Math.sin(t * 1.8 + 1.1);
+                return Math.pow((raw + 1) * 0.5, 1.40) * sizeEnv;
               },
             },
           ];
@@ -472,34 +458,32 @@ export default function DynamicWaveProgress({
   );
 }
 
-// ── Samsung One UI 9 Multi-Layer Palette Extractor ─────────────────────────
+// ── Pure Album-Art Color Palette Extractor ─────────────────────────────────
 function getOneUIPalette(baseColor) {
   const rgb = parseColorToRgb(baseColor);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
-  // If desaturated / grayscale / very dark / very light, return One UI 9 Beta 1 luminous Aurora palette
-  if (hsl.s < 0.18 || hsl.l < 0.12 || hsl.l > 0.88) {
+  // If desaturated / monochrome / white / gray / black album art
+  if (hsl.s < 0.15) {
+    const isLightColor = hsl.l > 0.45;
+    const coreHex = isLightColor ? '#ffffff' : '#d0d0d0';
     return {
-      backColor: '#ab47bc',   // Violet/Purple
-      midColor: '#00e5ff',    // Electric Cyan
-      frontColor: '#2979ff',  // Vivid Blue
-      primaryColor: '#2979ff',
-      primaryGlow: 'rgba(41, 121, 255, 0.55)',
+      backColor: isLightColor ? '#c8c8c8' : '#888888',
+      frontColor: coreHex,
+      primaryColor: coreHex,
+      primaryGlow: isLightColor ? 'rgba(255, 255, 255, 0.65)' : 'rgba(208, 208, 208, 0.45)',
     };
   }
 
-  // Multi-color dynamic harmony (One UI 9 Beta 1 / Beta 2 style)
-  const hBack = (hsl.h - 25 + 360) % 360;
-  const hMid = (hsl.h + 30) % 360;
+  // Harmonic tones directly derived from the album art color
+  const hBack = (hsl.h - 18 + 360) % 360;
   const hFront = hsl.h;
 
-  const backColor = hslToHex(hBack, Math.min(1, hsl.s * 1.1), Math.max(0.45, Math.min(0.60, hsl.l)));
-  const midColor = hslToHex(hMid, Math.min(1, hsl.s * 1.15), Math.max(0.55, Math.min(0.75, hsl.l + 0.1)));
-  const frontColor = hslToHex(hFront, Math.min(1, hsl.s * 1.2), Math.max(0.50, Math.min(0.65, hsl.l)));
+  const backColor = hslToHex(hBack, Math.min(1, hsl.s * 0.95), Math.max(0.40, Math.min(0.60, hsl.l * 0.88)));
+  const frontColor = hslToHex(hFront, Math.min(1, hsl.s * 1.10), Math.max(0.50, Math.min(0.70, hsl.l)));
 
   return {
     backColor,
-    midColor,
     frontColor,
     primaryColor: frontColor,
     primaryGlow: hexToRgba(frontColor, 0.55),
@@ -509,22 +493,22 @@ function getOneUIPalette(baseColor) {
 // ── Universal Color Parser (Supports hex, rgb, rgba, fallback) ─────────────
 function parseColorToRgb(colorStr) {
   if (!colorStr || typeof colorStr !== 'string') {
-    return { r: 41, g: 121, b: 255 }; // Default vibrant blue
+    return { r: 255, g: 255, b: 255 }; // Default clean white
   }
   const str = colorStr.trim();
   if (str.startsWith('#')) {
     const hex = str.slice(1);
     if (hex.length === 3) {
       return {
-        r: parseInt(hex[0] + hex[0], 16) || 41,
-        g: parseInt(hex[1] + hex[1], 16) || 121,
+        r: parseInt(hex[0] + hex[0], 16) || 255,
+        g: parseInt(hex[1] + hex[1], 16) || 255,
         b: parseInt(hex[2] + hex[2], 16) || 255,
       };
     }
     if (hex.length >= 6) {
       return {
-        r: parseInt(hex.slice(0, 2), 16) || 41,
-        g: parseInt(hex.slice(2, 4), 16) || 121,
+        r: parseInt(hex.slice(0, 2), 16) || 255,
+        g: parseInt(hex.slice(2, 4), 16) || 255,
         b: parseInt(hex.slice(4, 6), 16) || 255,
       };
     }
@@ -537,7 +521,7 @@ function parseColorToRgb(colorStr) {
       b: Math.max(0, Math.min(255, parseInt(match[2], 10) || 0)),
     };
   }
-  return { r: 41, g: 121, b: 255 };
+  return { r: 255, g: 255, b: 255 };
 }
 
 function hexToRgba(colorStr, alpha = 1) {
