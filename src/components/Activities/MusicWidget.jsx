@@ -1196,20 +1196,26 @@ export default function MusicWidget({
 
         {/* ── 2. Middle Row: Dynamic Waves or Classic Shimmer Scrubber with Ultra-Smooth Dissolve ── */}
         <div style={{ width: '100%', height: 44, marginTop: 2, marginBottom: 0, position: 'relative' }}>
-          <AnimatePresence initial={false}>
+          <AnimatePresence initial={false} mode="sync">
             {musicWaves ? (
               <motion.div
                 key="waves"
-                initial={{ opacity: 0, filter: 'blur(3px)' }}
-                animate={{ opacity: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, filter: 'blur(3px)' }}
-                transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, filter: 'blur(6px)', transform: 'scale(0.985)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }}
+                exit={{ opacity: 0, filter: 'blur(6px)', transform: 'scale(0.985)' }}
+                transition={{
+                  duration: 0.52,
+                  ease: [0.16, 1, 0.3, 1],
+                  opacity: { duration: 0.44, ease: [0.16, 1, 0.3, 1] },
+                  filter: { duration: 0.44, ease: [0.16, 1, 0.3, 1] },
+                  transform: { duration: 0.52, ease: [0.16, 1, 0.3, 1] },
+                }}
                 style={{
                   width: '100%',
                   position: 'absolute',
                   top: 0,
                   left: 0,
-                  willChange: 'opacity, filter',
+                  willChange: 'opacity, filter, transform',
                 }}
               >
                 <DynamicWaveProgress
@@ -1225,16 +1231,22 @@ export default function MusicWidget({
             ) : (
               <motion.div
                 key="classic"
-                initial={{ opacity: 0, filter: 'blur(3px)' }}
-                animate={{ opacity: 1, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, filter: 'blur(3px)' }}
-                transition={{ duration: 0.48, ease: [0.16, 1, 0.3, 1] }}
+                initial={{ opacity: 0, filter: 'blur(6px)', transform: 'scale(0.985)' }}
+                animate={{ opacity: 1, filter: 'blur(0px)', transform: 'scale(1)' }}
+                exit={{ opacity: 0, filter: 'blur(6px)', transform: 'scale(0.985)' }}
+                transition={{
+                  duration: 0.52,
+                  ease: [0.16, 1, 0.3, 1],
+                  opacity: { duration: 0.44, ease: [0.16, 1, 0.3, 1] },
+                  filter: { duration: 0.44, ease: [0.16, 1, 0.3, 1] },
+                  transform: { duration: 0.52, ease: [0.16, 1, 0.3, 1] },
+                }}
                 style={{
                   width: '100%',
                   position: 'absolute',
                   top: 0,
                   left: 0,
-                  willChange: 'opacity, filter',
+                  willChange: 'opacity, filter, transform',
                 }}
               >
                 <ClassicShimmerProgress
