@@ -43,6 +43,32 @@ export default function ClassicShimmerProgress({
     syncRef.current.durationMs = durationMs;
     if (isDraggingRef.current) return;
 
+    if (!isPlaying) {
+      syncRef.current.baseMs = progressMs;
+      syncRef.current.baseTs = performance.now();
+
+      const dur = durationMs || 1;
+      const clampedMs = Math.min(dur, Math.max(0, progressMs));
+      const fraction = dur > 0 ? clampedMs / dur : 0;
+      const pct = Math.min(100, Math.max(0, fraction * 100));
+
+      const width = containerRef.current ? containerRef.current.clientWidth : 0;
+      const trackWidth = Math.max(1, width - PADDING_X * 2);
+      const thumbX = PADDING_X + fraction * trackWidth;
+
+      if (progressBarRef.current) {
+        progressBarRef.current.style.width = `${pct}%`;
+      }
+      if (knobRef.current) {
+        knobRef.current.style.left = `${thumbX}px`;
+        knobRef.current.style.opacity = fraction > 0.005 ? '1' : '0';
+      }
+      if (timeDisplayRef.current) {
+        timeDisplayRef.current.textContent = fmtTime(clampedMs);
+      }
+      return;
+    }
+
     const prevBase = syncRef.current.baseMs;
     const drift = progressMs - prevBase;
 
@@ -53,15 +79,12 @@ export default function ClassicShimmerProgress({
     } else if (Math.abs(drift) > 50) {
       syncRef.current.baseMs += drift * 0.35;
     }
-
-    if (!isPlaying) {
-      syncRef.current.baseMs = progressMs;
-      syncRef.current.baseTs = performance.now();
-    }
   }, [progressMs, durationMs, isPlaying]);
 
-  // Sub-millisecond continuous interpolation RAF loop
+  // Sub-millisecond continuous interpolation RAF loop (active only when playing or dragging)
   useEffect(() => {
+    if (!isPlaying && !isDragging) return;
+
     let rafId = null;
 
     const render = () => {
@@ -102,7 +125,7 @@ export default function ClassicShimmerProgress({
     return () => {
       if (rafId) cancelAnimationFrame(rafId);
     };
-  }, [isPlaying, isDragging, progressMs]);
+  }, [isPlaying, isDragging]);
 
   // Pointer Scrub / Drag Calculation
   const computeTargetFromPointer = useCallback((clientX) => {
@@ -251,10 +274,11 @@ export default function ClassicShimmerProgress({
               overflow: 'hidden',
             }}
           >
-            <div
-              className="progress-shimmer-overlay"
-              style={{ animationPlayState: isPlaying ? 'running' : 'paused' }}
-            />
+            {isPlaying && (
+              <div
+                className="progress-shimmer-overlay"
+              />
+            )}
           </div>
         </div>
 
