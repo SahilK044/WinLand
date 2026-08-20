@@ -15,8 +15,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 const CANVAS_HEIGHT = 24;
 const TRACK_THICKNESS = 3.5;
-const WAVE_LENGTH = 34; // Fixed physical cycle length (1:1 with Samsung One UI)
-const WAVE_AMPLITUDE = 4.0; // Peak displacement from centerline
+const WAVE_LENGTH = 44; // Fixed physical cycle length (1:1 with Samsung One UI 8.5/9)
+const WAVE_AMPLITUDE = 3.6; // Peak displacement from centerline
 
 function fmtTime(ms) {
   if (!ms || ms <= 0) return '0:00';
@@ -180,7 +180,7 @@ export default function DynamicWaveProgress({
 
       // Progress phase horizontally while active
       if (anim.velocity > 0.005) {
-        anim.phase -= 0.0045 * anim.velocity * dt;
+        anim.phase -= 0.0030 * anim.velocity * dt;
       }
 
       // Check if settled (stop RAF loop when settled to save 0% CPU)
@@ -230,13 +230,16 @@ export default function DynamicWaveProgress({
       const playedW = fraction * trackWidth;
       const thumbX = trackLeft + playedW;
 
-      // ── 1. Unplayed Background Track Line ──────────────────────────────────
-      ctx.beginPath();
-      ctx.roundRect(trackLeft, centerY - (TRACK_THICKNESS / 2), trackWidth, TRACK_THICKNESS, TRACK_THICKNESS / 2);
-      ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.16)';
-      ctx.fill();
+      // ── 1. Unplayed Background Track Line (ONLY to the right of the thumb) ──
+      const unplayedW = trackRight - thumbX;
+      if (unplayedW > 0) {
+        ctx.beginPath();
+        ctx.roundRect(thumbX, centerY - (TRACK_THICKNESS / 2), unplayedW, TRACK_THICKNESS, TRACK_THICKNESS / 2);
+        ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.16)';
+        ctx.fill();
+      }
 
-      // ── 2. Authentic Samsung One UI Squiggly Progress Wave ─────────────────
+      // ── 2. Authentic Samsung One UI Squiggly Progress Wave (ONLY to the left) ──
       if (playedW > 0) {
         const currentAmp = WAVE_AMPLITUDE * anim.amplitudeFactor;
         const k = (Math.PI * 2) / WAVE_LENGTH;
@@ -247,9 +250,9 @@ export default function DynamicWaveProgress({
         let isFirst = true;
 
         for (let x = trackLeft; x <= thumbX; x += step) {
-          // Smooth taper at boundaries (first 10px and last 6px)
-          const startTaper = Math.min(1, (x - trackLeft) / 10);
-          const endTaper = Math.min(1, (thumbX - x) / 6);
+          // Smooth taper at boundaries (first 12px and last 8px)
+          const startTaper = Math.min(1, (x - trackLeft) / 12);
+          const endTaper = Math.min(1, (thumbX - x) / 8);
           const taper = Math.sin(startTaper * Math.PI * 0.5) * Math.sin(endTaper * Math.PI * 0.5);
 
           // Pure sinusoidal wave
