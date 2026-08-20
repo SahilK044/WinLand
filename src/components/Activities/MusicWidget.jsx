@@ -968,7 +968,7 @@ export default function MusicWidget({
   onPrev,
   onSeek,
 }) {
-  const { title, artist, coverUrl, isPlaying = false, progressMs = 0, durationMs = 0 } = trackInfo;
+  const { title, artist, appName = 'Spotify', coverUrl, isPlaying = false, progressMs = 0, durationMs = 0 } = trackInfo;
 
   const [time, setTime] = useState(new Date());
   const [visualizerOpacity, setVisualizerOpacity] = useState(1);
@@ -1151,6 +1151,9 @@ export default function MusicWidget({
                 {artist}
               </MarqueeText>
             )}
+            <div style={{ fontSize: 9.5, fontWeight: 750, marginTop: 2, color: eqColor, transition: 'color 0.8s ease', letterSpacing: '0.01em' }}>
+              {isPlaying ? (appName || 'Spotify') : `${appName || 'Spotify'} • Paused`}
+            </div>
           </div>
           <div style={{ flexShrink: 0, marginTop: 2 }}>
             <EqBars h={15} visualizerOpacity={visualizerOpacity} eqColor={eqColor} eqGlow={eqGlow} />

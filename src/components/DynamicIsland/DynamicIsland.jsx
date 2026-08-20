@@ -32,7 +32,7 @@ import { fetchLiveWeather } from '../../utils/weatherUtils';
 
 
 const IDLE_TRACK = {
-  title: null, artist: null, album: null,
+  title: null, artist: null, album: null, appName: 'Spotify',
   coverUrl: null, isPlaying: false, progressMs: 0, durationMs: 0,
 };
 
@@ -628,6 +628,9 @@ export default function DynamicIsland({
     }
 
     const cleanTitle = parsedTitle || titleString;
+    const detectedAppName = (typeof dataOrString === 'object' && dataOrString?.appName)
+      ? dataOrString.appName
+      : (cleanTitle.toLowerCase().includes('youtube') ? 'YouTube Music' : 'Spotify');
 
     setTrackInfo((prev) => {
       const isUserLocked = (Date.now() - userToggleLockRef.current) < 1500;
@@ -640,6 +643,7 @@ export default function DynamicIsland({
         ...prev,
         title: cleanTitle,
         artist: parsedArtist || prev.artist,
+        appName: detectedAppName || prev.appName || 'Spotify',
         coverUrl: nativeCoverUrl || prev.coverUrl,
         isPlaying: targetIsPlaying,
         progressMs: updatedProgressMs,

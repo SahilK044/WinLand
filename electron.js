@@ -675,6 +675,7 @@ function pollSpotifyTitle() {
             sendToWindow(mainWindow, 'system-media-update', {
               title: gTitle,
               artist: gArtist,
+              appName: 'Spotify',
               posMs: Math.round(posMs),
               endMs,
               isPlaying,
