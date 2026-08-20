@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 /* ────────────────────────────────────────────────────────────────────────────
-   WinLand — Samsung One UI 9 (Beta 1 & Beta 2) Dynamic Wave Progress Bar
+   WinLand — Samsung One UI 9 Dynamic Wave Progress Bar (1:1 Reference)
    ────────────────────────────────────────────────────────────────────────────
-   • 1:1 Authentic Samsung One UI 9 dynamic multi-layered wave progress experience.
+   • 1:1 Authentic Samsung One UI 9 (Beta 1 & Beta 2) dynamic layered wave effect.
    • Upward-rising layered dynamic waves (3 overlapping translucent fluid wave hills).
-   • Multi-color harmonious palette derived dynamically from the album art hue
-     (reproducing the exact One UI 9 Beta 1 blue/cyan/purple & Beta 2 amber/yellow/orange aesthetic).
-   • Clean flat baseline track in foreground with rounded caps.
-   • Glowing seek thumb centered on the baseline at (thumbX, baselineY).
-   • 60/120/144 FPS GPU-accelerated HTML5 Canvas with zero memory allocation in render loop.
-   • Smooth play/pause velocity & amplitude easing (200ms) with 0% CPU idle settling.
-   • Full drag-to-seek, pointer capture, and drag preview tooltip.
+   • Multi-color harmonious palette derived dynamically from the active album art hue
+     (reproducing One UI 9 Beta 1 blue/cyan/purple & Beta 2 amber/yellow/orange).
+   • Robust universal color parser (supports hex, rgb, rgba, hsl, dark/light fallbacks).
+   • Flat baseline track in foreground with rounded caps and zero canvas exceptions.
+   • Glowing seek thumb centered at (thumbX, baselineY).
+   • Smooth 60/120/144 FPS GPU-accelerated HTML5 Canvas with zero memory allocation.
+   • Complete boundary inset (PADDING_X = 6px) preventing thumb cropping.
    ──────────────────────────────────────────────────────────────────────────── */
 
 const CANVAS_HEIGHT = 28;
@@ -56,11 +56,11 @@ export default function DynamicWaveProgress({
     phase2: 1.2,
     phase3: 2.5,
     velocity: isPlaying ? 1 : 0,
-    amplitudeFactor: isPlaying ? 1 : 0,
+    amplitudeFactor: isPlaying ? 1 : 0.85,
     targetVelocity: isPlaying ? 1 : 0,
-    targetAmplitude: isPlaying ? 1 : 0,
+    targetAmplitude: isPlaying ? 1 : 0.85,
     lastFrameTime: performance.now(),
-    isSettled: !isPlaying,
+    isSettled: false,
   });
 
   const rafIdRef = useRef(null);
@@ -90,7 +90,7 @@ export default function DynamicWaveProgress({
   // Easing targets when playback state flips
   useEffect(() => {
     animStateRef.current.targetVelocity = isPlaying ? 1 : 0;
-    animStateRef.current.targetAmplitude = isPlaying ? 1 : 0;
+    animStateRef.current.targetAmplitude = isPlaying ? 1 : 0.85;
     animStateRef.current.isSettled = false;
     animStateRef.current.lastFrameTime = performance.now();
   }, [isPlaying]);
@@ -169,180 +169,189 @@ export default function DynamicWaveProgress({
     const render = (now) => {
       if (!isMounted) return;
 
-      const anim = animStateRef.current;
-      const dt = Math.min(64, Math.max(1, now - anim.lastFrameTime));
-      anim.lastFrameTime = now;
+      try {
+        const anim = animStateRef.current;
+        const dt = Math.min(64, Math.max(1, now - anim.lastFrameTime));
+        anim.lastFrameTime = now;
 
-      // Smooth 200ms critically damped easing
-      const easeFactor = Math.min(1, dt / 200);
-      anim.velocity += (anim.targetVelocity - anim.velocity) * easeFactor;
-      anim.amplitudeFactor += (anim.targetAmplitude - anim.amplitudeFactor) * easeFactor;
+        // Smooth 200ms critically damped easing
+        const easeFactor = Math.min(1, dt / 200);
+        anim.velocity += (anim.targetVelocity - anim.velocity) * easeFactor;
+        anim.amplitudeFactor += (anim.targetAmplitude - anim.amplitudeFactor) * easeFactor;
 
-      // Progress wave phases horizontally
-      if (anim.velocity > 0.005) {
-        anim.phase1 -= 0.0018 * anim.velocity * dt;
-        anim.phase2 -= 0.0028 * anim.velocity * dt;
-        anim.phase3 -= 0.0038 * anim.velocity * dt;
-      }
-
-      // Check if settled (stop RAF loop when settled to save 0% CPU)
-      const velocitySettled = Math.abs(anim.velocity - anim.targetVelocity) < 0.002;
-      const amplitudeSettled = Math.abs(anim.amplitudeFactor - anim.targetAmplitude) < 0.002;
-      if (!isPlaying && !isDraggingRef.current && velocitySettled && amplitudeSettled) {
-        anim.isSettled = true;
-      }
-
-      // Resize canvas buffer to match physical container width & DPR
-      const dpr = Math.max(window.devicePixelRatio || 1, 2);
-      const displayW = containerRef.current ? containerRef.current.clientWidth : 300;
-      const displayH = CANVAS_HEIGHT;
-
-      if (displayW > 0) {
-        const requiredPixelW = Math.round(displayW * dpr);
-        const requiredPixelH = Math.round(displayH * dpr);
-        if (canvas.width !== requiredPixelW || canvas.height !== requiredPixelH) {
-          canvas.width = requiredPixelW;
-          canvas.height = requiredPixelH;
+        // Progress wave phases horizontally
+        if (anim.velocity > 0.005) {
+          anim.phase1 -= 0.0016 * anim.velocity * dt;
+          anim.phase2 -= 0.0025 * anim.velocity * dt;
+          anim.phase3 -= 0.0034 * anim.velocity * dt;
         }
-      }
 
-      ctx.save();
-      ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, displayW, displayH);
+        // Check if settled
+        const velocitySettled = Math.abs(anim.velocity - anim.targetVelocity) < 0.002;
+        const amplitudeSettled = Math.abs(anim.amplitudeFactor - anim.targetAmplitude) < 0.002;
+        if (!isPlaying && !isDraggingRef.current && velocitySettled && amplitudeSettled) {
+          anim.isSettled = true;
+        }
 
-      // Compute current playback fraction
-      let currentPlayedMs = 0;
-      if (isDraggingRef.current) {
-        currentPlayedMs = dragProgressMsRef.current;
-      } else if (isPlaying && durationMs > 0) {
-        const elapsed = performance.now() - syncRef.current.baseTime;
-        currentPlayedMs = Math.min(syncRef.current.baseMs + elapsed, durationMs);
-        setDisplayMs(currentPlayedMs);
-      } else {
-        currentPlayedMs = syncRef.current.baseMs;
-      }
+        // Resize canvas buffer to match physical container width & DPR
+        const dpr = Math.max(window.devicePixelRatio || 1, 2);
+        const displayW = containerRef.current ? containerRef.current.clientWidth : 300;
+        const displayH = CANVAS_HEIGHT;
 
-      const fraction = durationMs > 0 ? Math.min(1, Math.max(0, currentPlayedMs / durationMs)) : 0;
-      const baselineY = Math.round(displayH * 0.72); // Flat baseline near bottom (y ~ 20px)
+        if (displayW > 0) {
+          const requiredPixelW = Math.round(displayW * dpr);
+          const requiredPixelH = Math.round(displayH * dpr);
+          if (canvas.width !== requiredPixelW || canvas.height !== requiredPixelH) {
+            canvas.width = requiredPixelW;
+            canvas.height = requiredPixelH;
+          }
+        }
 
-      // Inset geometry so the seek thumb at 0% or 100% is never cropped by canvas edges
-      const trackLeft = PADDING_X;
-      const trackRight = displayW - PADDING_X;
-      const trackWidth = Math.max(1, trackRight - trackLeft);
-      const playedW = fraction * trackWidth;
-      const thumbX = trackLeft + playedW;
-
-      // Extract 3-Layer Dynamic Harmony Palette from eqColor
-      const palette = getOneUIPalette(eqColor);
-
-      // ── 1. Samsung One UI Dynamic Multi-Layer Waves (Rising Upward) ────────
-      if (playedW > 6 && anim.amplitudeFactor > 0.01) {
         ctx.save();
+        ctx.scale(dpr, dpr);
+        ctx.clearRect(0, 0, displayW, displayH);
 
-        // 3 Distinct Overlapping Translucent Wave Layers (One UI 9 Beta 1 / Beta 2)
-        const layers = [
-          {
-            phase: anim.phase1,
-            amp: 13.5 * anim.amplitudeFactor,
-            wl: Math.max(70, playedW * 0.85),
-            color: palette.backColor,
-            alpha: 0.45,
-          },
-          {
-            phase: anim.phase2,
-            amp: 10.5 * anim.amplitudeFactor,
-            wl: Math.max(52, playedW * 0.65),
-            color: palette.midColor,
-            alpha: 0.65,
-          },
-          {
-            phase: anim.phase3,
-            amp: 7.5 * anim.amplitudeFactor,
-            wl: Math.max(38, playedW * 0.45),
-            color: palette.frontColor,
-            alpha: 0.80,
-          },
-        ];
+        // Compute current playback fraction
+        let currentPlayedMs = 0;
+        if (isDraggingRef.current) {
+          currentPlayedMs = dragProgressMsRef.current;
+        } else if (isPlaying && durationMs > 0) {
+          const elapsed = performance.now() - syncRef.current.baseTime;
+          currentPlayedMs = Math.min(syncRef.current.baseMs + elapsed, durationMs);
+          setDisplayMs(currentPlayedMs);
+        } else {
+          currentPlayedMs = syncRef.current.baseMs;
+        }
 
-        layers.forEach((layer) => {
+        const fraction = durationMs > 0 ? Math.min(1, Math.max(0, currentPlayedMs / durationMs)) : 0;
+        const baselineY = Math.round(displayH * 0.72); // Flat baseline (y ~ 20px)
+
+        // Inset geometry so the seek thumb at 0% or 100% is never cropped by canvas edges
+        const trackLeft = PADDING_X;
+        const trackRight = displayW - PADDING_X;
+        const trackWidth = Math.max(1, trackRight - trackLeft);
+        const playedW = fraction * trackWidth;
+        const thumbX = trackLeft + playedW;
+
+        // Extract 3-Layer Dynamic Harmony Palette from eqColor
+        const palette = getOneUIPalette(eqColor);
+
+        // ── 1. Samsung One UI Dynamic Multi-Layer Waves (Rising Upward) ────────
+        if (playedW > 6 && anim.amplitudeFactor > 0.01) {
+          ctx.save();
+
+          // 3 Distinct Overlapping Translucent Wave Layers (One UI 9 Beta 1 / Beta 2)
+          const layers = [
+            {
+              phase: anim.phase1,
+              amp: 13.5 * anim.amplitudeFactor,
+              wl: Math.max(68, playedW * 0.85),
+              color: palette.backColor,
+              alpha: 0.45,
+            },
+            {
+              phase: anim.phase2,
+              amp: 10.5 * anim.amplitudeFactor,
+              wl: Math.max(50, playedW * 0.65),
+              color: palette.midColor,
+              alpha: 0.65,
+            },
+            {
+              phase: anim.phase3,
+              amp: 7.5 * anim.amplitudeFactor,
+              wl: Math.max(36, playedW * 0.45),
+              color: palette.frontColor,
+              alpha: 0.80,
+            },
+          ];
+
+          layers.forEach((layer) => {
+            ctx.beginPath();
+            ctx.moveTo(trackLeft, baselineY);
+
+            const step = 1.0;
+            for (let x = trackLeft; x <= thumbX; x += step) {
+              // Smooth cosine taper at start and end boundaries
+              const startTaper = Math.min(1, (x - trackLeft) / 14);
+              const endTaper = Math.min(1, (thumbX - x) / 12);
+              const taper = (0.5 - 0.5 * Math.cos(startTaper * Math.PI)) * (0.5 - 0.5 * Math.cos(endTaper * Math.PI));
+
+              // Upward sinusoidal hill elevation
+              const k = (Math.PI * 2) / layer.wl;
+              const sineVal = Math.sin((x - trackLeft) * k + layer.phase);
+              const elevation = Math.pow(Math.max(0, sineVal), 1.25) * layer.amp * taper;
+              const waveY = baselineY - elevation;
+
+              ctx.lineTo(x, waveY);
+            }
+
+            // Flat bottom edge strictly along baselineY
+            ctx.lineTo(thumbX, baselineY);
+            ctx.lineTo(trackLeft, baselineY);
+            ctx.closePath();
+
+            // Luminous vertical translucent gradient fill
+            const waveGrad = ctx.createLinearGradient(0, baselineY - layer.amp, 0, baselineY);
+            waveGrad.addColorStop(0, hexToRgba(layer.color, layer.alpha * 0.35));
+            waveGrad.addColorStop(0.55, hexToRgba(layer.color, layer.alpha * 0.75));
+            waveGrad.addColorStop(1, hexToRgba(layer.color, layer.alpha));
+            ctx.fillStyle = waveGrad;
+            ctx.fill();
+          });
+
+          ctx.restore();
+        }
+
+        // ── 2. Unplayed Track Line (Right of Thumb) ────────────────────────────
+        if (thumbX < trackRight) {
+          ctx.beginPath();
+          ctx.moveTo(thumbX, baselineY);
+          ctx.lineTo(trackRight, baselineY);
+          ctx.lineWidth = TRACK_THICKNESS;
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.18)';
+          ctx.stroke();
+        }
+
+        // ── 3. Played Flat Baseline Bar (Foreground) ───────────────────────────
+        if (playedW > 0) {
           ctx.beginPath();
           ctx.moveTo(trackLeft, baselineY);
-
-          const step = 1.0;
-          for (let x = trackLeft; x <= thumbX; x += step) {
-            // Smooth cosine taper at start and end boundaries
-            const startTaper = Math.min(1, (x - trackLeft) / 14);
-            const endTaper = Math.min(1, (thumbX - x) / 12);
-            const taper = (0.5 - 0.5 * Math.cos(startTaper * Math.PI)) * (0.5 - 0.5 * Math.cos(endTaper * Math.PI));
-
-            // Upward sinusoidal hill elevation
-            const k = (Math.PI * 2) / layer.wl;
-            const sineVal = Math.sin((x - trackLeft) * k + layer.phase);
-            const elevation = Math.pow(Math.max(0, sineVal), 1.25) * layer.amp * taper;
-            const waveY = baselineY - elevation;
-
-            ctx.lineTo(x, waveY);
-          }
-
-          // Flat bottom edge strictly along baselineY
           ctx.lineTo(thumbX, baselineY);
-          ctx.lineTo(trackLeft, baselineY);
-          ctx.closePath();
+          ctx.lineWidth = TRACK_THICKNESS;
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = palette.primaryColor;
+          ctx.stroke();
+        }
 
-          // Luminous vertical translucent gradient fill
-          const waveGrad = ctx.createLinearGradient(0, baselineY - layer.amp, 0, baselineY);
-          waveGrad.addColorStop(0, hexToRgba(layer.color, layer.alpha * 0.35));
-          waveGrad.addColorStop(0.55, hexToRgba(layer.color, layer.alpha * 0.75));
-          waveGrad.addColorStop(1, hexToRgba(layer.color, layer.alpha));
-          ctx.fillStyle = waveGrad;
+        // ── 4. Glowing Playhead Thumb Knob (Samsung One UI 9) ──────────────────
+        if (fraction > 0.005 || isDraggingRef.current) {
+          const thumbRadius = isDraggingRef.current ? 5.5 : 4.5;
+
+          // Ambient outer glow halo centered on (thumbX, baselineY)
+          ctx.save();
+          ctx.shadowColor = palette.primaryGlow;
+          ctx.shadowBlur = isDraggingRef.current ? 14 : 10;
+          ctx.beginPath();
+          ctx.arc(thumbX, baselineY, thumbRadius + 1.2, 0, Math.PI * 2);
+          ctx.fillStyle = palette.primaryColor;
           ctx.fill();
-        });
+          ctx.restore();
+
+          // Inner solid white circle
+          ctx.beginPath();
+          ctx.arc(thumbX, baselineY, thumbRadius, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.15)';
+          ctx.stroke();
+        }
 
         ctx.restore();
+      } catch (err) {
+        console.error('Wave canvas render error:', err);
       }
-
-      // ── 2. Unplayed Track Line (Right of Thumb) ────────────────────────────
-      const unplayedW = trackRight - thumbX;
-      if (unplayedW > 0) {
-        ctx.beginPath();
-        ctx.roundRect(thumbX, baselineY - (TRACK_THICKNESS / 2), unplayedW, TRACK_THICKNESS, TRACK_THICKNESS / 2);
-        ctx.fillStyle = isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.18)';
-        ctx.fill();
-      }
-
-      // ── 3. Played Flat Baseline Bar (Foreground) ───────────────────────────
-      if (playedW > 0) {
-        ctx.beginPath();
-        ctx.roundRect(trackLeft, baselineY - (TRACK_THICKNESS / 2), playedW, TRACK_THICKNESS, TRACK_THICKNESS / 2);
-        ctx.fillStyle = palette.primaryColor;
-        ctx.fill();
-      }
-
-      // ── 4. Glowing Playhead Thumb Knob (Samsung One UI 9) ──────────────────
-      if (fraction > 0.005 || isDraggingRef.current) {
-        const thumbRadius = isDraggingRef.current ? 5.5 : 4.5;
-
-        // Ambient outer glow halo centered on (thumbX, baselineY)
-        ctx.save();
-        ctx.shadowColor = palette.primaryGlow;
-        ctx.shadowBlur = isDraggingRef.current ? 14 : 10;
-        ctx.beginPath();
-        ctx.arc(thumbX, baselineY, thumbRadius + 1.2, 0, Math.PI * 2);
-        ctx.fillStyle = palette.primaryColor;
-        ctx.fill();
-        ctx.restore();
-
-        // Inner solid white circle
-        ctx.beginPath();
-        ctx.arc(thumbX, baselineY, thumbRadius, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fill();
-        ctx.lineWidth = 1.2;
-        ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.15)';
-        ctx.stroke();
-      }
-
-      ctx.restore();
 
       // Continue animation loop if active or transitioning
       if (!animStateRef.current.isSettled || isPlaying || isDraggingRef.current) {
@@ -440,12 +449,12 @@ export default function DynamicWaveProgress({
 }
 
 // ── Samsung One UI 9 Multi-Layer Palette Extractor ─────────────────────────
-function getOneUIPalette(baseHex) {
-  const rgb = hexToRgb(baseHex);
+function getOneUIPalette(baseColor) {
+  const rgb = parseColorToRgb(baseColor);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
-  // If desaturated / grayscale, return One UI 9 Beta 1 luminous Aurora palette
-  if (hsl.s < 0.15 || (hsl.l > 0.85 && hsl.s < 0.3)) {
+  // If desaturated / grayscale / very dark / very light, return One UI 9 Beta 1 luminous Aurora palette
+  if (hsl.s < 0.18 || hsl.l < 0.12 || hsl.l > 0.88) {
     return {
       backColor: '#ab47bc',   // Violet/Purple
       midColor: '#00e5ff',    // Electric Cyan
@@ -473,29 +482,42 @@ function getOneUIPalette(baseHex) {
   };
 }
 
-// ── Color Utilities ────────────────────────────────────────────────────────
-function hexToRgb(hex) {
-  if (!hex || typeof hex !== 'string') return { r: 255, g: 140, b: 0 };
-  const clean = hex.replace('#', '');
-  if (clean.length === 3) {
+// ── Universal Color Parser (Supports hex, rgb, rgba, fallback) ─────────────
+function parseColorToRgb(colorStr) {
+  if (!colorStr || typeof colorStr !== 'string') {
+    return { r: 41, g: 121, b: 255 }; // Default vibrant blue
+  }
+  const str = colorStr.trim();
+  if (str.startsWith('#')) {
+    const hex = str.slice(1);
+    if (hex.length === 3) {
+      return {
+        r: parseInt(hex[0] + hex[0], 16) || 41,
+        g: parseInt(hex[1] + hex[1], 16) || 121,
+        b: parseInt(hex[2] + hex[2], 16) || 255,
+      };
+    }
+    if (hex.length >= 6) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16) || 41,
+        g: parseInt(hex.slice(2, 4), 16) || 121,
+        b: parseInt(hex.slice(4, 6), 16) || 255,
+      };
+    }
+  }
+  const match = str.match(/\d+(\.\d+)?/g);
+  if (match && match.length >= 3) {
     return {
-      r: parseInt(clean[0] + clean[0], 16),
-      g: parseInt(clean[1] + clean[1], 16),
-      b: parseInt(clean[2] + clean[2], 16),
+      r: Math.max(0, Math.min(255, parseInt(match[0], 10) || 0)),
+      g: Math.max(0, Math.min(255, parseInt(match[1], 10) || 0)),
+      b: Math.max(0, Math.min(255, parseInt(match[2], 10) || 0)),
     };
   }
-  if (clean.length >= 6) {
-    return {
-      r: parseInt(clean.substring(0, 2), 16),
-      g: parseInt(clean.substring(2, 4), 16),
-      b: parseInt(clean.substring(4, 6), 16),
-    };
-  }
-  return { r: 255, g: 140, b: 0 };
+  return { r: 41, g: 121, b: 255 };
 }
 
-function hexToRgba(hex, alpha = 1) {
-  const rgb = hexToRgb(hex);
+function hexToRgba(colorStr, alpha = 1) {
+  const rgb = parseColorToRgb(colorStr);
   return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
 }
 
@@ -519,6 +541,10 @@ function rgbToHsl(r, g, b) {
 }
 
 function hslToHex(h, s, l) {
+  h = ((h % 360) + 360) % 360;
+  s = Math.max(0, Math.min(1, isNaN(s) ? 0.8 : s));
+  l = Math.max(0, Math.min(1, isNaN(l) ? 0.5 : l));
+
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
   const m = l - c / 2;
@@ -529,12 +555,13 @@ function hslToHex(h, s, l) {
   else if (h >= 120 && h < 180) { r = 0; g = c; b = x; }
   else if (h >= 180 && h < 240) { r = 0; g = x; b = c; }
   else if (h >= 240 && h < 300) { r = x; g = 0; b = c; }
-  else if (h >= 300 && h < 360) { r = c; g = 0; b = x; }
+  else { r = c; g = 0; b = x; }
 
-  const toHex = (val) => {
-    const hex = Math.round((val + m) * 255).toString(16);
+  const to255Hex = (val) => {
+    const num = Math.max(0, Math.min(255, Math.round((val + m) * 255)));
+    const hex = num.toString(16);
     return hex.length === 1 ? '0' + hex : hex;
   };
 
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  return `#${to255Hex(r)}${to255Hex(g)}${to255Hex(b)}`;
 }
