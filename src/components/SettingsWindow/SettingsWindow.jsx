@@ -207,23 +207,25 @@ export default function SettingsWindow() {
        selectedSpeaker, xboxVariant, selectedColor, animStyle, animStyles, autoHide, autoHideIdle, autoHideDuration, selectedDisplay, musicAura, musicWaves]);
 
   useEffect(() => {
-    localStorage.setItem('winland_phone_id',        selectedPhone);
-    localStorage.setItem('winland_headphones_id',   selectedHeadphones);
-    localStorage.setItem('winland_earbuds_id',      selectedEarbuds);
-    localStorage.setItem('winland_controller_id',   selectedController);
-    localStorage.setItem('winland_speaker_id',      selectedSpeaker);
-    localStorage.setItem('winland_color_variant',   selectedColor);
-    localStorage.setItem('winland_anim_style',      animStyle);
-    localStorage.setItem('winland_autohide_enabled', autoHide ? 'true' : 'false');
-    localStorage.setItem('winland_autohide_idle',    autoHideIdle ? 'true' : 'false');
-    localStorage.setItem('winland_autohide_duration', autoHideDuration.toString());
-    localStorage.setItem(MUSIC_AURA_KEY,            musicAura ? 'true' : 'false');
-    localStorage.setItem(MUSIC_WAVES_KEY,           musicWaves ? 'true' : 'false');
-    localStorage.setItem('winland_xbox_variant',    xboxVariant);
-    if (selectedDisplay) localStorage.setItem('winland_target_display', selectedDisplay);
-    for (const cat of Object.keys(STYLE_KEYS)) {
-      localStorage.setItem(STYLE_KEYS[cat], animStyles[cat]);
-    }
+    try {
+      localStorage.setItem('winland_phone_id',        selectedPhone);
+      localStorage.setItem('winland_headphones_id',   selectedHeadphones);
+      localStorage.setItem('winland_earbuds_id',      selectedEarbuds);
+      localStorage.setItem('winland_controller_id',   selectedController);
+      localStorage.setItem('winland_speaker_id',      selectedSpeaker);
+      localStorage.setItem('winland_color_variant',   selectedColor);
+      localStorage.setItem('winland_anim_style',      animStyle);
+      localStorage.setItem('winland_autohide_enabled', autoHide ? 'true' : 'false');
+      localStorage.setItem('winland_autohide_idle',    autoHideIdle ? 'true' : 'false');
+      localStorage.setItem('winland_autohide_duration', autoHideDuration.toString());
+      localStorage.setItem(MUSIC_AURA_KEY,            musicAura ? 'true' : 'false');
+      localStorage.setItem(MUSIC_WAVES_KEY,           musicWaves ? 'true' : 'false');
+      localStorage.setItem('winland_xbox_variant',    xboxVariant);
+      if (selectedDisplay) localStorage.setItem('winland_target_display', selectedDisplay);
+      for (const cat of Object.keys(STYLE_KEYS)) {
+        localStorage.setItem(STYLE_KEYS[cat], animStyles[cat]);
+      }
+    } catch {}
 
     if (window.electronAPI?.writeSettings) {
       window.electronAPI.writeSettings({ autoHideIdle, autoHideDuration, hideInFullscreen: autoHide, musicAura, musicWaves, themeMode: appearanceMode });

@@ -27,12 +27,14 @@ export default function WeatherWidget({
 
   useEffect(() => {
     isMountedRef.current = true;
-    const interval = setInterval(() => setNow(new Date()), 1000);
+    const interval = setInterval(() => {
+      if (!isEditing) setNow(new Date());
+    }, 1000);
     return () => {
       isMountedRef.current = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [isEditing]);
 
   // Sync suggestion count to expand the dynamic island container smoothly
   useEffect(() => {

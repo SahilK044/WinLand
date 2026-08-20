@@ -161,7 +161,7 @@ const SyncedLyricsView = ({ title, artist, coverUrl, progressMs, durationMs = 0,
     let rafId;
     let lastTick = 0;
     const updateLoop = (now) => {
-      if (now - lastTick >= 50) {
+      if (now - lastTick >= 100) {
         lastTick = now;
         const delta = performance.now() - syncRef.current.baseTime;
         setSmoothMs(syncRef.current.baseMs + delta);

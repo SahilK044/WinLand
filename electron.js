@@ -2387,9 +2387,14 @@ app.on('will-quit', () => {
   if (volumePollInterval) clearInterval(volumePollInterval);
   if (usbPollInterval) clearInterval(usbPollInterval);
   if (weatherBroadcastInterval) { clearInterval(weatherBroadcastInterval); weatherBroadcastInterval = null; }
-  if (rpcClient) { try { rpcClient.destroy(); } catch {} rpcClient = null; }
   stopRecorderMouseTracking();
   destroyRecordingControlsPillWindow();
+  if (recordingStateManager) { try { recordingStateManager.stopTick(); } catch {} }
+  if (callTimeoutTimer) { clearTimeout(callTimeoutTimer); callTimeoutTimer = null; }
+  if (Array.isArray(_mediaRefreshTimers)) {
+    for (const t of _mediaRefreshTimers) clearTimeout(t);
+    _mediaRefreshTimers = [];
+  }
   fs.unwatchFile(WINLAND_THEME_PATH);
 });
 
