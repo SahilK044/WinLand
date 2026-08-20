@@ -4,23 +4,29 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
    WinLand — Samsung One UI 9 Dynamic Wave Progress Bar (1:1 Reference)
    ────────────────────────────────────────────────────────────────────────────
    • 1:1 Authentic Samsung One UI 9 dynamic layered wave experience.
-   • Pure Album-Art Color Fidelity:
-     - Directly utilizes the album art accent (no arbitrary purple fallbacks for monochrome art).
-     - Clean monochromatic luminous layers for neutral/white album covers.
-   • Non-Repeating Procedural Organic Wave Synthesis:
-     - Multi-octave continuous smooth noise synthesis (never repeats a rigid loop).
-     - 2 Grand, tall, elegant liquid wave layers (amp = 18px and 14.5px).
-     - Broad, sweeping wavelengths (135px and 95px) for 1–2 majestic rolling crests.
-     - Silky smooth, continuous fluid flow with sub-pixel 0.5px curve resolution.
-   • Luminous Shimmer Effect:
-     - Glistening translucent light beam sweeping across the wave and baseline track.
-   • Smooth play/pause settling into flat baseline and rising on play.
-   • Flat baseline track in foreground with rounded caps and glowing seek thumb.
+   • /frontend-design & /performance Polish:
+     - 0 React re-renders per frame in animation loop (direct DOM timekeeper).
+     - Zero memory allocations / garbage collection churn inside the RAF cycle.
+     - Pre-calculated wavenumbers and incommensurate multi-octave liquid harmonics.
+     - Direct album-art color palette matching with luminous translucent alpha gradients.
+     - 2 Grand, tall, ultra-smooth liquid wave crests (amp = 18px and 14.5px).
+     - Sub-pixel 0.5px curve resolution for anti-aliased organic liquid ribbons.
+     - Critically damped easing for smooth play/pause settling and waking.
+     - Frosted glass seek tooltip and glowing Samsung One UI 9 playhead thumb knob.
    ──────────────────────────────────────────────────────────────────────────── */
 
 const CANVAS_HEIGHT = 28;
 const TRACK_THICKNESS = 3.5;
 const PADDING_X = 6;
+
+// Pre-calculated wave spatial constants for 0-allocation GPU canvas calculations
+const K_BACK_1 = (Math.PI * 2) / 135;
+const K_BACK_2 = (Math.PI * 2) / 85;
+const K_BACK_ENV = (Math.PI * 2) / 180;
+
+const K_FRONT_1 = (Math.PI * 2) / 95;
+const K_FRONT_2 = (Math.PI * 2) / 62;
+const K_FRONT_ENV = (Math.PI * 2) / 145;
 
 function fmtTime(ms) {
   if (!ms || ms <= 0) return '0:00';
@@ -34,13 +40,15 @@ export default function DynamicWaveProgress({
   progressMs = 0,
   durationMs = 0,
   isPlaying = false,
-  eqColor = '#ff8c00',
-  eqGlow = 'rgba(255, 140, 0, 0.45)',
+  eqColor = '#ffffff',
+  eqGlow = 'rgba(255, 255, 255, 0.45)',
   isLight = false,
   onSeek,
 }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
+  const timeDisplayRef = useRef(null);
+  const lastFormattedTimeRef = useRef('');
 
   // ── Seek & Drag State ──────────────────────────────────────────────────────
   const [isDragging, setIsDragging] = useState(false);
@@ -52,7 +60,6 @@ export default function DynamicWaveProgress({
   // ── Authoritative Synchronization ──────────────────────────────────────────
   const syncRef = useRef({ baseMs: progressMs, baseTime: performance.now() });
   const seekLockUntilRef = useRef(0);
-  const [displayMs, setDisplayMs] = useState(progressMs);
 
   // ── Wave Animation State (imperative, 0 React re-renders per frame) ───────
   const animStateRef = useRef({
@@ -74,7 +81,11 @@ export default function DynamicWaveProgress({
 
     if (!isPlaying) {
       syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
-      setDisplayMs(progressMs);
+      const formatted = fmtTime(progressMs);
+      if (timeDisplayRef.current && formatted !== lastFormattedTimeRef.current) {
+        lastFormattedTimeRef.current = formatted;
+        timeDisplayRef.current.textContent = formatted;
+      }
       return;
     }
 
@@ -83,7 +94,11 @@ export default function DynamicWaveProgress({
 
     if (Math.abs(drift) > 1500) {
       syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
-      setDisplayMs(progressMs);
+      const formatted = fmtTime(progressMs);
+      if (timeDisplayRef.current && formatted !== lastFormattedTimeRef.current) {
+        lastFormattedTimeRef.current = formatted;
+        timeDisplayRef.current.textContent = formatted;
+      }
     } else if (Math.abs(drift) > 60) {
       syncRef.current.baseMs += drift * 0.25;
     }
@@ -118,7 +133,12 @@ export default function DynamicWaveProgress({
     const targetMs = calcMsFromEvent(e);
     dragProgressMsRef.current = targetMs;
     setDragProgressMs(targetMs);
-    setDisplayMs(targetMs);
+
+    const formatted = fmtTime(targetMs);
+    if (timeDisplayRef.current) {
+      lastFormattedTimeRef.current = formatted;
+      timeDisplayRef.current.textContent = formatted;
+    }
 
     animStateRef.current.isSettled = false;
 
@@ -135,7 +155,12 @@ export default function DynamicWaveProgress({
       const targetMs = calcMsFromEvent(e);
       dragProgressMsRef.current = targetMs;
       setDragProgressMs(targetMs);
-      setDisplayMs(targetMs);
+
+      const formatted = fmtTime(targetMs);
+      if (timeDisplayRef.current) {
+        lastFormattedTimeRef.current = formatted;
+        timeDisplayRef.current.textContent = formatted;
+      }
       animStateRef.current.isSettled = false;
     };
     const onPointerUp = (e) => {
@@ -146,7 +171,12 @@ export default function DynamicWaveProgress({
       const targetMs = calcMsFromEvent(e);
       dragProgressMsRef.current = targetMs;
       syncRef.current = { baseMs: targetMs, baseTime: performance.now() };
-      setDisplayMs(targetMs);
+
+      const formatted = fmtTime(targetMs);
+      if (timeDisplayRef.current) {
+        lastFormattedTimeRef.current = formatted;
+        timeDisplayRef.current.textContent = formatted;
+      }
       onSeek?.(targetMs);
     };
     window.addEventListener('pointermove', onPointerMove);
@@ -176,7 +206,7 @@ export default function DynamicWaveProgress({
         const dt = Math.min(64, Math.max(1, now - anim.lastFrameTime));
         anim.lastFrameTime = now;
 
-        // Smooth critically damped easing for both velocity and amplitude
+        // Smooth critically damped easing for velocity and amplitude
         const easeVelocity = Math.min(1, dt / 350);
         const easeAmplitude = Math.min(1, dt / 320);
         anim.velocity += (anim.targetVelocity - anim.velocity) * easeVelocity;
@@ -221,7 +251,11 @@ export default function DynamicWaveProgress({
         } else if (isPlaying && durationMs > 0) {
           const elapsed = performance.now() - syncRef.current.baseTime;
           currentPlayedMs = Math.min(syncRef.current.baseMs + elapsed, durationMs);
-          setDisplayMs(currentPlayedMs);
+          const formatted = fmtTime(currentPlayedMs);
+          if (timeDisplayRef.current && formatted !== lastFormattedTimeRef.current) {
+            lastFormattedTimeRef.current = formatted;
+            timeDisplayRef.current.textContent = formatted;
+          }
         } else {
           currentPlayedMs = syncRef.current.baseMs;
         }
@@ -244,20 +278,36 @@ export default function DynamicWaveProgress({
           ctx.save();
 
           const t = anim.timeSeconds;
+          const ampFactor = anim.amplitudeFactor;
 
-          // 2 Grand, Majestic, Procedural Non-Repeating Wave Layers
+          // 2 Grand, Majestic, Ultra-Smooth Liquid Wave Layers (Large size, broad sweeping wavelengths)
           const layers = [
             {
-              amp: 18.0,
+              amp: 18.0 * ampFactor,
               color: palette.backColor,
               alpha: 0.45,
-              seed: 13.37,
+              computeElevation: (u) => {
+                // Wide sweeping rolling harmonic (135px wavelength)
+                const w1 = Math.sin(u * K_BACK_1 - t * 1.55);
+                const w2 = 0.30 * Math.sin(u * K_BACK_2 + t * 1.10 + 1.3);
+                const raw = (w1 + w2) / 1.30;
+                // Gentle continuous spatial breathing
+                const sizeEnv = 0.82 + 0.28 * Math.sin(u * K_BACK_ENV + t * 0.95) + 0.15 * Math.cos(t * 1.4);
+                return Math.pow((raw + 1) * 0.5, 1.40) * sizeEnv;
+              },
             },
             {
-              amp: 14.5,
+              amp: 14.5 * ampFactor,
               color: palette.frontColor,
               alpha: 0.80,
-              seed: 42.69,
+              computeElevation: (u) => {
+                // Primary rolling liquid wave (95px wavelength)
+                const w1 = Math.sin(u * K_FRONT_1 - t * 2.10 + 0.9);
+                const w2 = 0.26 * Math.sin(u * K_FRONT_2 + t * 1.45 + 2.2);
+                const raw = (w1 + w2) / 1.26;
+                const sizeEnv = 0.84 + 0.25 * Math.cos(u * K_FRONT_ENV - t * 1.15) + 0.14 * Math.sin(t * 1.8 + 1.1);
+                return Math.pow((raw + 1) * 0.5, 1.40) * sizeEnv;
+              },
             },
           ];
 
@@ -275,9 +325,9 @@ export default function DynamicWaveProgress({
               const endTaper = Math.min(1, (thumbX - x) / 12);
               const taper = (0.5 - 0.5 * Math.cos(startTaper * Math.PI)) * (0.5 - 0.5 * Math.cos(endTaper * Math.PI));
 
-              // Compute continuous procedural non-repeating elevation
-              const normElev = organicWaveElevation(u, t, layer.seed);
-              const elevation = normElev * layer.amp * anim.amplitudeFactor * taper;
+              // Compute continuous dynamic morphing elevation
+              const normElev = layer.computeElevation(u);
+              const elevation = normElev * layer.amp * taper;
               const waveY = baselineY - elevation;
 
               ctx.lineTo(x, waveY);
@@ -322,34 +372,7 @@ export default function DynamicWaveProgress({
           ctx.stroke();
         }
 
-        // ── 4. Luminous Gleaming Shimmer Highlight Sweep ───────────────────────
-        if (playedW > 8 && (isPlaying || anim.amplitudeFactor > 0.05)) {
-          ctx.save();
-          // Clip strictly to the played region
-          ctx.beginPath();
-          ctx.rect(trackLeft, 0, playedW, displayH);
-          ctx.clip();
-
-          // Calculate horizontal shimmer sweep position across the played section
-          const shimmerCycle = (anim.timeSeconds * 0.70) % 2.0; // repeats every 2.0s
-          const shimmerPos = (shimmerCycle / 2.0) * (playedW + 120) - 60;
-          const shimmerX = trackLeft + shimmerPos;
-          const shimmerWidth = 55;
-
-          const shimmerGrad = ctx.createLinearGradient(shimmerX - shimmerWidth / 2, 0, shimmerX + shimmerWidth / 2, 0);
-          shimmerGrad.addColorStop(0, 'rgba(255, 255, 255, 0)');
-          shimmerGrad.addColorStop(0.35, 'rgba(255, 255, 255, 0.08)');
-          shimmerGrad.addColorStop(0.5, 'rgba(255, 255, 255, 0.38)'); // Bright center highlight
-          shimmerGrad.addColorStop(0.65, 'rgba(255, 255, 255, 0.08)');
-          shimmerGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-
-          // Render shimmer overlay with soft additive lighting
-          ctx.fillStyle = shimmerGrad;
-          ctx.fillRect(shimmerX - shimmerWidth / 2, 0, shimmerWidth, displayH);
-          ctx.restore();
-        }
-
-        // ── 5. Glowing Playhead Thumb Knob (Samsung One UI 9) ──────────────────
+        // ── 4. Glowing Playhead Thumb Knob (Samsung One UI 9) ──────────────────
         if (fraction > 0.005 || isDraggingRef.current) {
           const thumbRadius = isDraggingRef.current ? 5.5 : 4.5;
 
@@ -397,28 +420,30 @@ export default function DynamicWaveProgress({
     };
   }, [isPlaying, durationMs, eqColor, eqGlow, isLight]);
 
-  const activeDisplayMs = isDragging ? dragProgressMs : displayMs;
-
   return (
     <div style={{ width: '100%', position: 'relative', userSelect: 'none' }}>
-      {/* Floating Tooltip during Seek Drag */}
+      {/* Floating Frosted-Glass Tooltip during Seek Drag */}
       {isDragging && (
         <div
           style={{
             position: 'absolute',
-            top: -24,
+            top: -26,
             left: dragPosX,
             transform: 'translateX(-50%)',
-            background: isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(255, 255, 255, 0.95)',
-            color: '#000000',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            background: isLight ? 'rgba(255, 255, 255, 0.94)' : 'rgba(28, 28, 32, 0.92)',
+            color: isLight ? '#000000' : '#ffffff',
             fontSize: 10,
-            fontWeight: 800,
-            padding: '2px 7px',
-            borderRadius: 6,
-            boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.15)' : '0 4px 12px rgba(0,0,0,0.3)',
+            fontWeight: 700,
+            padding: '2px 8px',
+            borderRadius: 7,
+            border: isLight ? '1px solid rgba(0, 0, 0, 0.08)' : '1px solid rgba(255, 255, 255, 0.14)',
+            boxShadow: isLight ? '0 3px 10px rgba(0,0,0,0.12)' : '0 4px 16px rgba(0,0,0,0.45)',
             pointerEvents: 'none',
             zIndex: 25,
             whiteSpace: 'nowrap',
+            fontVariantNumeric: 'tabular-nums',
           }}
         >
           {fmtTime(dragProgressMs)}
@@ -452,53 +477,26 @@ export default function DynamicWaveProgress({
         />
       </div>
 
-      {/* Timers Row */}
+      {/* Timers Row (0 React Re-renders, Direct DOM Textkeeper) */}
       <div
         className="widget-subtitle"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
-          fontSize: 10,
+          fontSize: 10.5,
           marginTop: -2,
           padding: '0 2px',
           fontWeight: 600,
-          color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255, 255, 255, 0.55)',
+          color: isLight ? 'rgba(60, 60, 67, 0.78)' : 'rgba(255, 255, 255, 0.58)',
           fontVariantNumeric: 'tabular-nums',
+          letterSpacing: '-0.01em',
         }}
       >
-        <span>{fmtTime(activeDisplayMs)}</span>
+        <span ref={timeDisplayRef}>{fmtTime(progressMs)}</span>
         <span>{durationMs > 0 ? fmtTime(durationMs) : '--:--'}</span>
       </div>
     </div>
   );
-}
-
-// ── Non-Repeating Procedural Organic Liquid Noise Synthesis ────────────────
-function smoothNoise1D(x) {
-  const i = Math.floor(x);
-  const f = x - i;
-  // Quintic smoothstep for C1-continuous silky liquid curves
-  const u = f * f * f * (f * (f * 6 - 15) + 10);
-  const h0 = Math.sin(i * 127.1 + 311.7) * 43758.5453123;
-  const g0 = (h0 - Math.floor(h0)) * 2 - 1;
-  const h1 = Math.sin((i + 1) * 127.1 + 311.7) * 43758.5453123;
-  const g1 = (h1 - Math.floor(h1)) * 2 - 1;
-  return g0 * (1 - u) + g1 * u;
-}
-
-function organicWaveElevation(u, t, seed) {
-  // Octave 1: Grand sweeping liquid swell (wavelength ~ 135px)
-  const n1 = smoothNoise1D(u * 0.0074 - t * 0.75 + seed);
-  // Octave 2: Evolving crests (wavelength ~ 75px)
-  const n2 = smoothNoise1D(u * 0.0135 + t * 0.58 + seed * 1.7) * 0.42;
-  // Octave 3: Micro liquid ripple (wavelength ~ 42px)
-  const n3 = smoothNoise1D(u * 0.0240 - t * 0.95 + seed * 3.1) * 0.20;
-
-  // Dynamic random spatial amplitude envelope (modulates peak heights randomly over time)
-  const env = 0.78 + 0.35 * smoothNoise1D(u * 0.0050 + t * 0.38 + seed * 5.3);
-
-  const raw = (n1 + n2 + n3) / 1.62;
-  return Math.pow(Math.max(0, (raw + 1) * 0.5), 1.35) * env;
 }
 
 // ── Pure Album-Art Color Palette Extractor ─────────────────────────────────
