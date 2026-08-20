@@ -175,11 +175,11 @@ export default function DynamicWaveProgress({
       anim.velocity += (anim.targetVelocity - anim.velocity) * easeFactor;
       anim.amplitudeFactor += (anim.targetAmplitude - anim.amplitudeFactor) * easeFactor;
 
-      // Update horizontal phases
+      // Update horizontal phases with smooth, gentle flow speeds
       if (anim.velocity > 0.005) {
-        anim.phase1 += 0.0035 * anim.velocity * dt;
-        anim.phase2 += 0.0052 * anim.velocity * dt;
-        anim.phase3 += 0.0070 * anim.velocity * dt;
+        anim.phase1 += 0.0024 * anim.velocity * dt;
+        anim.phase2 += 0.0036 * anim.velocity * dt;
+        anim.phase3 += 0.0050 * anim.velocity * dt;
       }
 
       // Check if settled (to save CPU when paused and not seeking)
@@ -244,8 +244,8 @@ export default function DynamicWaveProgress({
         ctx.fill();
       }
 
-      // ── 3. Multi-Layer Dynamic Liquid Waves Rising UPWARD from Baseline ───
-      if (playedW > 8) {
+      // ── 3. Multi-Layer Ultra-Smooth Dynamic Liquid Waves (Samsung One UI) ──
+      if (playedW > 6) {
         ctx.save();
         // Hard clipping boundary: strictly clipped to [0, playedW] and ABOVE baselineY
         ctx.beginPath();
@@ -253,36 +253,36 @@ export default function DynamicWaveProgress({
         ctx.clip();
 
         // Subtle breathing dynamic modulation while playing
-        const breathMod = isPlaying ? 1 + 0.05 * Math.sin(now * 0.0016) : 1;
+        const breathMod = isPlaying ? 1 + 0.04 * Math.sin(now * 0.0014) : 1;
 
-        // Wave Layer Definitions: [phase, speed, baseAmp, opacity, strokeOpacity, wavelengthDiv]
+        // Wave Layer Definitions: [phase, baseAmp, fillOp, wavelength]
+        // 3 Soft Translucent Liquid Ribbon Layers without harsh borders
         const layers = [
-          { phase: anim.phase1, amp: 13.0 * anim.amplitudeFactor * breathMod, fillOp: 0.35, strokeOp: 0.45, wl: Math.max(52, playedW / 2.2) },
-          { phase: anim.phase2, amp: 10.5 * anim.amplitudeFactor * breathMod, fillOp: 0.55, strokeOp: 0.70, wl: Math.max(42, playedW / 2.8) },
-          { phase: anim.phase3, amp: 8.0 * anim.amplitudeFactor * breathMod, fillOp: 0.80, strokeOp: 0.95, wl: Math.max(34, playedW / 3.4) },
+          { phase: anim.phase1, amp: 12.5 * anim.amplitudeFactor * breathMod, fillOp: 0.32, wl: Math.max(65, playedW / 1.9) },
+          { phase: anim.phase2, amp: 10.0 * anim.amplitudeFactor * breathMod, fillOp: 0.52, wl: Math.max(50, playedW / 2.4) },
+          { phase: anim.phase3, amp: 7.5 * anim.amplitudeFactor * breathMod, fillOp: 0.78, wl: Math.max(38, playedW / 3.0) },
         ];
 
         layers.forEach((layer) => {
           ctx.beginPath();
           ctx.moveTo(0, baselineY);
 
-          const step = 2.5;
+          const step = 1.2;
           for (let x = 0; x <= playedW; x += step) {
-            // Smooth taper near start and near seek thumb
-            const startTaper = Math.min(1, x / 16);
-            const endTaper = Math.min(1, (playedW - x) / 14);
-            const taper = Math.sin(startTaper * Math.PI * 0.5) * Math.sin(endTaper * Math.PI * 0.5);
+            // Smooth natural cosine ease at start & end boundaries
+            const startTaper = Math.min(1, x / 18);
+            const endTaper = Math.min(1, (playedW - x) / 15);
+            const taper = (0.5 - 0.5 * Math.cos(startTaper * Math.PI)) * (0.5 - 0.5 * Math.cos(endTaper * Math.PI));
 
-            // Multi-harmonic smooth liquid wave equation
+            // Ultra-smooth broad liquid wave
             const k = (Math.PI * 2) / layer.wl;
             const s1 = Math.sin(x * k + layer.phase);
-            const s2 = 0.28 * Math.sin(x * k * 1.75 + layer.phase * 1.25);
-            const s3 = 0.14 * Math.sin(x * k * 2.6 + layer.phase * 0.75);
-            const raw = (s1 + s2 + s3) / 1.42; // In [-1, 1]
+            const s2 = 0.18 * Math.sin(x * k * 1.6 + layer.phase * 1.2);
+            const raw = (s1 + s2) / 1.18; // In [-1, 1]
 
-            // Pure upward elevation: 0 at baseline, layer.amp at peaks (never extends below baselineY)
-            const positiveElevation = Math.max(0, (raw + 0.85) / 1.85);
-            const heightAboveBaseline = Math.pow(positiveElevation, 1.25) * layer.amp * taper;
+            // Pure upward elevation: perfectly smooth 0 at baseline, layer.amp at crests
+            const positiveElevation = (raw + 1) * 0.5; // In [0, 1]
+            const heightAboveBaseline = Math.pow(positiveElevation, 1.35) * layer.amp * taper;
             const waveTopY = baselineY - heightAboveBaseline;
 
             ctx.lineTo(x, waveTopY);
@@ -293,35 +293,13 @@ export default function DynamicWaveProgress({
           ctx.lineTo(0, baselineY);
           ctx.closePath();
 
-          // Liquid wave fill gradient (seamlessly blending into the played baseline)
+          // Soft translucent liquid fill (Seamless tone, zero harsh border)
           const waveGrad = ctx.createLinearGradient(0, baselineY - layer.amp, 0, baselineY);
-          waveGrad.addColorStop(0, hexToRgba(eqColor, layer.fillOp * 0.4));
-          waveGrad.addColorStop(0.6, hexToRgba(eqColor, layer.fillOp * 0.85));
+          waveGrad.addColorStop(0, hexToRgba(eqColor, layer.fillOp * 0.35));
+          waveGrad.addColorStop(0.55, hexToRgba(eqColor, layer.fillOp * 0.75));
           waveGrad.addColorStop(1, hexToRgba(eqColor, layer.fillOp));
           ctx.fillStyle = waveGrad;
           ctx.fill();
-
-          // Crisp top wave crest stroke
-          ctx.beginPath();
-          for (let x = 0; x <= playedW; x += step) {
-            const startTaper = Math.min(1, x / 16);
-            const endTaper = Math.min(1, (playedW - x) / 14);
-            const taper = Math.sin(startTaper * Math.PI * 0.5) * Math.sin(endTaper * Math.PI * 0.5);
-            const k = (Math.PI * 2) / layer.wl;
-            const s1 = Math.sin(x * k + layer.phase);
-            const s2 = 0.28 * Math.sin(x * k * 1.75 + layer.phase * 1.25);
-            const s3 = 0.14 * Math.sin(x * k * 2.6 + layer.phase * 0.75);
-            const raw = (s1 + s2 + s3) / 1.42;
-            const positiveElevation = Math.max(0, (raw + 0.85) / 1.85);
-            const heightAboveBaseline = Math.pow(positiveElevation, 1.25) * layer.amp * taper;
-            const waveTopY = baselineY - heightAboveBaseline;
-
-            if (x === 0) ctx.moveTo(x, waveTopY);
-            else ctx.lineTo(x, waveTopY);
-          }
-          ctx.strokeStyle = hexToRgba('#ffffff', layer.strokeOp * 0.85);
-          ctx.lineWidth = 1.3;
-          ctx.stroke();
         });
 
         ctx.restore();
