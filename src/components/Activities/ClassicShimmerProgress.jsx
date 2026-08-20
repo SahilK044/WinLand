@@ -1,7 +1,8 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 
-const TRACK_HEIGHT = 4.5;
-const CONTAINER_HEIGHT = 28;
+const CANVAS_HEIGHT = 28;
+const TRACK_THICKNESS = 3.5;
+const PADDING_X = 6;
 
 function fmtTime(ms) {
   if (!ms || isNaN(ms) || ms < 0) return '0:00';
@@ -76,11 +77,15 @@ export default function ClassicShimmerProgress({
         const fraction = dur > 0 ? clampedMs / dur : 0;
         const pct = Math.min(100, Math.max(0, fraction * 100));
 
+        const width = containerRef.current ? containerRef.current.clientWidth : 0;
+        const trackWidth = Math.max(1, width - PADDING_X * 2);
+        const thumbX = PADDING_X + fraction * trackWidth;
+
         if (progressBarRef.current) {
           progressBarRef.current.style.width = `${pct}%`;
         }
         if (knobRef.current) {
-          knobRef.current.style.left = `${pct}%`;
+          knobRef.current.style.left = `${thumbX}px`;
           knobRef.current.style.opacity = fraction > 0.005 ? '1' : '0';
         }
         if (timeDisplayRef.current) {
@@ -103,8 +108,9 @@ export default function ClassicShimmerProgress({
   const computeTargetFromPointer = useCallback((clientX) => {
     if (!containerRef.current) return 0;
     const rect = containerRef.current.getBoundingClientRect();
-    const clickX = Math.max(0, Math.min(rect.width, clientX - rect.left));
-    const fraction = rect.width > 0 ? clickX / rect.width : 0;
+    const clickX = Math.max(PADDING_X, Math.min(rect.width - PADDING_X, clientX - rect.left));
+    const trackWidth = Math.max(1, rect.width - PADDING_X * 2);
+    const fraction = (clickX - PADDING_X) / trackWidth;
     const targetMs = Math.round(fraction * durationMs);
     const pct = Math.min(100, Math.max(0, fraction * 100));
 
@@ -115,7 +121,7 @@ export default function ClassicShimmerProgress({
       progressBarRef.current.style.width = `${pct}%`;
     }
     if (knobRef.current) {
-      knobRef.current.style.left = `${pct}%`;
+      knobRef.current.style.left = `${clickX}px`;
       knobRef.current.style.opacity = '1';
     }
     if (timeDisplayRef.current) {
@@ -158,7 +164,8 @@ export default function ClassicShimmerProgress({
     window.addEventListener('pointercancel', onPointerUp);
   };
 
-  const initialPct = durationMs > 0 ? Math.min(100, Math.max(0, (progressMs / durationMs) * 100)) : 0;
+  const initialFraction = durationMs > 0 ? Math.min(1, Math.max(0, progressMs / durationMs)) : 0;
+  const initialPct = initialFraction * 100;
 
   return (
     <div style={{ width: '100%', position: 'relative', userSelect: 'none' }}>
@@ -197,23 +204,23 @@ export default function ClassicShimmerProgress({
         className="interactive-child"
         style={{
           width: '100%',
-          height: CONTAINER_HEIGHT,
-          display: 'flex',
-          alignItems: 'center',
+          height: CANVAS_HEIGHT,
           cursor: 'pointer',
           position: 'relative',
           overflow: 'visible',
           touchAction: 'none',
         }}
       >
-        {/* Track Background Line */}
+        {/* Track Background Line (Aligned to baselineY = 20px) */}
         <div
           style={{
-            width: '100%',
-            height: TRACK_HEIGHT,
-            borderRadius: TRACK_HEIGHT / 2,
+            position: 'absolute',
+            left: PADDING_X,
+            right: PADDING_X,
+            top: 18.25,
+            height: TRACK_THICKNESS,
+            borderRadius: TRACK_THICKNESS / 2,
             background: isLight ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.18)',
-            position: 'relative',
             overflow: 'hidden',
           }}
         >
@@ -224,7 +231,7 @@ export default function ClassicShimmerProgress({
             style={{
               width: `${initialPct}%`,
               height: '100%',
-              borderRadius: TRACK_HEIGHT / 2,
+              borderRadius: TRACK_THICKNESS / 2,
               background: eqColor,
               boxShadow: `0 0 10px ${eqGlow}`,
               transition: isDragging ? 'none' : 'background 0.8s ease, box-shadow 0.8s ease',
@@ -240,25 +247,39 @@ export default function ClassicShimmerProgress({
           </div>
         </div>
 
-        {/* Smooth Glowing Knob Handle */}
+        {/* 1:1 One UI 9 Concentric Glowing Knob Handle */}
         <div
           ref={knobRef}
           style={{
             position: 'absolute',
-            top: '50%',
-            left: `${initialPct}%`,
+            top: 20,
+            left: `calc(${PADDING_X}px + ${(initialPct / 100)} * (100% - ${PADDING_X * 2}px))`,
             transform: 'translate(-50%, -50%)',
-            width: isDragging ? 14 : 11,
-            height: isDragging ? 14 : 11,
+            width: isDragging ? 14 : 11.5,
+            height: isDragging ? 14 : 11.5,
             borderRadius: '50%',
-            background: '#ffffff',
-            boxShadow: `0 0 10px ${eqGlow}, 0 2px 5px rgba(0,0,0,0.35)`,
+            background: eqColor,
+            border: isDragging ? '2.4px solid #ffffff' : '2px solid #ffffff',
+            boxShadow: `0 0 10px ${eqGlow}, 0 2px 6px rgba(0,0,0,0.45)`,
             opacity: initialPct > 0.5 ? 1 : 0,
-            transition: isDragging ? 'none' : 'transform 0.15s ease, opacity 0.2s ease, width 0.15s ease, height 0.15s ease',
+            transition: isDragging ? 'none' : 'transform 0.15s ease, opacity 0.2s ease, width 0.15s ease, height 0.15s ease, background 0.8s ease',
             pointerEvents: 'none',
             zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
-        />
+        >
+          {/* Inner Solid White Core Dot */}
+          <div
+            style={{
+              width: isDragging ? 4.2 : 3.2,
+              height: isDragging ? 4.2 : 3.2,
+              borderRadius: '50%',
+              background: '#ffffff',
+            }}
+          />
+        </div>
       </div>
 
       {/* Timestamps Row */}
@@ -268,7 +289,7 @@ export default function ClassicShimmerProgress({
           display: 'flex',
           justifyContent: 'space-between',
           fontSize: 10.5,
-          marginTop: -4,
+          marginTop: -2,
           padding: '0 2px',
           fontWeight: 600,
           color: isLight ? 'rgba(60, 60, 67, 0.78)' : 'rgba(255, 255, 255, 0.58)',
