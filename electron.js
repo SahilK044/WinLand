@@ -669,6 +669,37 @@ function pollSpotifyTitle() {
             // Clamp to duration
             if (endMs > 0 && posMs > endMs) posMs = endMs;
 
+function resolveMediaAppName(sourceRaw = '', title = '') {
+  const src = (sourceRaw || '').toLowerCase().trim();
+  const t = (title || '').toLowerCase();
+
+  if (src.includes('spotify') || t.includes('spotify')) return 'Spotify';
+  if (src.includes('chrome')) return 'Google Chrome';
+  if (src.includes('msedge') || src.includes('edge')) return 'Microsoft Edge';
+  if (src.includes('firefox')) return 'Firefox';
+  if (src.includes('brave')) return 'Brave';
+  if (src.includes('opera')) return 'Opera';
+  if (src.includes('vivaldi')) return 'Vivaldi';
+  if (src.includes('applemusic') || src.includes('apple music')) return 'Apple Music';
+  if (src.includes('itunes')) return 'iTunes';
+  if (src.includes('vlc')) return 'VLC Media Player';
+  if (src.includes('foobar')) return 'foobar2000';
+  if (src.includes('tidal')) return 'TIDAL';
+  if (src.includes('deezer')) return 'Deezer';
+  if (src.includes('amazon')) return 'Amazon Music';
+  if (src.includes('youtube') || t.includes('youtube')) return 'YouTube Music';
+  if (src.includes('browser')) {
+    if (t.includes('youtube')) return 'YouTube';
+    if (t.includes('netflix')) return 'Netflix';
+    if (t.includes('f1 tv') || t.includes('f1tv')) return 'Google Chrome';
+    return 'Google Chrome';
+  }
+  if (sourceRaw.length > 0 && src !== 'unknown') {
+    return sourceRaw.charAt(0).toUpperCase() + sourceRaw.slice(1);
+  }
+  return 'Media Player';
+}
+
             // Track identity — lets us keep the live-progress send every tick while
             // only shipping the (large) album-art base64 over IPC when the art
             // actually changes.
@@ -676,10 +707,12 @@ function pollSpotifyTitle() {
             const trackChanged = trackKey !== lastSpotifyTrack;
             lastSpotifyTrack = trackKey;
             if (trackChanged) lastDetectedTitle = `${gTitle} - ${gArtist}`;
+            const sourceRaw = parts[6] || '';
+            const detectedAppName = resolveMediaAppName(sourceRaw, gTitle);
             sendToWindow(mainWindow, 'system-media-update', {
               title: gTitle,
               artist: gArtist,
-              appName: 'Spotify',
+              appName: detectedAppName,
               posMs: Math.round(posMs),
               endMs,
               isPlaying,

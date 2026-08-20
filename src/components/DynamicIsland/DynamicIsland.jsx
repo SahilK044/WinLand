@@ -638,9 +638,10 @@ export default function DynamicIsland({
     }
 
     const cleanTitle = parsedTitle || titleString;
+    const lowerTitle = cleanTitle.toLowerCase();
     const detectedAppName = (typeof dataOrString === 'object' && dataOrString?.appName)
       ? dataOrString.appName
-      : (cleanTitle.toLowerCase().includes('youtube') ? 'YouTube Music' : 'Spotify');
+      : (lowerTitle.includes('youtube') ? 'YouTube Music' : (lowerTitle.includes('f1 tv') || lowerTitle.includes('f1tv') ? 'Google Chrome' : 'Media Player'));
 
     setTrackInfo((prev) => {
       const isUserLocked = (Date.now() - userToggleLockRef.current) < 1500;
@@ -653,7 +654,7 @@ export default function DynamicIsland({
         ...prev,
         title: cleanTitle,
         artist: parsedArtist || prev.artist,
-        appName: detectedAppName || prev.appName || 'Spotify',
+        appName: detectedAppName || prev.appName || 'Media Player',
         coverUrl: nativeCoverUrl || prev.coverUrl,
         isPlaying: targetIsPlaying,
         progressMs: updatedProgressMs,

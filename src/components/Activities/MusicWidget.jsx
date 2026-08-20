@@ -1001,7 +1001,7 @@ export default function MusicWidget({
   onPrev,
   onSeek,
 }) {
-  const { title, artist, appName = 'Spotify', coverUrl, isPlaying = false, progressMs = 0, durationMs = 0 } = trackInfo;
+  const { title, artist, appName = 'Media Player', coverUrl, isPlaying = false, progressMs = 0, durationMs = 0 } = trackInfo;
   const playIconColor = getButtonIconColor(eqColor);
 
   const [time, setTime] = useState(new Date());
@@ -1186,7 +1186,7 @@ export default function MusicWidget({
               </MarqueeText>
             )}
             <div style={{ fontSize: 9.5, fontWeight: 750, marginTop: 2, color: eqColor, transition: 'color 0.8s ease', letterSpacing: '0.01em' }}>
-              {isPlaying ? (appName || 'Spotify') : `${appName || 'Spotify'} • Paused`}
+              {isPlaying ? (appName || 'Media Player') : `${appName || 'Media Player'} • Paused`}
             </div>
           </div>
           <div style={{ flexShrink: 0, marginTop: 2, marginRight: 2 }}>
