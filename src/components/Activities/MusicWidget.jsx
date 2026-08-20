@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Music, RefreshCw, Volume1, Volume2, VolumeX } from 'lucide-react';
 import { useEqBars } from '../../utils/eqStore';
+import DynamicWaveProgress from './DynamicWaveProgress';
 
 const MAC_FONT = '"SF Pro Display", "SF Pro Text", "SF Pro", -apple-system, BlinkMacSystemFont, "Inter", "Helvetica Neue", Arial, sans-serif';
 
@@ -21,14 +22,6 @@ const StraightMicIcon = ({ size = 18, color = 'currentColor' }) => (
     <line x1="8" y1="21" x2="16" y2="21" />
   </svg>
 );
-
-function fmt(ms) {
-  if (!ms || isNaN(ms) || ms < 0) return '0:00';
-  const totalSec = Math.floor(ms / 1000);
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
 
 function getButtonIconColor(bgColor) {
   if (!bgColor) return '#ffffff';
@@ -998,178 +991,24 @@ export default function MusicWidget({
   const { title, artist, coverUrl, isPlaying = false, progressMs = 0, durationMs = 0 } = trackInfo;
 
   const [time, setTime] = useState(new Date());
-
-  // ── High-Refresh 60/120 FPS Progress Bar & Seek Control ─────────────────
-  const knobRef = useRef(null);
-  const progressBarRef = useRef(null);
-  const currentTimeTextRef = useRef(null);
-  const scrubberRef = useRef(null);
-
-  const [isDragging, setIsDragging] = useState(false);
-  const isDraggingRef = useRef(false);
-  const [dragProgressMs, setDragProgressMs] = useState(0);
-  const [dragPosX, setDragPosX] = useState(0);
-  const [realtimeMs, setRealtimeMs] = useState(progressMs);
-
-  const syncRef = useRef({ baseMs: progressMs, baseTime: performance.now() });
-  const seekLockUntilRef = useRef(0);
-  const lastTitleRef = useRef(title);
   const [visualizerOpacity, setVisualizerOpacity] = useState(1);
+  const lastTitleRef = useRef(title);
 
-  // When song changes, immediately reset progress bar to 0:00
+  // When song changes, briefly dip visualizer opacity for smooth entry
   useEffect(() => {
     if (lastTitleRef.current === title) return;
     lastTitleRef.current = title;
-    syncRef.current = { baseMs: 0, baseTime: performance.now() };
-    setRealtimeMs(0);
-    seekLockUntilRef.current = Date.now() + 1500;
-
-    if (progressBarRef.current) progressBarRef.current.style.width = '0%';
-    if (knobRef.current) {
-      knobRef.current.style.left = '0px';
-      knobRef.current.style.opacity = '0';
-    }
-    if (currentTimeTextRef.current) currentTimeTextRef.current.textContent = '0:00';
-
     setVisualizerOpacity(0.18);
     const fadeTimer = setTimeout(() => setVisualizerOpacity(1), 170);
     return () => clearTimeout(fadeTimer);
   }, [title]);
 
-  // Sync with incoming progress updates from backend
-  useEffect(() => {
-    if (isDraggingRef.current) return;
-    if (Date.now() < seekLockUntilRef.current) return; // Prevent rollback to stale snapshot right after user seeks
-
-    if (!isPlaying) {
-      syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
-      setRealtimeMs(progressMs);
-      const currentPct = durationMs > 0 ? Math.min(100, Math.max(0, (progressMs / durationMs) * 100)) : 0;
-      if (progressBarRef.current) progressBarRef.current.style.width = `${currentPct}%`;
-      if (knobRef.current) {
-        knobRef.current.style.left = `calc(${currentPct}% + ${(0.5 - currentPct / 100) * 8}px)`;
-        knobRef.current.style.opacity = currentPct > 0.5 ? '1' : '0';
-      }
-      if (currentTimeTextRef.current) currentTimeTextRef.current.textContent = fmt(progressMs);
-      return;
-    }
-
-    const currentCalculated = syncRef.current.baseMs + (performance.now() - syncRef.current.baseTime);
-    const drift = progressMs - currentCalculated;
-
-    if (Math.abs(drift) > 1500) {
-      syncRef.current = { baseMs: progressMs, baseTime: performance.now() };
-      setRealtimeMs(progressMs);
-    } else if (Math.abs(drift) > 60) {
-      syncRef.current.baseMs += drift * 0.25;
-    }
-  }, [progressMs, isPlaying, title, durationMs]);
-
-  // 60/120 FPS continuous interpolation RAF loop
-  useEffect(() => {
-    if (!isPlaying || durationMs <= 0) return;
-    let rafId;
-    let lastSec = -1;
-
-    const updateFrame = () => {
-      if (!isDraggingRef.current) {
-        const now = performance.now();
-        const delta = now - syncRef.current.baseTime;
-        const current = Math.min(syncRef.current.baseMs + delta, durationMs);
-        const currentPct = durationMs > 0 ? Math.min(100, Math.max(0, (current / durationMs) * 100)) : 0;
-
-        if (progressBarRef.current) {
-          progressBarRef.current.style.width = `${currentPct}%`;
-        }
-        if (knobRef.current) {
-          knobRef.current.style.left = `calc(${currentPct}% + ${(0.5 - currentPct / 100) * 8}px)`;
-          knobRef.current.style.opacity = currentPct > 0.5 ? '1' : '0';
-        }
-
-        const sec = Math.floor(current / 1000);
-        if (sec !== lastSec) {
-          lastSec = sec;
-          if (currentTimeTextRef.current) {
-            currentTimeTextRef.current.textContent = fmt(current);
-          }
-        }
-      }
-      rafId = requestAnimationFrame(updateFrame);
-    };
-
-    rafId = requestAnimationFrame(updateFrame);
-    return () => cancelAnimationFrame(rafId);
-  }, [isPlaying, durationMs, title]);
-
-  // Clock for empty expanded state fallback. Only ticks while no track is
-  // playing — the progress bar drives its own rAF loop, so a 1s interval here
-  // just forced a full re-render every second while music was visible.
+  // Clock for empty expanded state fallback when no track is playing
   useEffect(() => {
     if (title) return undefined;
     const timer = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, [title]);
-
-  const activeDisplayMs = isDragging ? dragProgressMs : realtimeMs;
-  const pct = durationMs > 0 ? Math.min(100, Math.max(0, (activeDisplayMs / durationMs) * 100)) : 0;
-
-  const calcMsFromEvent = React.useCallback((e) => {
-    if (!scrubberRef.current || !durationMs) return 0;
-    const rect = scrubberRef.current.getBoundingClientRect();
-    const clickX = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-    const ratio = rect.width > 0 ? clickX / rect.width : 0;
-    setDragPosX(clickX);
-    const targetMs = Math.round(ratio * durationMs);
-    const dragPct = Math.min(100, Math.max(0, (targetMs / durationMs) * 100));
-    if (progressBarRef.current) progressBarRef.current.style.width = `${dragPct}%`;
-    if (knobRef.current) {
-      knobRef.current.style.left = `calc(${dragPct}% + ${(0.5 - dragPct / 100) * 8}px)`;
-      knobRef.current.style.opacity = '1';
-    }
-    if (currentTimeTextRef.current) currentTimeTextRef.current.textContent = fmt(targetMs);
-    return targetMs;
-  }, [durationMs]);
-
-  const handlePointerDown = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    isDraggingRef.current = true;
-    seekLockUntilRef.current = Date.now() + 1800;
-    setIsDragging(true);
-    const targetMs = calcMsFromEvent(e);
-    setDragProgressMs(targetMs);
-    if (e.target && e.target.setPointerCapture) {
-      try { e.target.setPointerCapture(e.pointerId); } catch {}
-    }
-  };
-
-  useEffect(() => {
-    if (!isDragging) return;
-    const onPointerMove = (e) => {
-      if (!isDraggingRef.current) return;
-      e.preventDefault();
-      const targetMs = calcMsFromEvent(e);
-      setDragProgressMs(targetMs);
-    };
-    const onPointerUp = (e) => {
-      if (!isDraggingRef.current) return;
-      isDraggingRef.current = false;
-      setIsDragging(false);
-      seekLockUntilRef.current = Date.now() + 1800;
-      const targetMs = calcMsFromEvent(e);
-      syncRef.current = { baseMs: targetMs, baseTime: performance.now() };
-      setRealtimeMs(targetMs);
-      onSeek?.(targetMs);
-    };
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerUp);
-    return () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      window.removeEventListener('pointercancel', onPointerUp);
-    };
-  }, [isDragging, calcMsFromEvent, onSeek]);
 
   /* ─── EXPANDED SYNCED LYRICS VIEW ───
      Must come after every hook above (Rules of Hooks: an early return can't
@@ -1331,102 +1170,17 @@ export default function MusicWidget({
           </div>
         </div>
 
-        {/* ── 2. Middle Row: Scrubber / Progress Bar & Timers ── */}
-        <div style={{ width: '100%', marginTop: 6, marginBottom: 2, position: 'relative' }}>
-          {/* Floating Scrubber Tooltip */}
-          {isDragging && (
-            <div
-              style={{
-                position: 'absolute',
-                top: -24,
-                left: dragPosX,
-                transform: 'translateX(-50%)',
-                background: isLight ? 'rgba(255, 255, 255, 0.96)' : 'rgba(255, 255, 255, 0.95)',
-                color: '#000000',
-                fontSize: 10,
-                fontWeight: 800,
-                padding: '2px 7px',
-                borderRadius: 6,
-                boxShadow: isLight ? '0 2px 8px rgba(0,0,0,0.15)' : '0 4px 12px rgba(0,0,0,0.3)',
-                pointerEvents: 'none',
-                zIndex: 20,
-              }}
-            >
-              {fmt(dragProgressMs)}
-            </div>
-          )}
-
-          <div
-            ref={scrubberRef}
-            onPointerDown={handlePointerDown}
-            className="interactive-child"
-            style={{
-              width: '100%',
-              height: 14,
-              display: 'flex',
-              alignItems: 'center',
-              cursor: 'pointer',
-              position: 'relative',
-              overflow: 'visible',
-              touchAction: 'none',
-              userSelect: 'none',
-            }}
-          >
-            {/* Track Background */}
-            <div style={{
-              width: '100%',
-              height: 5,
-              background: isLight ? 'rgba(0, 0, 0, 0.10)' : 'rgba(255, 255, 255, 0.16)',
-              borderRadius: 3,
-              position: 'relative',
-              overflow: 'visible',
-              flex: 1,
-            }}>
-              {/* Progress bar */}
-              <div
-                ref={progressBarRef}
-                className="progress-shimmer-bar"
-                style={{
-                  width: `${pct}%`,
-                  height: '100%',
-                  background: `linear-gradient(90deg, #ffffff 0%, ${eqColor} 100%)`,
-                  borderRadius: 3,
-                  boxShadow: `0 0 8px ${eqGlow}`,
-                  transition: isDragging ? 'none' : 'background 0.8s ease, box-shadow 0.8s ease',
-                  willChange: 'width',
-                  position: 'relative',
-                  overflow: 'hidden',
-                }}
-              >
-                <div className="progress-shimmer-overlay" style={{ animationPlayState: isPlaying ? 'running' : 'paused' }} />
-              </div>
-
-              {/* Glowing tip knob handle */}
-              <div
-                ref={knobRef}
-                style={{
-                  position: 'absolute',
-                  left: `calc(${pct}% + ${(0.5 - pct / 100) * 8}px)`,
-                  top: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  width: isDragging ? 11 : 8,
-                  height: isDragging ? 11 : 8,
-                  borderRadius: '50%',
-                  background: isLight ? '#1d1d1f' : '#ffffff',
-                  boxShadow: isLight ? '0 1px 4px rgba(0,0,0,0.25)' : `0 0 6px #ffffff, 0 0 10px ${eqColor}`,
-                  pointerEvents: 'none',
-                  zIndex: 5,
-                  opacity: pct > 0.5 ? 1 : 0,
-                  transition: isDragging ? 'width 0.12s ease, height 0.12s ease' : 'opacity 0.2s ease, width 0.12s ease, height 0.12s ease',
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="widget-subtitle" style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginTop: 2, fontWeight: 600, color: isLight ? 'rgba(60, 60, 67, 0.75)' : 'rgba(255, 255, 255, 0.55)' }}>
-            <span ref={currentTimeTextRef}>{fmt(activeDisplayMs)}</span>
-            <span>{durationMs > 0 ? fmt(durationMs) : '--:--'}</span>
-          </div>
+        {/* ── 2. Middle Row: Samsung One UI 9 Dynamic Wave Progress ── */}
+        <div style={{ width: '100%', marginTop: 2, marginBottom: 0, position: 'relative' }}>
+          <DynamicWaveProgress
+            progressMs={progressMs}
+            durationMs={durationMs}
+            isPlaying={isPlaying}
+            eqColor={eqColor}
+            eqGlow={eqGlow}
+            isLight={isLight}
+            onSeek={onSeek}
+          />
         </div>
 
         {/* ── 3. Bottom Row: Spaced Transport Controls (Comfortable Breathing Room) ── */}
