@@ -2,8 +2,9 @@ import React from 'react';
 import { Zap, Battery, BatteryLow, BatteryWarning } from 'lucide-react';
 
 export default function BatteryWidget({ pct = 0, charging = false, minsLeft = -1 }) {
-  const isLow = pct <= 20 && !charging;
-  const isCritical = pct <= 10 && !charging;
+  const safePct = Math.min(100, Math.max(0, Number(pct) || 0));
+  const isLow = safePct <= 20 && !charging;
+  const isCritical = safePct <= 10 && !charging;
 
   const barColor = isCritical
     ? 'var(--danger)'
@@ -12,7 +13,7 @@ export default function BatteryWidget({ pct = 0, charging = false, minsLeft = -1
     : 'var(--ok)';
 
   const label = charging
-    ? pct >= 100
+    ? safePct >= 100
       ? 'Fully Charged'
       : minsLeft > 0
       ? `~${minsLeft}m until full`
@@ -37,7 +38,11 @@ export default function BatteryWidget({ pct = 0, charging = false, minsLeft = -1
           : isLow
           ? 'rgba(255,159,10,0.16)'
           : 'rgba(48,209,88,0.14)',
-        border: `1px solid ${barColor}33`,
+        border: isCritical
+          ? '1px solid rgba(255,69,58,0.25)'
+          : isLow
+          ? '1px solid rgba(255,159,10,0.25)'
+          : '1px solid rgba(48,209,88,0.25)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         {charging
@@ -62,7 +67,7 @@ export default function BatteryWidget({ pct = 0, charging = false, minsLeft = -1
           borderRadius: 5, overflow: 'hidden',
         }}>
           <div style={{
-            width: `${Math.min(100, pct)}%`,
+            width: `${safePct}%`,
             height: '100%',
             background: barColor,
             borderRadius: 5,
@@ -77,7 +82,7 @@ export default function BatteryWidget({ pct = 0, charging = false, minsLeft = -1
 
       {/* Percentage */}
       <div style={{ fontSize: 18, fontWeight: 800, color: barColor, flexShrink: 0, minWidth: 38, textAlign: 'right' }}>
-        {pct}%
+        {safePct}%
       </div>
     </div>
   );

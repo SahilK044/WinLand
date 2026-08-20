@@ -23,10 +23,15 @@ export default function WeatherWidget({
   const [isSearching, setIsSearching] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const searchTimeoutRef = useRef(null);
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
     const interval = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(interval);
+    return () => {
+      isMountedRef.current = false;
+      clearInterval(interval);
+    };
   }, []);
 
   // Sync suggestion count to expand the dynamic island container smoothly
@@ -112,11 +117,11 @@ export default function WeatherWidget({
       }
 
       const live = await fetchWeatherForCoordinates(place.latitude, place.longitude, place.name);
-      if (live && onUpdateWeather) {
+      if (live && onUpdateWeather && isMountedRef.current) {
         onUpdateWeather(live);
       }
     } finally {
-      setIsRefreshing(false);
+      if (isMountedRef.current) setIsRefreshing(false);
     }
   };
 
@@ -157,7 +162,7 @@ export default function WeatherWidget({
         }
 
         const live = await fetchWeatherForCoordinates(best.latitude, best.longitude, best.name);
-        if (live && onUpdateWeather) onUpdateWeather(live);
+        if (live && onUpdateWeather && isMountedRef.current) onUpdateWeather(live);
       } else {
         const live = await fetchLiveWeather(true, query);
         if (live && live.latitude && live.longitude) {
@@ -180,10 +185,10 @@ export default function WeatherWidget({
             } catch {}
           }
         }
-        if (live && onUpdateWeather) onUpdateWeather(live);
+        if (live && onUpdateWeather && isMountedRef.current) onUpdateWeather(live);
       }
     } finally {
-      setIsRefreshing(false);
+      if (isMountedRef.current) setIsRefreshing(false);
     }
   };
 

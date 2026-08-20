@@ -1501,9 +1501,9 @@ export default function DynamicIsland({
               onStop={() => setActiveState('idle')}
             />
           )}
-          {activeState === 'expanded-bluetooth' && (
+          {activeState === 'expanded-bluetooth' && bluetoothData && (
             <BluetoothWidget
-              key={`${bluetoothData.deviceName}-${bluetoothData.connectionState}`}
+              key={`${bluetoothData.deviceName || 'device'}-${bluetoothData.connectionState || 'connected'}`}
               deviceName={bluetoothData.deviceName}
               batteryPct={bluetoothData.batteryPct}
               isCharging={bluetoothData.isCharging}

@@ -54,6 +54,7 @@ function loop() {
 
   settled = false;
   t += 0.04;
+  if (t > 100000) t = t % (Math.PI * 2 * 1000);
   frameCount++;
   if (frameCount % 4 === 0) {
     publish(computeBarHeightsWithGain(t, gain));
@@ -64,7 +65,7 @@ function loop() {
 }
 
 function kick() {
-  if (rafId === null && (playing || gain >= 0.01) && listeners.size > 0) {
+  if (rafId === null && (playing || gain >= 0.01 || !settled) && listeners.size > 0) {
     rafId = requestAnimationFrame(loop);
   }
 }

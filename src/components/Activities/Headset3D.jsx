@@ -225,7 +225,9 @@ export default function Headset3D({ size = 44, isAnimated = true, isDisconnected
       }
 
       renderer.render(scene, camera);
-      animId = requestAnimationFrame(renderLoop);
+      if (!(isDisconnected && elapsed >= 4.0)) {
+        animId = requestAnimationFrame(renderLoop);
+      }
     };
 
     renderLoop();

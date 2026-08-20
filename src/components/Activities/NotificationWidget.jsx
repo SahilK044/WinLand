@@ -3,6 +3,8 @@ import { MessageSquare, Mail, CreditCard, X } from 'lucide-react';
 import { soundEngine } from '../../utils/soundEngine';
 
 export default function NotificationWidget({ notification, onClose }) {
+  if (!notification) return null;
+
   const getAppIcon = (app) => {
     switch (app) {
       case 'slack':

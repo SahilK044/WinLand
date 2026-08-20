@@ -379,7 +379,9 @@ export default function Phone3D({
       }
 
       renderer.render(scene, camera);
-      animId = requestAnimationFrame(renderLoop);
+      if (!(isDisconnected && elapsed >= 4.0)) {
+        animId = requestAnimationFrame(renderLoop);
+      }
     };
 
     renderLoop();

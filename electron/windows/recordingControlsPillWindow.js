@@ -85,8 +85,11 @@ export function createRecordingControlsPillWindow(targetDisplayId = null) {
     // Default to passing through mouse events until mouse enters the pill
     controlsPillWindow.setIgnoreMouseEvents(true, { forward: true });
 
+let isProgrammaticMove = false;
+
     // Track user drag / moved position
     controlsPillWindow.on('moved', () => {
+      if (isProgrammaticMove) return;
       if (controlsPillWindow && !controlsPillWindow.isDestroyed()) {
         const bounds = controlsPillWindow.getBounds();
         detachedPosition = { x: bounds.x, y: bounds.y };
@@ -145,9 +148,12 @@ export function getRecordingControlsPillWindow() {
 export function repositionControlsPill(targetDisplay) {
   if (controlsPillWindow && !controlsPillWindow.isDestroyed()) {
     try {
+      isProgrammaticMove = true;
       const { x, y } = computeAnchorPosition(targetDisplay);
       controlsPillWindow.setPosition(x, y, false);
-    } catch {}
+    } catch {} finally {
+      setTimeout(() => { isProgrammaticMove = false; }, 60);
+    }
   }
 }
 

@@ -804,9 +804,11 @@ const SystemVolumeControl = ({ isLight = false }) => {
   const hideTimerRef = useRef(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     if (window.electronAPI?.getSystemVolume) {
       window.electronAPI.getSystemVolume().then((vol) => {
-        if (typeof vol === 'number' && !isNaN(vol)) {
+        if (isMounted && typeof vol === 'number' && !isNaN(vol)) {
           setVolume(vol);
           if (vol > 0) prevVolRef.current = vol;
           setIsMuted(vol === 0);
@@ -816,6 +818,7 @@ const SystemVolumeControl = ({ isLight = false }) => {
 
     if (!window.electronAPI?.onVolumeUpdate) {
       return () => {
+        isMounted = false;
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
       };
     }
@@ -831,6 +834,7 @@ const SystemVolumeControl = ({ isLight = false }) => {
       }
     });
     return () => {
+      isMounted = false;
       if (typeof unsub === 'function') unsub();
       if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     };

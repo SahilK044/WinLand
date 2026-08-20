@@ -50,6 +50,13 @@ const DEFAULT_SETTINGS = {
   targetDisplayId: null,
   // Liquid beat-synced ambient aura glow behind the expanded music player.
   musicAura: true,
+  // Auto-hide preferences from Settings
+  autoHideIdle: true,
+  autoHideDuration: 10,
+  // Pinned location coordinates for Weather
+  pinnedLat: 28.5915,
+  pinnedLon: 77.0531,
+  pinnedCity: 'Dwarka',
 };
 
 function readSettings() {
@@ -412,7 +419,10 @@ function createWindow() {
     // Window loaded successfully
   });
 
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    recordingStateManager.setMainWindow(null);
+    mainWindow = null;
+  });
 
   // Log renderer console messages to file for crash debugging. Batched + async:
   // appendFileSync per message blocked the main process on every renderer log.
@@ -543,9 +553,12 @@ function createSettingsWindow() {
   });
 }
 
+let spotifyRequestId = 0;
+
 function pollSpotifyTitle() {
   if ((!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents || isPollingSpotify)) return;
   isPollingSpotify = true;
+  const currentReqId = ++spotifyRequestId;
   let doneCalled = false;
   const done = () => {
     clearTimeout(safetyTimer);
@@ -563,6 +576,7 @@ function pollSpotifyTitle() {
     // execFile: no cmd.exe shell spawn per poll — this runs every 1.5s while
     // Spotify is open, and the extra shell process per tick cost real CPU.
     execFile(exePath, [], { timeout: 8000, maxBuffer: 1024 * 512 }, (err, stdout) => {
+      if (currentReqId !== spotifyRequestId) { done(); return; }
       if (!mainWindow || mainWindow.isDestroyed() || !mainWindow.webContents) { done(); return; }
       const raw = (stdout || '').trim();
       if (raw) {
@@ -1282,14 +1296,6 @@ function registerVolumeKeys() {
       });
     } catch {}
   });
-
-  try {
-    globalShortcut.register('Escape', () => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        sendToWindow(mainWindow, 'escape-pressed');
-      }
-    });
-  } catch {}
 }
 
 // Pre-created media control script (zero per-click disk I/O latency)
@@ -1955,7 +1961,7 @@ ipcMain.handle('mux-native-recording-audio', async (_event, data = {}) => {
     }
     const videosDir = path.dirname(videoPath);
     const audioPath = path.join(videosDir, path.basename(videoPath, path.extname(videoPath)) + '.audio.webm');
-    fs.writeFileSync(audioPath, Buffer.from(new Uint8Array(bytes)));
+    await fs.promises.writeFile(audioPath, Buffer.from(new Uint8Array(bytes)));
     await runFfmpeg([
       '-y', '-hide_banner', '-loglevel', 'error', '-i', videoPath, '-i', audioPath,
       '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k',
@@ -1988,7 +1994,7 @@ ipcMain.handle('save-screen-recording', async (_event, recording) => {
     const rawFilePath = path.join(videosDir, rawFileName);
     const finalFilePath = path.join(videosDir, finalFileName);
 
-    fs.writeFileSync(rawFilePath, Buffer.from(new Uint8Array(bytes)));
+    await fs.promises.writeFile(rawFilePath, Buffer.from(new Uint8Array(bytes)));
 
     try {
       await normalizeRecordingToMp4({
@@ -2108,6 +2114,10 @@ ipcMain.on('start-screenrec-mouse-tracking', () => {
           button: parts[2] || null,
         });
       }
+    });
+    mouseTrackerProc.on('error', (err) => {
+      console.warn('Mouse tracker process error:', err);
+      mouseTrackerProc = null;
     });
     mouseTrackerProc.on('exit', () => {
       mouseTrackerProc = null;
@@ -2254,10 +2264,12 @@ ipcMain.on('open-settings-window', () => {
 });
 
 ipcMain.on('close-settings-window', () => {
-  if (settingsWindow) {
-    settingsWindow.close();
-    settingsWindow = null;
+  if (settingsWindow && !settingsWindow.isDestroyed()) {
+    try {
+      settingsWindow.close();
+    } catch {}
   }
+  settingsWindow = null;
 });
 
 ipcMain.on('launch-app', (event, cmd) => {

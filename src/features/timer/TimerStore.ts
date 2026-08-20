@@ -121,14 +121,21 @@ class TimerStore {
     }
   }
 
+  private lastTickTime: number = Date.now();
+
   private startEngine() {
     if (this.intervalId) return;
+    this.lastTickTime = Date.now();
     this.intervalId = setInterval(() => {
+      const now = Date.now();
+      const dt = Math.max(0, now - this.lastTickTime);
+      this.lastTickTime = now;
+
       let changed = false;
       this.timers = this.timers.map((t) => {
         if (t.status === 'running' && t.remainingMs > 0) {
           changed = true;
-          const nextMs = Math.max(0, t.remainingMs - 1000);
+          const nextMs = Math.max(0, t.remainingMs - dt);
           if (nextMs === 0) {
             soundEngine.playAlarm();
             return { ...t, remainingMs: 0, status: 'completed' };

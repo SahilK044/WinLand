@@ -86,6 +86,8 @@ export default function DynamicWaveProgress({
         lastFormattedTimeRef.current = formatted;
         timeDisplayRef.current.textContent = formatted;
       }
+      animStateRef.current.isSettled = false;
+      animStateRef.current.lastFrameTime = performance.now();
       return;
     }
 
@@ -433,7 +435,7 @@ export default function DynamicWaveProgress({
         rafIdRef.current = null;
       }
     };
-  }, [isPlaying, durationMs, eqColor, eqGlow, isLight]);
+  }, [isPlaying, isDragging, progressMs, durationMs, eqColor, eqGlow, isLight]);
 
   return (
     <div style={{ width: '100%', position: 'relative', userSelect: 'none' }}>
